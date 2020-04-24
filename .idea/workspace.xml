@@ -2,95 +2,93 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/LagRemover_INDEV.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/file.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/geckodriver.log" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/input/201609061300.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/input/201609061900.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/input/201609070100.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/input/201609070700.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/input/201609071300.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/input/201609071900.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lag.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-0_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-10_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-11_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-1_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-2_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-3_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-4_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-5_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-6_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-7_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-8_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061300-9_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-0_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-10_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-11_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-1_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-2_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-3_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-4_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-5_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-6_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-7_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-8_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609061900-9_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-0_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-10_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-11_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-1_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-2_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-3_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-4_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-5_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-6_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-7_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-8_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070100-9_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-0_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-10_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-11_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-1_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-2_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-3_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-4_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-5_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-6_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-7_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-8_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609070700-9_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-0_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-10_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-11_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-1_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-2_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-3_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-4_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-5_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-6_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-7_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-8_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071300-9_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-0_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-10_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-11_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-1_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-2_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-3_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-4_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-5_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-6_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-7_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-8_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/201609071900-9_cov.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output/_summary.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/wind.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/dlr/.idea/LagRemover_INDEV.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/dlr/plot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/LagRemover_INDEV.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/LagRemover_INDEV.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-0_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-10_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-11_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-1_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-2_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-3_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-4_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-5_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-6_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-7_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-8_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061300-9_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-0_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-10_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-11_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-1_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-2_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-3_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-4_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-5_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-6_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-7_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-8_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609061900-9_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-0_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-10_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-11_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-1_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-2_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-3_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-4_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-5_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-6_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-7_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-8_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070100-9_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-0_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-10_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-11_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-1_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-2_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-3_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-4_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-5_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-6_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-7_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-8_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609070700-9_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-0_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-10_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-11_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-1_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-2_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-3_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-4_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-5_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-6_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-7_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-8_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071300-9_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-0_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-10_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-11_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-1_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-2_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-3_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-4_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-5_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-6_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-7_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-8_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/201609071900-9_cov.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/output/_summary.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/file.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/file.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/geckodriver.log" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/geckodriver.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/input/201609061300.csv" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/input/201609061300.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/lag.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/wind.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/wind.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -100,23 +98,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/main.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="439">
-              <caret line="56" lean-forward="true" selection-start-line="56" selection-end-line="56" />
-              <folding>
-                <element signature="e#23#32#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/file.py">
+        <entry file="file://$PROJECT_DIR$/dlr/file.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="135">
-              <caret line="7" selection-start-line="7" selection-end-line="7" />
+            <state relative-caret-position="894">
+              <caret line="87" selection-start-line="87" selection-end-line="87" />
               <folding>
                 <element signature="e#0#14#0" expanded="true" />
               </folding>
@@ -124,26 +110,41 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/wind.py">
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/dlr/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="108">
-              <caret line="4" column="12" selection-start-line="4" selection-start-column="12" selection-end-line="4" selection-end-column="12" />
+            <state relative-caret-position="729">
+              <caret line="57" column="23" lean-forward="true" selection-start-line="57" selection-start-column="23" selection-end-line="57" selection-end-column="23" />
               <folding>
-                <element signature="e#0#11#0" expanded="true" />
+                <element signature="e#0#21#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/lag.py">
+        <entry file="file://$PROJECT_DIR$/dlr/lag.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="54">
-              <caret line="23" selection-start-line="23" selection-end-line="48" selection-end-column="41" />
-              <folding>
-                <element signature="e#0#20#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="108">
+              <caret line="6" column="8" selection-start-line="6" selection-start-column="8" selection-end-line="6" selection-end-column="8" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/dlr/wind.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-3007">
+              <caret line="6" column="8" selection-start-line="6" selection-start-column="8" selection-end-line="6" selection-end-column="8" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/dlr/plot.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="297">
+              <caret line="11" column="14" lean-forward="true" selection-start-line="11" selection-start-column="14" selection-end-line="11" selection-end-column="14" />
             </state>
           </provider>
         </entry>
@@ -173,6 +174,10 @@
         <option value="$PROJECT_DIR$/lag.py" />
         <option value="$PROJECT_DIR$/file.py" />
         <option value="$PROJECT_DIR$/main.py" />
+        <option value="$PROJECT_DIR$/dlr/file.py" />
+        <option value="$PROJECT_DIR$/dlr/lag.py" />
+        <option value="$PROJECT_DIR$/dlr/plot.py" />
+        <option value="$PROJECT_DIR$/dlr/main.py" />
       </list>
     </option>
   </component>
@@ -192,8 +197,22 @@
         <subPane>
           <expand>
             <path>
-              <item name="DynamicLagRemover_DLR_INDEV" type="b2602c69:ProjectViewProjectNode" />
-              <item name="DynamicLagRemover_DLR_INDEV" type="462c0819:PsiDirectoryNode" />
+              <item name="DLR_Dynamic_Lag_Remover" type="b2602c69:ProjectViewProjectNode" />
+              <item name="DLR_Dynamic_Lag_Remover" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="DLR_Dynamic_Lag_Remover" type="b2602c69:ProjectViewProjectNode" />
+              <item name="DLR_Dynamic_Lag_Remover" type="462c0819:PsiDirectoryNode" />
+              <item name="dlr" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="DLR_Dynamic_Lag_Remover" type="b2602c69:ProjectViewProjectNode" />
+              <item name="Scratches and Consoles" type="1a2a3e82:ScratchProjectViewPane$MyProjectNode" />
+            </path>
+            <path>
+              <item name="DLR_Dynamic_Lag_Remover" type="b2602c69:ProjectViewProjectNode" />
+              <item name="Scratches and Consoles" type="1a2a3e82:ScratchProjectViewPane$MyProjectNode" />
+              <item name="PyCharm Consoles" type="d62648e6:ScratchProjectViewPane$MyRootNode" />
             </path>
           </expand>
           <select />
@@ -209,6 +228,7 @@
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="restartRequiresConfirmation" value="false" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -245,8 +265,31 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="DynamicLagRemover_DLR_INDEV" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="C:\Users\holukas\Anaconda3\envs\LAGREMOVER\python.exe" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/dlr" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/dlr/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.main" />
         <item itemvalue="Python.main" />
       </list>
     </recent_temporary>
@@ -265,25 +308,36 @@
       <workItem from="1587217258684" duration="8000" />
       <workItem from="1587586334940" duration="9689000" />
       <workItem from="1587635330299" duration="8656000" />
-      <workItem from="1587655512519" duration="8597000" />
+      <workItem from="1587655512519" duration="10680000" />
+      <workItem from="1587718293740" duration="602000" />
+      <workItem from="1587737537567" duration="12074000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="27227000" />
+    <option name="totallyTimeSpent" value="41986000" />
+  </component>
+  <component name="TodoView">
+    <todo-panel id="selected-file">
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+    <todo-panel id="all">
+      <are-packages-shown value="true" />
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
   </component>
   <component name="ToolWindowManager">
     <frame x="-7" y="-7" width="2575" height="1415" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.51170045" visible="true" weight="0.12912197" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.51170045" visible="true" weight="0.13071117" />
       <window_info id="Structure" order="1" sideWeight="0.48829952" side_tool="true" weight="0.08037825" />
       <window_info id="Favorites" order="2" sideWeight="0.48829952" side_tool="true" weight="0.08037825" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3216511" />
       <window_info anchor="bottom" id="Cvs" order="2" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="3" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="4" weight="0.32795697" />
+      <window_info anchor="bottom" id="TODO" order="4" weight="0.32788163" />
       <window_info anchor="bottom" id="Event Log" order="5" side_tool="true" weight="0.3298479" />
       <window_info anchor="bottom" id="Version Control" order="6" />
       <window_info anchor="bottom" id="Python Console" order="7" weight="0.32917318" />
@@ -302,9 +356,27 @@
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/dlr/plot.py</url>
+          <line>17</line>
+          <option name="timeStamp" value="48" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/dlr/plot.py</url>
+          <line>4</line>
+          <option name="timeStamp" value="49" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587685015226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/LagRemover_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587171664690" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1587688045123" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
+    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main.coverage" NAME="main Coverage Results" MODIFIED="1587770618375" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$USER_HOME$/Anaconda3/envs/LAGREMOVER/Lib/site-packages/pandas/core/nanops.py">
@@ -321,61 +393,96 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/201609061300_cov.html">
+    <entry file="file://$PROJECT_DIR$/201609061300_cov.html" />
+    <entry file="file://$PROJECT_DIR$/wind.py" />
+    <entry file="file://$PROJECT_DIR$/lag.py" />
+    <entry file="file://$PROJECT_DIR$/file.py" />
+    <entry file="file://$PROJECT_DIR$/main.py" />
+    <entry file="file://$PROJECT_DIR$/../snippets/split_df_into_single_files/main.py" />
+    <entry file="file://$PROJECT_DIR$/../4 - snippets/split_df_into_single_files/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <folding>
-            <element signature="n#style#0;n#div#0;n#!!top" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/../snippets/split_df_into_single_files/main.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="810">
-          <caret line="30" column="13" selection-start-line="30" selection-start-column="13" selection-end-line="30" selection-end-column="13" />
+        <state relative-caret-position="189">
+          <caret line="7" column="31" selection-start-line="7" selection-start-column="17" selection-end-line="7" selection-end-column="31" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/wind.py">
+    <entry file="file://$APPLICATION_CONFIG_DIR$/consoles/ide/ide-scripting.js">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/envs/LAGREMOVER/Lib/site-packages/pandas/_config/__init__.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/envs/LAGREMOVER/Lib/site-packages/jinja2/runtime.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="108">
-          <caret line="4" column="12" selection-start-line="4" selection-start-column="12" selection-end-line="4" selection-end-column="12" />
-          <folding>
-            <element signature="e#0#11#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="419">
+          <caret line="271" column="23" selection-start-line="271" selection-start-column="23" selection-end-line="271" selection-end-column="23" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/lag.py">
+    <entry file="file://$USER_HOME$/Anaconda3/envs/LAGREMOVER/Lib/site-packages/pandas/_config/config.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="54">
-          <caret line="23" selection-start-line="23" selection-end-line="48" selection-end-column="41" />
-          <folding>
-            <element signature="e#0#20#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="419">
+          <caret line="369" column="22" selection-start-line="369" selection-start-column="22" selection-end-line="369" selection-end-column="22" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/file.py">
+    <entry file="file://$USER_HOME$/.PyCharm2019.1/system/python_stubs/1289204626/pandas/_libs/hashtable.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/envs/LAGREMOVER/Lib/site-packages/pandas/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="135">
-          <caret line="7" selection-start-line="7" selection-end-line="7" />
+        <state relative-caret-position="837">
+          <caret line="31" column="34" lean-forward="true" selection-start-line="31" selection-start-column="34" selection-end-line="31" selection-end-column="34" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/dlr/file.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="894">
+          <caret line="87" selection-start-line="87" selection-end-line="87" />
           <folding>
             <element signature="e#0#14#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/main.py">
+    <entry file="file://$PROJECT_DIR$/dlr/wind.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="439">
-          <caret line="56" lean-forward="true" selection-start-line="56" selection-end-line="56" />
+        <state relative-caret-position="-3007">
+          <caret line="6" column="8" selection-start-line="6" selection-start-column="8" selection-end-line="6" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/envs/LAGREMOVER/Lib/json/encoder.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="254">
+          <caret line="179" selection-start-line="179" selection-end-line="179" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/dlr/lag.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="108">
+          <caret line="6" column="8" selection-start-line="6" selection-start-column="8" selection-end-line="6" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/dlr/plot.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="297">
+          <caret line="11" column="14" lean-forward="true" selection-start-line="11" selection-start-column="14" selection-end-line="11" selection-end-column="14" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/dlr/main.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="729">
+          <caret line="57" column="23" lean-forward="true" selection-start-line="57" selection-start-column="23" selection-end-line="57" selection-end-column="23" />
           <folding>
-            <element signature="e#23#32#0" expanded="true" />
+            <element signature="e#0#21#0" expanded="true" />
           </folding>
         </state>
       </provider>

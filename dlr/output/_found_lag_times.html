@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .error {
+        color: red;
+    }
+  </style>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega@5"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega-lite@4.8.1"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega-embed@6"></script>
+</head>
+<body>
+  <div id="vis"></div>
+  <script>
+    (function(vegaEmbed) {
+      var spec = {"config": {"view": {"continuousWidth": 400, "continuousHeight": 300}}, "data": {"name": "data-a114aab0fb79565ee180aec5be0d9988"}, "mark": {"type": "circle", "size": 30}, "encoding": {"tooltip": [{"type": "quantitative", "field": "file_idx"}, {"type": "quantitative", "field": "cov_max_shift"}, {"type": "nominal", "field": "filename"}], "x": {"type": "quantitative", "field": "file_idx"}, "y": {"type": "quantitative", "field": "cov_max_shift"}}, "height": 900, "selection": {"selector002": {"type": "interval", "bind": "scales"}}, "title": "Found Lag Times", "width": 1600, "$schema": "https://vega.github.io/schema/vega-lite/v4.8.1.json", "datasets": {"data-a114aab0fb79565ee180aec5be0d9988": [{"cov_max_shift": 291, "cov_max": -406.72632417948535, "cov_max_timestamp": "NaT", "filename": "20160906130000", "file_idx": 0}]}};
+      var embedOpt = {"mode": "vega-lite"};
+
+      function showError(el, error){
+          el.innerHTML = ('<div class="error" style="color:red;">'
+                          + '<p>JavaScript Error: ' + error.message + '</p>'
+                          + "<p>This usually means there's a typo in your chart specification. "
+                          + "See the javascript console for the full traceback.</p>"
+                          + '</div>');
+          throw error;
+      }
+      const el = document.getElementById('vis');
+      vegaEmbed("#vis", spec, embedOpt)
+        .catch(error => showError(el, error));
+    })(vegaEmbed);
+
+  </script>
+</body>
+</html>

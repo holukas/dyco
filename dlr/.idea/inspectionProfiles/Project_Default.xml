@@ -1,0 +1,67 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="CssInvalidPseudoSelector" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="CssUnknownProperty" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myCustomPropertiesEnabled" value="true" />
+      <option name="myIgnoreVendorSpecificProperties" value="false" />
+      <option name="myCustomPropertiesList">
+        <value>
+          <list size="6">
+            <item index="0" class="java.lang.String" itemvalue="alternate-background-color" />
+            <item index="1" class="java.lang.String" itemvalue="qproperty-alignment" />
+            <item index="2" class="java.lang.String" itemvalue="selection-background-color" />
+            <item index="3" class="java.lang.String" itemvalue="selection-color" />
+            <item index="4" class="java.lang.String" itemvalue="subcontrol-position" />
+            <item index="5" class="java.lang.String" itemvalue="subcontrol-origin" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="HtmlUnknownTag" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="myValues">
+        <value>
+          <list size="29">
+            <item index="0" class="java.lang.String" itemvalue="nobr" />
+            <item index="1" class="java.lang.String" itemvalue="noembed" />
+            <item index="2" class="java.lang.String" itemvalue="comment" />
+            <item index="3" class="java.lang.String" itemvalue="noscript" />
+            <item index="4" class="java.lang.String" itemvalue="embed" />
+            <item index="5" class="java.lang.String" itemvalue="script" />
+            <item index="6" class="java.lang.String" itemvalue="qframe" />
+            <item index="7" class="java.lang.String" itemvalue="qsplitter" />
+            <item index="8" class="java.lang.String" itemvalue="qwidget" />
+            <item index="9" class="java.lang.String" itemvalue="qlistwidget" />
+            <item index="10" class="java.lang.String" itemvalue="qlabel" />
+            <item index="11" class="java.lang.String" itemvalue="qcombobox" />
+            <item index="12" class="java.lang.String" itemvalue="qpushbutton" />
+            <item index="13" class="java.lang.String" itemvalue="qlabel" />
+            <item index="14" class="java.lang.String" itemvalue="qtabwidget" />
+            <item index="15" class="java.lang.String" itemvalue="qtabbar" />
+            <item index="16" class="java.lang.String" itemvalue="qlistview" />
+            <item index="17" class="java.lang.String" itemvalue="qplaintextedit" />
+            <item index="18" class="java.lang.String" itemvalue="selected" />
+            <item index="19" class="java.lang.String" itemvalue="qmenubar" />
+            <item index="20" class="java.lang.String" itemvalue="qwidgetaction" />
+            <item index="21" class="java.lang.String" itemvalue="qtoolbar" />
+            <item index="22" class="java.lang.String" itemvalue="qtextedit" />
+            <item index="23" class="java.lang.String" itemvalue="qlineedit" />
+            <item index="24" class="java.lang.String" itemvalue="qabstractitemview" />
+            <item index="25" class="java.lang.String" itemvalue="qscrollbar" />
+            <item index="26" class="java.lang.String" itemvalue="qtableview" />
+            <item index="27" class="java.lang.String" itemvalue="qheaderview" />
+            <item index="28" class="java.lang.String" itemvalue="qdialog" />
+          </list>
+        </value>
+      </option>
+      <option name="myCustomValuesEnabled" value="true" />
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E501" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
