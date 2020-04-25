@@ -4,7 +4,7 @@ import pandas as pd
 
 
 class LagSearch:
-    def __init__(self, wind_rot_df, filename, ref_sig, lagged_sig, dir_out):
+    def __init__(self, wind_rot_df, filename, ref_sig, lagged_sig, dir_out, ):
         self.wind_rot_df = wind_rot_df
         self.filename = filename
         self.dir_out = dir_out

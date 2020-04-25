@@ -2,10 +2,47 @@ import fnmatch
 import os
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import datetime as dt
 
 
-def read_data(filepath, nrows, time_res_hz, df_start_dt, file_duration):
+def read_found_lags_file(filepath):
+    parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
+    found_lags_df = pd.read_csv(filepath,
+                                skiprows=None,
+                                header=0,
+                                # names=header_cols_list,
+                                # na_values=-9999,
+                                encoding='utf-8',
+                                delimiter=',',
+                                mangle_dupe_cols=True,
+                                keep_date_col=False,
+                                parse_dates=True,
+                                date_parser=parse,
+                                index_col=0,
+                                dtype=None,
+                                engine='python')
+
+    found_lags_df['shift_median'] = np.nan
+    found_lags_df['shift_P25'] = np.nan
+    found_lags_df['shift_P75'] = np.nan
+
+    args = dict(window=100, min_periods=50, center=True)
+    found_lags_df['shift_median'] = found_lags_df['cov_max_shift'].rolling(**args).median()
+    found_lags_df['search_win_upper'] = found_lags_df['shift_median'] + 100
+    found_lags_df['search_win_lower'] = found_lags_df['shift_median'] - 100
+    found_lags_df['shift_P25'] = found_lags_df['cov_max_shift'].rolling(**args).quantile(0.25)
+    found_lags_df['shift_P75'] = found_lags_df['cov_max_shift'].rolling(**args).quantile(0.75)
+
+    cols = ['shift_median', 'cov_max_shift', 'shift_P25','shift_P75','search_win_upper','search_win_lower']
+    found_lags_df[cols].plot()
+    plt.show()
+    return None
+
+
+def read_raw_data(filepath, nrows, time_res_hz, df_start_dt, file_duration):
     header_rows_list = [0]
     skip_rows_list = []
     header_section_rows = [0]
@@ -95,7 +132,7 @@ def stats(df, time_res):
 
     print(f"First record: {df.index[0]}")
     print(f"Last record: {df.index[-1]}")
-    print(f"Data duration: {df.index[-1]-df.index[0]}")
+    print(f"Data duration: {df.index[-1] - df.index[0]}")
     print(f"Data records: {data_records}")
     print(f"Data frequency: {data_freq}Hz")
 

@@ -21,9 +21,12 @@ class DynamicLagRemover:
     time_res = 0.05  # Measurement every 0.05s
     time_res_hz = 1 / time_res  # 1 measurement every 0.05s (20Hz)
     file_duration = 21600  # in seconds
-    segment_duration = '30T'  # 30min segments
-    segment_overhang = '1T'  # 1min
-    testing = True
+    segment_duration = '15T'  # 30min segments
+    segment_overhang = '1T'  # 1min todo
+    timewin_lag = [-300, 300]  # number of records from/to, time window for lag search
+    timewin_noise = [2600, 3000]  # number of records from/to
+    calculate_noise = True  # todo
+    testing = False
 
     def __init__(self):
         if self.testing:
@@ -40,25 +43,31 @@ class DynamicLagRemover:
 
     def run(self):
 
-        filelist = file.search(dir=self.dir_input, pattern='*.csv')
+        # filelist = file.search(dir=self.dir_input, pattern='*.csv')
+        # self.loop_files(filelist=filelist)
+        self.analyse_found_lags()
+
+    def analyse_found_lags(self):
+        file.read_found_lags_file(filepath=self.dir_output / '_found_lag_times.csv')
+
+    def loop_files(self, filelist):
+
         data_collection_df = pd.DataFrame()
 
-        # FILE LOOP
-        # =========
         for idx, filepath in enumerate(filelist):
-            if idx > 0:  # for testing
-                break
+            # if idx > 0:  # for testing
+            #     break
 
             print(f"\nFile #{idx}: {filepath}")
 
             filename = filepath.stem
             file_start_dt = dt.datetime.strptime(filename, self.filename_format_dt)
 
-            # Read data file
+            # Read data file  # todo expand timestamp to 00 minutes if data starts later
             data_df = \
-                file.read_data(filepath=filepath, nrows=self.nrows, time_res_hz=self.time_res_hz,
-                               df_start_dt=file_start_dt,
-                               file_duration=self.file_duration)  # nrows for testing
+                file.read_raw_data(filepath=filepath, nrows=self.nrows, time_res_hz=self.time_res_hz,
+                                   df_start_dt=file_start_dt,
+                                   file_duration=self.file_duration)  # nrows for testing
 
             if idx == 0:
                 data_collection_df = data_df.copy()
@@ -73,10 +82,11 @@ class DynamicLagRemover:
             segment_grouped = data_df.groupby(pd.Grouper(key='index', freq=self.segment_duration))
             for segment_key, segment_df in segment_grouped:
                 counter_segment += 1
-                if counter_segment > 0:  # for testing
-                    break
+                # if counter_segment > 0:  # for testing
+                #     break
                 segment_name = segment_df.index[0].strftime('%Y%m%d%H%M%S')
-                print(f"Working on segment {segment_name} ...")
+                print(f"\n-----------------Working on segment {segment_name} ...")
+                print(f"Start: {segment_df.index[0]}    End: {segment_df.index[-1]}")
 
                 wind_rot_df, w_rot_turb_col, scalar_turb_col = \
                     WindRotation(wind_df=segment_df[[self.u_col, self.v_col, self.w_col, self.scalar_col]],
@@ -91,7 +101,7 @@ class DynamicLagRemover:
                               dir_out=self.dir_output).get()
 
                 # Collect results
-                self.lagtimes_df.loc[segment_name, 'cov_max_shift'] = int(cov_max_shift)
+                self.lagtimes_df.loc[segment_name, 'cov_max_shift'] = int(cov_max_shift)  # todo give in sec
                 self.lagtimes_df.loc[segment_name, 'cov_max'] = float(cov_max)
                 self.lagtimes_df.loc[segment_name, 'cov_max_timestamp'] = str(cov_max_timestamp)
 
