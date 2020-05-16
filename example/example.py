@@ -12,7 +12,7 @@ dir_input = 'input'
 dir_output = 'output'
 
 file_date_format = '%Y%m%d%H%M'  # Date format in filename
-file_generation_res = '6H'  # One file expected every x hour(s)
+file_generation_res = '1H'  # One file expected every x hour(s)
 
 data_res = 0.05  # Measurement every 0.05s
 data_segment_duration = '15T'  # 15min segments
