@@ -1,4 +1,5 @@
 import math
+
 import numpy as np
 
 
@@ -28,7 +29,9 @@ class WindRotation:
         self.run()
 
     def run(self):
-        self.angle_r1, self.angle_r2 = self.rot_angles_from_mean_wind(df=self.wind_rot_df)
+        self.angle_r1, self.angle_r2 = self.rot_angles_from_mean_wind(u_mean=float(self.wind_rot_df[self.u_col].mean()),
+                                                                      v_mean=float(self.wind_rot_df[self.v_col].mean()),
+                                                                      w_mean=float(self.wind_rot_df[self.w_col].mean()))
         self.wind_rot_df = self.rotate_wind(wind_rot_df=self.wind_rot_df)
         self.wind_rot_df = self.calculate_turbulent_fluctuations(df=self.wind_rot_df)
 
@@ -47,7 +50,7 @@ class WindRotation:
         # save(chart, 'test.pdf')
 
     def get(self):
-        return self.wind_rot_df,self.w_rot_turb_col, self.scalar_turb_col
+        return self.wind_rot_df, self.w_rot_turb_col, self.scalar_turb_col
 
     def calculate_turbulent_fluctuations(self, df):
         print("Calculating turbulent fluctuations ...")
@@ -96,7 +99,7 @@ class WindRotation:
 
         return df
 
-    def rot_angles_from_mean_wind(self, df):
+    def rot_angles_from_mean_wind(self, u_mean, v_mean, w_mean):
         """
         Calculate rotation angles for double rotation from mean wind
 
@@ -115,10 +118,6 @@ class WindRotation:
         """
 
         print("Calculating rotation angles ...")
-
-        u_mean = float(df[self.u_col].mean())
-        v_mean = float(df[self.v_col].mean())
-        w_mean = float(df[self.w_col].mean())
 
         # First rotation angle, in radians
         angle_r1 = math.atan(v_mean / u_mean)
