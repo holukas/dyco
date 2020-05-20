@@ -1,4 +1,3 @@
-import altair as alt
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 
@@ -27,7 +26,7 @@ def results(df):
     # todo
     cols = ['shift_median', 'cov_max_shift', 'shift_P25', 'shift_P75', 'search_win_upper', 'search_win_lower']
     df[cols].plot()
-    # plt.show()
+    plt.show()
     return None
 
 
@@ -37,27 +36,6 @@ def limit_data_range_percentiles(df, col, perc_limits):
     p_filter = (df[col] >= p_lower) & (df[col] <= p_upper)
     df = df[p_filter]
     return df
-
-
-def plot_results_hist(df, dir_output):
-    _df = df.copy()
-    # _df['cov_max_shift_perclimited'] = np.nan
-
-    _df = limit_data_range_percentiles(df=_df, col='cov_max_shift', perc_limits=[0.25, 0.75])
-
-    num_bins = len(_df['cov_max_shift'].unique())
-    chart = alt.Chart(_df).mark_bar().encode(
-        alt.X('cov_max_shift:Q', bin=alt.Bin(maxbins=num_bins)),
-        y='count()',
-    ).properties(
-        width=1600,
-        height=900,
-        title='Found Lag Times'
-    )
-
-    outfile = dir_output / '_plot_results_hist'
-    chart.save(f"{outfile}.html")
-    return None
 
 
 def default_format(ax, fontsize=12, label_color='black',
@@ -95,7 +73,7 @@ def make_scatter_cov(x, y, txt_info, cov_max_shift, cov_max, z_color):
     ax = fig.add_subplot(gs[0, 0])
 
     ax.scatter(x, y, alpha=1, edgecolors='none',
-               marker='o', s=16, c=z_color)
+               marker='o', s=16, c=z_color, cmap='coolwarm')
 
     ax.scatter(cov_max_shift, cov_max, alpha=1, edgecolors='black',
                marker='o', s=64, c='red')
@@ -132,3 +110,6 @@ def make_scatter_lagtimes(x, y, txt_info):
             size=12, color='black', backgroundcolor='none', zorder=100)
 
     return fig
+
+
+

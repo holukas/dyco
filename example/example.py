@@ -12,12 +12,12 @@ dir_input = 'input'
 dir_output = 'output'
 
 file_date_format = '%Y%m%d%H%M'  # Date format in filename
-file_generation_res = '1H'  # One file expected every x hour(s)
+file_generation_res = '6H'  # One file expected every x hour(s)
 
 data_res = 0.05  # Measurement every 0.05s
-data_segment_duration = '15T'  # 15min segments
+data_segment_duration = '30T'  # 30min segments
 data_segment_overhang = '1T'  # 1min todo
-data_timewin_lag = [-300, 300]  # number of records from/to, time window for lag search
+data_timewin_lag = [-300, -1]  # number of records from/to, time window for lag search
 
 testing = False
 # timewin_noise = [2600, 3000]  # todo number of records from/to

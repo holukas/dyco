@@ -137,7 +137,7 @@ class FilesDetector:
 
 
 def read_found_lags_file(filepath):
-    parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
+    # parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
     found_lags_df = pd.read_csv(filepath,
                                 skiprows=None,
                                 header=0,
@@ -146,26 +146,15 @@ def read_found_lags_file(filepath):
                                 encoding='utf-8',
                                 delimiter=',',
                                 mangle_dupe_cols=True,
-                                keep_date_col=False,
-                                parse_dates=True,
-                                date_parser=parse,
+                                # keep_date_col=False,
+                                parse_dates=False,
+                                # date_parser=parse,
                                 index_col=0,
                                 dtype=None,
                                 engine='python')
-
-    #
-    found_lags_df['shift_median'] = np.nan
-    found_lags_df['shift_P25'] = np.nan
-    found_lags_df['shift_P75'] = np.nan
-
-    args = dict(window=100, min_periods=50, center=True)
-    found_lags_df['shift_median'] = found_lags_df['cov_max_shift'].rolling(**args).median()
-    found_lags_df['search_win_upper'] = found_lags_df['shift_median'] + 100
-    found_lags_df['search_win_lower'] = found_lags_df['shift_median'] - 100
-    found_lags_df['shift_P25'] = found_lags_df['cov_max_shift'].rolling(**args).quantile(0.25)
-    found_lags_df['shift_P75'] = found_lags_df['cov_max_shift'].rolling(**args).quantile(0.75)
-
     return found_lags_df
+
+
 
 
 def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
