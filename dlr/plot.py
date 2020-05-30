@@ -2,6 +2,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 
 
+
 def prepare_df(df):
     df['filename'] = df.index
     df.reset_index(drop=True, inplace=True)
@@ -10,14 +11,14 @@ def prepare_df(df):
     return df
 
 
-def segment_lagtimes(df, dir_output):
+def segment_lagtimes(df, dir_output, iteration):
     print(f"Saving plot in HTML file: _found_lag_times.html ...")
 
     fig = make_scatter_lagtimes(x=df.index,
                                 y=df['cov_max_shift'],
                                 txt_info='Found lag times')
 
-    outpath = dir_output / '3_found_segment_lag_times'
+    outpath = dir_output / f"{iteration}_TIMESERIES-PLOT_found_segment_lag_times_iteration-{iteration}"
     fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                 transparent=True, dpi=150)
 
@@ -66,17 +67,44 @@ def format_spines(ax, color, lw):
 def make_scatter_cov(x, y, txt_info, cov_max_shift, cov_max, z_color):
     """Make scatter plot with z-values as colors and display found max covariance."""
 
+    # import plotly.graph_objects as go
+    # fig = go.Figure()
+    # fig.add_trace(go.Scatter(x=x, y=y,
+    #                          mode='markers',
+    #                          marker=dict(color=z_color, opacity=1, size=10,
+    #                                      showscale=True, colorscale=[[0, '#2196F3'], [1, '#f44336']])
+    #                          ))
+    #
+    # # Edit the layout
+    # fig.update_layout(title='Covariance',
+    #                   xaxis=dict(title='shift [records]',
+    #                              gridcolor='#eee', gridwidth=1,
+    #                              linewidth=1, linecolor='black', mirror=True,
+    #                              tickmode='auto', ticks='inside', ),
+    #                   yaxis=dict(title='covariance',
+    #                              gridcolor='#eee', gridwidth=1,
+    #                              linewidth=1, linecolor='black', mirror=True,
+    #                              zeroline=True, zerolinewidth=1, zerolinecolor='black',
+    #                              tickmode='auto', ticks='inside', ),
+    #                   plot_bgcolor='#fff',
+    #                   )
+
+    # fig.show()
+    # from plotly.io import to_html
+    # xxx = to_html(fig)
+
     gs = gridspec.GridSpec(1, 1)  # rows, cols
     gs.update(wspace=0.3, hspace=0.3, left=0.03, right=0.97, top=0.97, bottom=0.03)
 
     fig = plt.Figure(facecolor='white', figsize=(16, 9))
     ax = fig.add_subplot(gs[0, 0])
 
-    ax.scatter(x, y, alpha=1, edgecolors='none',
-               marker='o', s=16, c=z_color, cmap='coolwarm')
+    if cov_max:
+        ax.scatter(x, y, alpha=1, edgecolors='none',
+                   marker='o', s=16, c=z_color, cmap='coolwarm')
 
-    ax.scatter(cov_max_shift, cov_max, alpha=1, edgecolors='black',
-               marker='o', s=64, c='red')
+        ax.scatter(cov_max_shift, cov_max, alpha=1, edgecolors='black',
+                   marker='o', s=64, c='red')
 
     default_format(ax=ax, label_color='black', fontsize=12,
                    txt_xlabel='shift [records]', txt_ylabel='covariance', txt_ylabel_units='-')
@@ -85,6 +113,12 @@ def make_scatter_cov(x, y, txt_info, cov_max_shift, cov_max, z_color):
             horizontalalignment='left', verticalalignment='top',
             transform=ax.transAxes,
             size=12, color='black', backgroundcolor='none', zorder=100)
+
+    if not cov_max:
+        ax.text(0.5, 0.5, "Not enough values",
+                horizontalalignment='center', verticalalignment='center',
+                transform=ax.transAxes,
+                size=20, color='#ef5350', backgroundcolor='none', zorder=100)
 
     return fig
 
@@ -110,6 +144,3 @@ def make_scatter_lagtimes(x, y, txt_info):
             size=12, color='black', backgroundcolor='none', zorder=100)
 
     return fig
-
-
-

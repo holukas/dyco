@@ -50,7 +50,7 @@ class FilesDetector:
         # self.dir_output = self.dir_output / '1_found_files'
         # if not os.path.isdir(self.dir_output):
         #     os.makedirs(self.dir_output)
-        outpath = self.dir_output / '1_files_overview.csv'
+        outpath = self.dir_output / '0_files_overview.csv'
         self.files_overview_df.to_csv(outpath)
 
     @staticmethod
@@ -95,6 +95,7 @@ class FilesDetector:
                 files_df.loc[file_start_dt, 'filename'] = filename
                 files_df.loc[file_start_dt, 'start'] = file_start_dt
                 files_df.loc[file_start_dt, 'filepath'] = filepath
+                files_df.loc[file_start_dt, 'filesize'] = Path(filepath).stat().st_size
                 # files_df.loc[file_start_dt, 'expected_file'] = file_start_dt
 
         files_df.insert(0, 'expected_file', files_df.index)  # inplace
@@ -116,6 +117,7 @@ class FilesDetector:
                 files_df.loc[file_start_dt, 'filename'] = filename
                 files_df.loc[file_start_dt, 'start'] = file_start_dt
                 files_df.loc[file_start_dt, 'filepath'] = filepath
+                files_df.loc[file_start_dt, 'filesize'] = Path(filepath).stat().st_size
 
         files_df.sort_index(inplace=True)
         return files_df
@@ -136,7 +138,7 @@ class FilesDetector:
         return files_df
 
 
-def read_found_lags_file(filepath):
+def read_segments_file(filepath):
     # parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
     found_lags_df = pd.read_csv(filepath,
                                 skiprows=None,
@@ -181,6 +183,8 @@ def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
                               more_data_cols_than_header_cols=more_data_cols_than_header_cols,
                               num_missing_header_cols=num_missing_header_cols)
 
+    import time
+    start_time=time.time()
     data_df = pd.read_csv(filepath,
                           skiprows=header_section_rows,
                           header=None,
@@ -194,15 +198,15 @@ def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
                           date_parser=None,
                           index_col=None,
                           dtype=None,
-                          engine='python',
+                          engine='c',
                           nrows=nrows)
-
-    data_df, true_resolution = insert_datetime_index(df=data_df, df_start_dt=df_start_dt, file_info_row=file_info_row)
-
-    return data_df, true_resolution
+    print(f"Reading file took {time.time() - start_time}s")
 
 
-def insert_datetime_index(df, df_start_dt, file_info_row):
+    return data_df
+
+
+def insert_datetime_index(df, file_info_row, data_nominal_res):
     """Insert true timestamp based on number of records in the file and the
     file duration.
 
@@ -231,12 +235,17 @@ def insert_datetime_index(df, df_start_dt, file_info_row):
     if (ratio > 0.999) and (ratio < 1.001):
         file_complete = True
         true_resolution = np.float64(file_info_row['expected_duration'] / num_records)
-        df['sec'] = df.index * true_resolution
-        df['file_start_dt'] = df_start_dt
-        df['TIMESTAMP'] = pd.to_datetime(df['file_start_dt']) \
-                          + pd.to_timedelta(df['sec'], unit='s')
-        df.drop(['sec', 'file_start_dt'], axis=1, inplace=True)
-        df.set_index('TIMESTAMP', inplace=True)
+    else:
+        file_complete = False
+        true_resolution = data_nominal_res
+
+    df['sec'] = df.index * true_resolution
+    df['file_start_dt'] = file_info_row['start']
+    df['TIMESTAMP'] = pd.to_datetime(df['file_start_dt']) \
+                      + pd.to_timedelta(df['sec'], unit='s')
+    df.drop(['sec', 'file_start_dt'], axis=1, inplace=True)
+    df.set_index('TIMESTAMP', inplace=True)
+
     return df, true_resolution
 
 
@@ -247,7 +256,7 @@ def add_data_stats(df, true_resolution, filename, files_overview_df, found_recor
 
     files_overview_df.loc[filename, 'first_record'] = df.index[0]
     files_overview_df.loc[filename, 'last_record'] = df.index[-1]
-    files_overview_df.loc[filename, 'file_duration'] = df.index[-1] - df.index[0]
+    files_overview_df.loc[filename, 'file_duration'] = (df.index[-1] - df.index[0]).total_seconds()
     files_overview_df.loc[filename, 'found_records'] = found_records
     files_overview_df.loc[filename, 'data_freq'] = data_freq
 

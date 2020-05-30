@@ -3,13 +3,14 @@
 DYNAMIC LAG REMOVER - DLR
 -------------------------
 
-DYLACO: Dynamic Lag Compensation
 DLR: Dynamic Lag Remover - A Python package to detect and compensate for shifting lag times in ecosystem time series
 
 File:       Data file
 Segment:    Segment in file, e.g. one 6-hour file may consist of 12 half-hour segments.
 
 """
+
+import os
 
 import pandas as pd
 
@@ -20,6 +21,8 @@ import files
 import lag
 from wind import WindRotation
 from files import FilesDetector
+import plot
+import numpy as np
 
 
 class DynamicLagRemover:
@@ -28,8 +31,8 @@ class DynamicLagRemover:
     file_stats_df = pd.DataFrame()
 
     def __init__(self, u_col, v_col, w_col, scalar_col, dir_input, dir_output, dir_root,
-                 file_date_format, file_generation_res, data_res, data_segment_duration,
-                 data_segment_overhang, data_timewin_lag, testing):
+                 file_date_format, file_generation_res, data_nominal_res, data_segment_duration,
+                 data_segment_overhang, win_lagsearch, testing):
         self.u_col = u_col
         self.v_col = v_col
         self.w_col = w_col
@@ -40,10 +43,10 @@ class DynamicLagRemover:
         self.dir_output = self.dir_root / dir_output
         self.file_date_format = file_date_format
         self.file_generation_res = file_generation_res
-        self.data_res = data_res
+        self.data_nominal_res = data_nominal_res
         self.data_segment_duration = data_segment_duration
         self.data_segment_overhang = data_segment_overhang
-        self.data_timewin_lag = data_timewin_lag
+        self.win_lagsearch = win_lagsearch
         self.testing = testing
 
         if self.testing:
@@ -62,7 +65,7 @@ class DynamicLagRemover:
                            file_pattern='*.csv',
                            file_date_format=self.file_date_format,
                            file_generation_res=self.file_generation_res,
-                           data_res=self.data_res)
+                           data_res=self.data_nominal_res)
         fd.run()
         self.files_overview_df = fd.get()
 
@@ -73,8 +76,8 @@ class DynamicLagRemover:
             self.loop_files(iteration=iteration)
 
         # Read results from last iteration
-        segment_lagtimes_df = files.read_found_lags_file(
-            filepath=self.dir_output / f'2_segments_found_lag_times_iteration-{num_iterations}.csv')
+        segment_lagtimes_df = files.read_segments_file(
+            filepath=self.dir_output / f'{num_iterations}_segments_found_lag_times_after_iteration-{num_iterations}.csv')
 
         # Set search window for lag, depending on iteration
         _ = lag.FindHistogramPeaks(series=segment_lagtimes_df['cov_max_shift'],
@@ -144,9 +147,26 @@ class DynamicLagRemover:
     def loop_files(self, iteration):
         """Loop through all found files."""
 
-        data_collection_df = pd.DataFrame()
-        segment_lagtimes_df = pd.DataFrame(columns=['start', 'end', 'cov_max_shift', 'cov_max',
-                                                    'cov_max_timestamp', 'shift_median', 'shift_P25', 'shift_P75'])
+        # Check if results for this iteration already exists
+        filepath_this_iteration = self.dir_output / f'{iteration}_segments_found_lag_times_after_iteration-{iteration}.csv'
+        filepath_prev_iteration = self.dir_output / f'{iteration-1}_segments_found_lag_times_after_iteration-{iteration - 1}.csv'
+        if os.path.exists(filepath_this_iteration):
+            return None
+        else:
+            if os.path.exists(filepath_prev_iteration):
+                segment_lagtimes_df = files.read_segments_file(filepath=filepath_prev_iteration)
+
+                # Adjusted lagsearch window, from a previous iteration
+                win_lagsearch = \
+                    [segment_lagtimes_df['lagsearch_next_start'].unique()[0],
+                     segment_lagtimes_df['lagsearch_next_end'].unique()[0]]
+            else:
+                segment_lagtimes_df = pd.DataFrame(columns=['start', 'end', 'cov_max_shift', 'cov_max',
+                                                            'cov_max_timestamp', 'shift_median', 'shift_P25',
+                                                            'shift_P75'])
+                win_lagsearch = self.win_lagsearch  # Initial lagsearch window
+
+        # data_collection_df = pd.DataFrame() # todo activate
 
         for file_idx, file_info_row in self.files_overview_df.iterrows():
             # if file_idx > 0:  # for testing
@@ -159,10 +179,14 @@ class DynamicLagRemover:
                 continue
 
             # Read data file
-            data_df, true_resolution = files.read_raw_data(filepath=file_info_row['filepath'],
-                                                           nrows=self.nrows,
-                                                           df_start_dt=file_info_row['start'],
-                                                           file_info_row=file_info_row)  # nrows for testing
+            data_df = files.read_raw_data(filepath=file_info_row['filepath'],
+                                          nrows=self.nrows,
+                                          df_start_dt=file_info_row['start'],
+                                          file_info_row=file_info_row)  # nrows for testing
+
+            data_df, true_resolution = files.insert_datetime_index(df=data_df,
+                                                                   file_info_row=file_info_row,
+                                                                   data_nominal_res=self.data_nominal_res)
 
             # Add raw data info to overview when files are first read (during iteration 1)
             if iteration == 1:
@@ -172,10 +196,10 @@ class DynamicLagRemover:
                                                               files_overview_df=self.files_overview_df,
                                                               found_records=len(data_df))
 
-            # Collect all file data
-            data_collection_df = self.collect_file_data(data_df=data_df,
-                                                        file_idx=file_idx,
-                                                        data_collection_df=data_collection_df)
+            # # Collect all file data # todo activate
+            # data_collection_df = self.collect_file_data(data_df=data_df,
+            #                                             file_idx=file_idx,
+            #                                             data_collection_df=data_collection_df)
 
             # Loop through data segments in file
             segment_lagtimes_df = self.loop_segments(data_df=data_df,
@@ -183,20 +207,33 @@ class DynamicLagRemover:
                                                      filename=file_info_row['filename'],
                                                      segment_lagtimes_df=segment_lagtimes_df,
                                                      iteration=iteration,
-                                                     timewin_lag=self.data_timewin_lag)
+                                                     win_lagsearch=win_lagsearch)
 
             # segment_lagtimes_df = lag.calc_quantiles(df=segment_lagtimes_df)
 
-        # Save and plot found lag times
-        segment_lagtimes_df.to_csv(self.dir_output / f'2_segments_found_lag_times_iteration-{iteration}.csv')
-
         # Check histogram of found lag times for peak distribution and set new search window
-        self.data_timewin_lag = lag.FindHistogramPeaks(series=segment_lagtimes_df['cov_max_shift'],
-                                                       dir_output=self.dir_output,
-                                                       iteration=iteration,
-                                                       plot=True).get()
+        next_win_lagsearch = lag.FindHistogramPeaks(series=segment_lagtimes_df['cov_max_shift'],
+                                                    dir_output=self.dir_output,
+                                                    iteration=iteration,
+                                                    plot=True).get()
 
-        # plot.segment_lagtimes(df=self.segment_lagtimes_df, dir_output=self.dir_output)
+        # Add time window start and end for next iteration lagsearch
+        self.add_lagsearch_next_info(segment_lagtimes_df=segment_lagtimes_df,
+                                     iteration=iteration,
+                                     next_win_lagsearch=next_win_lagsearch)
+
+        plot.segment_lagtimes(df=segment_lagtimes_df, dir_output=self.dir_output, iteration=iteration)
+
+    def add_lagsearch_next_info(self, segment_lagtimes_df, iteration, next_win_lagsearch):
+        # Add adjusted lagsearch window for next iteration to CSV
+        segment_lagtimes_df.loc[:, 'lagsearch_next_start'] = next_win_lagsearch[0]
+        segment_lagtimes_df.loc[:, 'lagsearch_next_end'] = next_win_lagsearch[1]
+
+        # Save found segment lag times with next lagsearch info after all files
+        filename_segments = f'{iteration}_segments_found_lag_times_after_iteration-{iteration}.csv'
+        print(f"Saving file: {filename_segments} ...")
+        segment_lagtimes_df.to_csv(self.dir_output / filename_segments)
+        return
 
     def collect_file_data(self, data_df, file_idx, data_collection_df):
         if file_idx == self.files_overview_df.index[0]:
@@ -205,7 +242,7 @@ class DynamicLagRemover:
             data_collection_df = data_collection_df.append(data_df)
         return data_collection_df
 
-    def loop_segments(self, data_df, file_idx, filename, segment_lagtimes_df, iteration, timewin_lag):
+    def loop_segments(self, data_df, file_idx, filename, segment_lagtimes_df, iteration, win_lagsearch):
         """Loop through all data segments in each file.
 
         For example, one six hour raw data file consists of twelve half-hour segments.
@@ -221,7 +258,7 @@ class DynamicLagRemover:
             counter_segment += 1
             # if counter_segment > 0:  # for testing
             #     break
-            segment_name = segment_df.index[0].strftime('%Y%m%d%H%M%S')
+            segment_name = f"{segment_df.index[0].strftime('%Y%m%d%H%M%S')}_iter{iteration}"
             segment_start = segment_df.index[0]
             segment_end = segment_df.index[-1]
 
@@ -248,17 +285,36 @@ class DynamicLagRemover:
                               ref_sig=w_rot_turb_col,
                               lagged_sig=scalar_turb_col,
                               dir_out=self.dir_output,
-                              data_timewin_lag=timewin_lag,
+                              win_lagsearch=win_lagsearch,
                               file_idx=file_idx,
                               filename=filename,
                               iteration=iteration).get()
 
             # Collect results
+            ref_sig_vals = wind_rot_df[w_rot_turb_col].dropna().size
+            lagged_sig_vals = wind_rot_df[scalar_turb_col].dropna().size
+
             segment_lagtimes_df.loc[segment_name, 'start'] = segment_start
             segment_lagtimes_df.loc[segment_name, 'end'] = segment_end
-            segment_lagtimes_df.loc[segment_name, 'cov_max_shift'] = int(cov_max_shift)  # todo give in sec
-            segment_lagtimes_df.loc[segment_name, 'cov_max'] = float(cov_max)
-            segment_lagtimes_df.loc[segment_name, 'cov_max_timestamp'] = str(cov_max_timestamp)
+            segment_lagtimes_df.loc[segment_name, f'numvals_{w_rot_turb_col}'] = ref_sig_vals
+            segment_lagtimes_df.loc[segment_name, f'numvals_{scalar_turb_col}'] = lagged_sig_vals
+            segment_lagtimes_df.loc[segment_name, f'lagsearch_start'] = win_lagsearch[0]
+            segment_lagtimes_df.loc[segment_name, f'lagsearch_end'] = win_lagsearch[1]
+            segment_lagtimes_df.loc[segment_name, f'iteration'] = iteration
+
+            if (ref_sig_vals == 0) or (lagged_sig_vals == 0):
+                segment_lagtimes_df.loc[segment_name, 'cov_max_shift'] = np.nan
+                segment_lagtimes_df.loc[segment_name, 'cov_max'] = np.nan
+                segment_lagtimes_df.loc[segment_name, 'cov_max_timestamp'] = np.nan
+            else:
+                segment_lagtimes_df.loc[segment_name, 'cov_max_shift'] = int(cov_max_shift)  # todo give in sec
+                segment_lagtimes_df.loc[segment_name, 'cov_max'] = float(cov_max)
+                segment_lagtimes_df.loc[segment_name, 'cov_max_timestamp'] = str(cov_max_timestamp)
+
+            # Save found segment lag times after each segment
+            filename_segments = f'{iteration}_segments_found_lag_times_after_iteration-{iteration}.csv'
+            print(f"Saving file: {filename_segments} ...")
+            segment_lagtimes_df.to_csv(self.dir_output / filename_segments)
 
         return segment_lagtimes_df
 

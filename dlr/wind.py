@@ -35,7 +35,7 @@ class WindRotation:
         self.wind_rot_df = self.rotate_wind(wind_rot_df=self.wind_rot_df)
         self.wind_rot_df = self.calculate_turbulent_fluctuations(df=self.wind_rot_df)
 
-        # lag_search_df.plot.scatter(x='shift', y='cov')
+        # lagsearch_df.plot.scatter(x='shift', y='cov')
         # plt.show()
 
         # self.wind_rot_df['record'] = self.wind_rot_df.index
