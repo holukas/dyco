@@ -1,6 +1,7 @@
 import datetime as dt
 import fnmatch
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,7 @@ class FilesDetector:
     found_files = []
     files_overview_df = pd.DataFrame()
 
-    def __init__(self, dir_input, dir_output, file_pattern, file_date_format, file_generation_res, data_res):
+    def __init__(self, dir_input, outdir, file_pattern, file_date_format, file_generation_res, data_res):
         """Initialize with basic file information.
 
         :param dir_input: Input directory to search for files
@@ -28,7 +29,7 @@ class FilesDetector:
         """
 
         self.dir_input = dir_input
-        self.dir_output = dir_output
+        self.outdir = outdir
         self.pattern = file_pattern
         self.file_date_format = file_date_format
         self.file_generation_res = file_generation_res
@@ -37,9 +38,14 @@ class FilesDetector:
     def run(self):
         """Execute full processing stack."""
         self.found_files = self.search_available(dir=self.dir_input, pattern=self.pattern)
+        if not self.found_files:
+            print(f"\n(!)ERROR No files found with pattern {self.pattern}. Stopping script.")
+            sys.exit()
+
         self.files_overview_df = self.add_expected()
         self.files_overview_df = self.add_unexpected()
         self.files_overview_df = self.calc_expected_values()
+        self.files_overview_df.loc[:, 'file_available'].fillna(0, inplace=True)
         self.export()
 
     def get(self):
@@ -50,7 +56,7 @@ class FilesDetector:
         # self.dir_output = self.dir_output / '1_found_files'
         # if not os.path.isdir(self.dir_output):
         #     os.makedirs(self.dir_output)
-        outpath = self.dir_output / '0_files_overview.csv'
+        outpath = self.outdir / '0_files_overview.csv'
         self.files_overview_df.to_csv(outpath)
 
     @staticmethod
@@ -140,6 +146,8 @@ class FilesDetector:
 
 def read_segments_file(filepath):
     # parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
+    import time
+    start_time = time.time()
     found_lags_df = pd.read_csv(filepath,
                                 skiprows=None,
                                 header=0,
@@ -153,10 +161,9 @@ def read_segments_file(filepath):
                                 # date_parser=parse,
                                 index_col=0,
                                 dtype=None,
-                                engine='python')
+                                engine='c')
+    # print(f"Read file {filepath} in {time.time() - start_time}s")
     return found_lags_df
-
-
 
 
 def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
@@ -184,7 +191,7 @@ def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
                               num_missing_header_cols=num_missing_header_cols)
 
     import time
-    start_time=time.time()
+    start_time = time.time()
     data_df = pd.read_csv(filepath,
                           skiprows=header_section_rows,
                           header=None,
@@ -201,7 +208,6 @@ def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
                           engine='c',
                           nrows=nrows)
     print(f"Reading file took {time.time() - start_time}s")
-
 
     return data_df
 
@@ -307,3 +313,38 @@ def data_vs_header(num_data_cols, num_header_cols):
         more_data_cols_than_header_cols = False
         num_missing_header_cols = 0
     return more_data_cols_than_header_cols, num_missing_header_cols
+
+
+def setup_output_dirs(outdir, del_previous_results):
+    """Make output directories."""
+    new_dirs = ['0-0___[DATA]__found_files',
+                '1-0___[DATA]__COVARIANCE_per_segment',
+                '1-1___[PLOTS]_COVARIANCE_per_segment',
+                '2-0___[DATA]__FOUND_LAG_TIMES_per_segment_iteration',
+                '2-1___[PLOTS]_HISTOGRAM_found_lag_times',
+                '2-2___[PLOTS]_TIMESERIES_found_lag_times']
+    outdirs = {}
+
+    # Store keys and full paths in dict
+    for nd in new_dirs:
+        outdirs[nd] = outdir / nd
+
+    # Make dirs
+    for key, path in outdirs.items():
+        if not Path.is_dir(path):
+            print(f"Creating folder {path} ...")
+            os.makedirs(path)
+        else:
+            if del_previous_results:
+                for filename in os.listdir(path):
+                    filepath = os.path.join(path, filename)
+                    try:
+                        if os.path.isfile(filepath) or os.path.islink(filepath):
+                            print(f"Deleting file {filepath} ...")
+                            os.unlink(filepath)
+                        # elif os.path.isdir(filepath):
+                        #     shutil.rmtree(filepath)
+                    except Exception as e:
+                        print('Failed to delete %s. Reason: %s' % (filepath, e))
+
+    return outdirs

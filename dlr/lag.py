@@ -1,5 +1,3 @@
-import os
-
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,32 +8,44 @@ import plot
 
 
 class LagSearch:
-    def __init__(self, wind_rot_df, segment_name, ref_sig, lagged_sig, dir_out, win_lagsearch,
-                 file_idx, segment_start, segment_end, filename, iteration):
+    def __init__(self, wind_rot_df, segment_name, ref_sig, lagged_sig, outdir_plots, win_lagsearch,
+                 file_idx, segment_start, segment_end, filename, iteration, shift_stepsize,
+                 outdir_data):
         self.wind_rot_df = wind_rot_df
         self.segment_name = segment_name
         self.segment_start = segment_start
         self.segment_end = segment_end
-        self.dir_out = dir_out
+        self.outdir_data = outdir_data
+        self.outdir_plots = outdir_plots
         self.w_rot_turb_col = ref_sig
         self.scalar_turb_col = lagged_sig
-        self.win_lagsearch = win_lagsearch
         self.file_idx = file_idx
         self.filename = filename
         self.iteration = iteration
+        self.win_lagsearch = win_lagsearch
+        # self.shift_stepsize = int(np.sum(np.abs(self.win_lagsearch)) / 100)
+        self.shift_stepsize=shift_stepsize
 
         self.run()
 
     def run(self):
         self.cov_max_shift, self.cov_max, self.cov_max_timestamp, self.lagsearch_df = \
-            self.find_max_cov(df=self.wind_rot_df)
+            self.find_max_cov(df=self.wind_rot_df, shift_stepsize=self.shift_stepsize)
+
+        self.save_cov_data()
 
         self.save_cov_plot(x=self.lagsearch_df['shift'],
                            y=self.lagsearch_df['cov'],
                            z_color=self.lagsearch_df['cov_abs'])
+        return None
 
     def get(self):
         return self.cov_max_shift, self.cov_max, self.cov_max_timestamp
+
+    def save_cov_data(self):
+        outpath = self.outdir_data / f'{self.segment_name}_lagsearch_iteration-{self.iteration}'
+        self.lagsearch_df.to_csv(f"{outpath}.csv")
+        return None
 
     def save_cov_plot(self, x, y, z_color):
         """Plot and save covariance plot for segment."""
@@ -47,40 +57,41 @@ class LagSearch:
             f"Segment start: {self.segment_start}\n" \
             f"Segment end: {self.segment_end}\n" \
             f"File: {self.filename} - File date: {self.file_idx}\n" \
-            f"Max absolute covariance {self.cov_max:.3f} found @ record {self.cov_max_shift}"
+            f"Max absolute covariance {self.cov_max:.3f} found @ record {self.cov_max_shift}\n" \
+            f"Lag search step size: {self.shift_stepsize} records"
 
         fig = plot.make_scatter_cov(x=x, y=y, z_color=z_color,
                                     cov_max_shift=self.cov_max_shift,
                                     cov_max=self.cov_max,
                                     txt_info=txt_info)
 
-        dir_out = self.dir_out / '2_plots_segment_covariances'
-        if not os.path.isdir(dir_out):
-            os.makedirs(dir_out)
-        outpath = dir_out / f'{self.segment_name}_iteration-{self.iteration}'
+        outpath = self.outdir_plots / f'{self.segment_name}_iteration-{self.iteration}'
 
         # Save
         print(f"Saving plot in PNG file: {outpath}.png ...")
         # fig.write_html(f"{outpath}.html")  # plotly
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=100)
+        return None
 
-    def find_max_cov(self, df):
+    def find_max_cov(self, df, shift_stepsize):
         """Find maximum absolute covariance between turbulent wind data
         and turbulent scalar data.
         """
 
-        print("Searching maximum covariance ...")
-
         lagwin_start = self.win_lagsearch[0]
         lagwin_end = self.win_lagsearch[1]
+
+        print(f"Searching maximum covariance in range from {lagwin_start} to {lagwin_end} records ...")
 
         _df = df.copy()
         _df['index'] = _df.index
         lagsearch_df = pd.DataFrame()
-        lagsearch_df['shift'] = range(lagwin_start, lagwin_end)  # Negative moves lagged values "upwards" in column
+        lagsearch_df['shift'] = range(lagwin_start, lagwin_end,
+                                      shift_stepsize)  # Negative moves lagged values "upwards" in column
         lagsearch_df['cov'] = np.nan
         lagsearch_df['index'] = np.nan
+        lagsearch_df['segment_name'] = self.segment_name
 
         # Check if data column is empty
         if _df[self.scalar_turb_col].dropna().empty:
@@ -112,27 +123,34 @@ class LagSearch:
             cov_max = lagsearch_df.iloc[cov_max_ix]['cov']
             cov_max_timestamp = lagsearch_df.iloc[cov_max_ix]['index']
 
+            # find_peaks(lagsearch_df['cov_abs'], prominence=0)
+
         return cov_max_shift, cov_max, cov_max_timestamp, lagsearch_df
 
 
 def calc_quantiles(df):
-    args = dict(window=5, min_periods=1, center=True)
-    df['shift_median'] = df['cov_max_shift'].rolling(**args).median()
-    df['search_win_upper'] = df['shift_median'] + 100
-    df['search_win_lower'] = df['shift_median'] - 100
-    df['shift_P25'] = df['cov_max_shift'].rolling(**args).quantile(0.25)
-    df['shift_P75'] = df['cov_max_shift'].rolling(**args).quantile(0.75)
+    _df = df.copy()
+    args = dict(window=10, min_periods=3, center=True)
+    _df['shift_median'] = _df['cov_max_shift'].rolling(**args).median()
+    _df['search_win_upper'] = _df['shift_median'] + 100
+    _df['search_win_lower'] = _df['shift_median'] - 100
+    _df['shift_P25'] = _df['cov_max_shift'].rolling(**args).quantile(0.25)
+    _df['shift_P75'] = _df['cov_max_shift'].rolling(**args).quantile(0.75)
 
-    return df
+    return _df
 
 
 class FindHistogramPeaks():
-    def __init__(self, series, dir_output, iteration, plot=True):
+    def __init__(self, series, outdir, iteration, plot=True, bins=30, remove_fringe_bins=True,
+                 perc_threshold=0.9):
         self.series = series.dropna()  # NaNs yield error in histogram
         self.numvals_series = self.series.size
-        self.dir_output = dir_output
+        self.outdir = outdir
         self.iteration = iteration
         self.plot = plot
+        self.bins = bins
+        self.remove_fringe_bins = remove_fringe_bins
+        self.perc_threshold = perc_threshold
 
         self.run()
 
@@ -146,7 +164,8 @@ class FindHistogramPeaks():
         """Find peak in histogram of found lag times."""
 
         # Make histogram of found lag times, remove fringe bins at start and end
-        counts, divisions = self.calc_hist(series=self.series, bins=20, remove_fringe_bins=True)
+        counts, divisions = self.calc_hist(series=self.series, bins=self.bins,
+                                           remove_fringe_bins=self.remove_fringe_bins)
 
         # Search bin with most found lag times
         peak_max_count_idx = self.search_bin_max_counts(counts=counts)
@@ -156,7 +175,7 @@ class FindHistogramPeaks():
 
         # Adjust lag search time window for next iteration
         win_lagsearch_adj, start_idx, end_idx = self.adjust_win_lagsearch(counts=counts, divisions=divisions,
-                                                                          perc_threshold=0.9,
+                                                                          perc_threshold=self.perc_threshold,
                                                                           peak_max_count_idx=peak_max_count_idx,
                                                                           peak_most_prom_idx=peak_most_prom_idx)
 
@@ -193,7 +212,8 @@ class FindHistogramPeaks():
             divisions = divisions[1:-1]  # Contains start values of bins
         return counts, divisions
 
-    def search_bin_most_prominent(self, counts):
+    @staticmethod
+    def search_bin_most_prominent(counts):
         # kudos: https://www.kaggle.com/simongrest/finding-peaks-in-the-histograms-of-the-variables
         # Increase prominence until only one single peak is found
         print("Searching most prominent peak ...")
@@ -226,7 +246,7 @@ class FindHistogramPeaks():
             end_idx = end_idx + 1 if end_idx < len(counts) else end_idx
             c = counts[start_idx:end_idx]
             perc = np.sum(c) / counts_total
-            print(perc, start_idx, end_idx)
+            print(f"Expanding lag window: {perc}  from record: {start_idx}  to record: {end_idx}")
             if (start_idx == 0) and (end_idx == len(counts)):
                 break
         win_lagsearch_adj = [divisions[start_idx], divisions[end_idx]]
@@ -237,10 +257,36 @@ class FindHistogramPeaks():
     def include_bins_next_to_peak(self, peak_max_count_idx, peak_most_prom_idx):
         """Include histogram bins next to the bin for which max was found and the
         most prominent bin.
+
+        Since multiple max count peaks can be detected in the histogram, all found
+        peaks are considered and all bins before and after each detected peak are
+        included to calculate the adjusted start and end indices.
+
+        For example:
+            Three peaks were with max count were found in the histogram. The peaks
+            were found in bins 5, 9 and 14:
+                peak_max_count_index = [5,9,14]
+            The most prominent peak was detected in bin 2:
+                peak_most_prom_idx = 2
+            Then the bins before the max count peaks are included:
+                start_idx = [4,5,8,9,13,14]
+            Then the bins after the max count peaks are included:
+                end_idx = [4,5,6,8,9,10,13,14,15]
+            Then the max count peaks are combined with the most prominent peak,
+            using np.unique() in case of overlapping bins:
+                start_end_idx = [2,4,5,6,8,9,10,13,14,15]
+            The start_idx is the min of this collection:
+                start_idx = 2
+            The end_idx is the max of this collection:
+                end_idx = 15
+            The adjusted time window for lag search starts with the starting time
+            of bin 2 and ends with the end time with bin 15 (starting time is added
+            in next steps).
         """
-        start_idx = peak_max_count_idx
-        end_idx = peak_max_count_idx + 1
-        start_end_idx = np.unique(np.concatenate([start_idx, end_idx, [peak_most_prom_idx]]))
+        start_idx = np.subtract(peak_max_count_idx, 1)  # Include bins before each peak
+        start_idx[start_idx < 0] = 0  # Negative index not possible
+        end_idx = np.add(peak_max_count_idx, 1)  # Include bins after each peak
+        start_end_idx = np.unique(np.concatenate([start_idx, end_idx, [peak_most_prom_idx]]))  # Combine peaks
         start_idx = np.min(start_end_idx)
         end_idx = np.max(start_end_idx[-1])
         return start_idx, end_idx
@@ -294,7 +340,7 @@ class FindHistogramPeaks():
 
         # ax.legend()
 
-        outpath = self.dir_output / f'{self.iteration}_HISTOGRAM_found_lag_times_iteration-{self.iteration}'
+        outpath = self.outdir / f'{self.iteration}_HISTOGRAM_found_lag_times_iteration-{self.iteration}'
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=150)
 
