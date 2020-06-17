@@ -145,6 +145,22 @@ class FilesDetector:
 
 
 def read_segments_file(filepath):
+    """
+    Read file.
+
+    Is used for reading segment covariances and lag search
+    results for each segment. Can be used for all text files
+    for which the .read_csv args are valid.
+
+    Parameters
+    ----------
+    filepath: str
+
+    Returns
+    -------
+    pandas DataFrame
+
+    """
     # parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
     import time
     start_time = time.time()
@@ -317,12 +333,12 @@ def data_vs_header(num_data_cols, num_header_cols):
 
 def setup_output_dirs(outdir, del_previous_results):
     """Make output directories."""
-    new_dirs = ['0-0___[DATA]__found_files',
-                '1-0___[DATA]__COVARIANCE_per_segment',
-                '1-1___[PLOTS]_COVARIANCE_per_segment',
-                '2-0___[DATA]__FOUND_LAG_TIMES_per_segment_iteration',
-                '2-1___[PLOTS]_HISTOGRAM_found_lag_times',
-                '2-2___[PLOTS]_TIMESERIES_found_lag_times']
+    new_dirs = ['0-0___[DATA]__Found_Files',
+                '1-0___[DATA]__Segment_Covariances',
+                '1-1___[PLOTS]_Segment_Covariances',
+                '2-0___[DATA]__Segment_Lag_Times',
+                '2-1___[PLOTS]_Segment_Lag_Times_Histograms',
+                '2-2___[PLOTS]_Segment_Lag_Times_Timeseries']
     outdirs = {}
 
     # Store keys and full paths in dict
