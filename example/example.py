@@ -3,58 +3,67 @@ from pathlib import Path
 
 from dlr import DynamicLagRemover as dlr
 
-u_col = 'u_ms-1'
-v_col = 'v_ms-1'
-w_col = 'w_ms-1'
-scalar_col = 'co2_ppb_qcl'
+# # Default parameters
+# dir_input = 'input'
+# dir_output = 'output'
+# data_segment_duration = '30T'  # 30min segments
+# data_segment_overhang = '1T'  # 1min todo
+# data_nominal_res = 0.05  # Measurement every 0.05s
+# file_generation_res = '6H'  # One file expected every x hour(s)
+# files_how_many = False  # Can be int or False
+# win_lagsearch = 1000  # Initial time window for lag search, number of records from/to
+# num_iterations = 5
+# hist_remove_fringe_bins = True
+# hist_perc_threshold = 0.9  # Include bins to both sides of peak bin until x% of total counts is reached
 
-
-dir_input_ext = Path(r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\2016_2\converted_raw_data_csv')
-# dir_output_ext = Path(r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\output_2016-10_1900')
-dir_output_ext = Path(r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\output')
+# Directories for input/output
+dir_input_ext = Path(r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\FISP_output\splits')  # Can be False
+dir_output_ext = Path(r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\output')  # Can be False
 dir_input = 'input'
 dir_output = 'output'
 
-file_pattern = '2016100[1-2]1300.csv'  # Accepts regex
-file_date_format = '%Y%m%d%H%M'  # Date format in filename
-file_generation_res = '6H'  # One file expected every x hour(s)
-# files_how_many = 2  # Can be int or False
-files_how_many = False  # Can be int or False
+# Source files
+fnm_pattern = '2016*.csv'  # Filename pattern for file search, accepts regex
+fnm_date_format = '%Y%m%d%H%M%S'  # Date format in filename
+files_how_many = False  # Limit number of files to use
+file_generation_res = '30T'  # One file generated every x mins
+file_duration = '30T'  # Duration of one data file
 
-data_nominal_res = 0.05  # Measurement every 0.05s
-data_segment_duration = '30T'  # 30min segments
-data_segment_overhang = '1T'  # 1min todo
+# Lag search
+lgs_segment_dur = '30T'  # Segment duration, e.g. calc lag for 10min segments
+lgs_refsig = 'w_ms-1_rot_turb'  # Reference signal
+lgs_lagsig = 'co2_ppb_qcl_turb'  # Lagged signal
+lgs_hist_perc_thres = 0.9  # Percentage threshold in histogram of found lag times
+lgs_hist_remove_fringe_bins = True  # Remove fringe bins in histogram of found lag times
+lgs_winsize = 1000  # Window size +/-, given as number of records
+lgs_num_iter = 5  # Number of iterations
 
-win_lagsearch = [-1000, 1000]  # Initial time window for lag search, number of records from/to
-num_iterations = 5
+# Data records
+# Set to False if not in data, uses the available timestamp, otherwise
+# a timestamp is created.
+dat_recs_timestamp_format = '%Y-%m-%d %H:%M:%S.%f'  # Timestamp format for each row record
+dat_recs_nominal_timeres = 0.05  # Nominal (expected) time resolution, one record every x seconds
 
-hist_remove_fringe_bins = True
-hist_perc_threshold = 0.9  # Include bins to both sides of peak bin until x% of total counts is reached
+del_previous_results = False
+# del_previous_results = True  # Danger zone! True deletes all output in output folder
 
-# del_previous_results = False
-del_previous_results = True
-
-# timewin_noise = [2600, 3000]  # todo number of records from/to
-# calculate_noise = True  # todo
-
-dlr(u_col=u_col,
-    v_col=v_col,
-    w_col=w_col,
-    scalar_col=scalar_col,
-    dir_root=Path(os.path.dirname(os.path.abspath(__file__))),
+dlr(dir_root=Path(os.path.dirname(os.path.abspath(__file__))),
     dir_input=dir_input,
-    dir_input_ext=dir_input_ext,
     dir_output=dir_output,
+    dir_input_ext=dir_input_ext,
     dir_output_ext=dir_output_ext,
-    file_date_format=file_date_format,
+    fnm_date_format=fnm_date_format,
+    fnm_pattern=fnm_pattern,
+    dat_recs_timestamp_format=dat_recs_timestamp_format,
+    dat_recs_nominal_timeres=dat_recs_nominal_timeres,
+    files_how_many=files_how_many,
     file_generation_res=file_generation_res,
-    data_nominal_res=data_nominal_res,
-    data_segment_duration=data_segment_duration,
-    data_segment_overhang=data_segment_overhang,
-    win_lagsearch=win_lagsearch,
-    num_iterations=num_iterations,
-    hist_remove_fringe_bins=hist_remove_fringe_bins,
-    del_previous_results=del_previous_results,
-    hist_perc_threshold=hist_perc_threshold,
-    file_pattern=file_pattern,
-    files_how_many=files_how_many)
+    file_duration=file_duration,
+    lgs_num_iter=lgs_num_iter,
+    lgs_winsize=lgs_winsize,
+    lgs_hist_remove_fringe_bins=lgs_hist_remove_fringe_bins,
+    lgs_hist_perc_thres=lgs_hist_perc_thres,
+    lgs_refsig=lgs_refsig,
+    lgs_lagsig=lgs_lagsig,
+    lgs_segment_dur=lgs_segment_dur,
+    del_previous_results=del_previous_results)

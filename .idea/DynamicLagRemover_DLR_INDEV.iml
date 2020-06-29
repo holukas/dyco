@@ -3,6 +3,8 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/dlr" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/_archive" />
+      <excludeFolder url="file://$MODULE_DIR$/_raw_photoshop" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.6 (DLR1)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

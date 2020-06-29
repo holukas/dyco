@@ -1,15 +1,16 @@
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
-
+import files
+import matplotlib.pyplot as plt
 import plot
 
 
 class LagSearch:
-    def __init__(self, wind_rot_df, segment_name, ref_sig, lagged_sig, outdir_plots, win_lagsearch,
+    def __init__(self, segment_df, segment_name, ref_sig, lagged_sig, outdir_plots, win_lagsearch,
                  file_idx, segment_start, segment_end, filename, iteration, shift_stepsize,
                  outdir_data):
-        self.wind_rot_df = wind_rot_df
+        self.wind_rot_df = segment_df
         self.segment_name = segment_name
         self.segment_start = segment_start
         self.segment_end = segment_end
@@ -168,7 +169,7 @@ class LagSearch:
             # shift_peak_cov_abs_max = df.iloc[idx_peak_cov_abs_max]['shift']
             # cov_peak_cov_abs_max = df.iloc[idx_peak_cov_abs_max]['cov']
         else:
-            idx_peak_cov_abs_max=False
+            idx_peak_cov_abs_max = False
 
         return idx_peak_cov_abs_max, idx_peak_auto
 
@@ -288,12 +289,13 @@ class AdjustLagsearchWindow():
             peak_max_count_idx = peak_max_count_idx[0]  # Yields array of index or multiple indices
         return peak_max_count_idx
 
-    def calc_hist(self, series=False, bins=20, remove_fringe_bins=False):
+    @staticmethod
+    def calc_hist(series=False, bins=20, remove_fringe_bins=False):
         """Calculate histogram of found lag times."""
         counts, divisions = np.histogram(series, bins=bins)
         # Remove first and last bins from histogram. In case of unclear lag times
         # data tend to accumulate in these edge regions of the search window.
-        if remove_fringe_bins and len(counts) >=5:
+        if remove_fringe_bins and len(counts) >= 5:
             counts = counts[1:-1]
             divisions = divisions[1:-1]  # Contains start values of bins
         return counts, divisions
@@ -513,3 +515,5 @@ def search_settings(win_lagsearch):
     shift_stepsize = int(np.sum(np.abs(win_lagsearch)) / 100 / 2)
     hist_num_bins = range(win_lagsearch[0], win_lagsearch[1], int(shift_stepsize * 5))
     return shift_stepsize, hist_num_bins
+
+

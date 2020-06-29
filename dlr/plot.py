@@ -9,14 +9,6 @@ from matplotlib.collections import LineCollection
 import files
 
 
-def prepare_df(df):
-    df['filename'] = df.index
-    df.reset_index(drop=True, inplace=True)
-    df['file_idx'] = df.index
-    df['cov_max_shift'] = df['cov_max_shift'].astype(int)
-    return df
-
-
 def timeseries_segment_lagtimes(df, outdir, iteration, show_all=False):
     _df = df.copy()
     if not show_all:
@@ -204,29 +196,6 @@ def make_scatter_cov(df, idx_peak_cov_abs_max, idx_peak_auto, iteration, win_lag
     return fig
 
 
-# def lagsearch_collection(lagsearch_df_collection, outdir):
-#     fig = plt.Figure(facecolor='white', figsize=(16, 9))
-#     gs = gridspec.GridSpec(1, 1)  # rows, cols
-#     gs.update(wspace=0.3, hspace=0.3, left=0.03, right=0.97, top=0.97, bottom=0.03)
-#     ax = fig.add_subplot(gs[0, 0])
-#
-#     grouped = lagsearch_df_collection.groupby('segment_name')
-#     for segment_key,segment_df in grouped:
-#         ax.plot(segment_df['shift'], segment_df['cov_abs'],
-#                    alpha=0.1, c='black',
-#                    marker='None', zorder=98)
-#
-#         # ax.scatter(lagsearch_df_collection['shift'], lagsearch_df_collection['cov_abs'],
-#         #            alpha=0.2, edgecolors='none', c='black',
-#         #            marker='o', s=12, zorder=98)
-#
-#     outfile = '1_lagsearch_cov_abs_collection'
-#     outpath = outdir / outfile
-#     fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
-#                 transparent=True, dpi=150)
-#     return None
-
-
 def cov_collection(indir, outdir):
     """
     Read and plot segment covariance files.
@@ -251,14 +220,16 @@ def cov_collection(indir, outdir):
     ax3 = fig.add_subplot(gs[2, 0], sharex=ax1)
 
     # Read results from last iteration
-    collection_df = pd.DataFrame()
+    cov_collection_df = pd.DataFrame()
     filelist = os.listdir(indir)
     num_files = len(filelist)
     for idx, filename in enumerate(filelist):
+        if idx >10:
+            break
         print(f"Reading segment covariance file {idx + 1} of {num_files}: {filename}")
         filepath = os.path.join(indir, filename)
         segment_cov_df = files.read_segments_file(filepath=filepath)
-        collection_df = collection_df.append(segment_cov_df)
+        cov_collection_df = cov_collection_df.append(segment_cov_df)
 
         ax1.plot(segment_cov_df['shift'], segment_cov_df['cov'],
                  alpha=0.1, c='black', lw=0.5,
@@ -274,7 +245,7 @@ def cov_collection(indir, outdir):
 
     # todo to this proper
     # Median lines
-    _df = collection_df[collection_df['segment_name'].str.contains('iter')]
+    _df = cov_collection_df[cov_collection_df['segment_name'].str.contains('iter')]
     _df = _df.groupby('shift').agg('median')
     args = dict(alpha=1, c='red', lw=1, marker='None', zorder=98)
     ax1.plot(_df.index, _df['cov'], label='median', **args)
@@ -301,3 +272,5 @@ def cov_collection(indir, outdir):
     outpath = outdir / outfile
     fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                 transparent=True, dpi=150)
+
+    return _df

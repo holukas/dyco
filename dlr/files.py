@@ -2,6 +2,7 @@ import datetime as dt
 import fnmatch
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -182,7 +183,7 @@ def read_segments_file(filepath):
     return found_lags_df
 
 
-def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
+def read_raw_data(filepath, data_timestamp_format):
     header_rows_list = [0]
     skip_rows_list = []
     header_section_rows = [0]
@@ -206,7 +207,16 @@ def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
                               more_data_cols_than_header_cols=more_data_cols_than_header_cols,
                               num_missing_header_cols=num_missing_header_cols)
 
-    import time
+    if data_timestamp_format:
+        parse = lambda x: dt.datetime.strptime(x, data_timestamp_format)
+        date_parser = parse
+        parse_dates = True
+        index_col = 0
+    else:
+        date_parser = None
+        parse_dates = False
+        index_col = None
+
     start_time = time.time()
     data_df = pd.read_csv(filepath,
                           skiprows=header_section_rows,
@@ -217,50 +227,31 @@ def read_raw_data(filepath, nrows, df_start_dt, file_info_row):
                           delimiter=',',
                           mangle_dupe_cols=True,
                           keep_date_col=False,
-                          parse_dates=False,
-                          date_parser=None,
-                          index_col=None,
+                          parse_dates=parse_dates,
+                          date_parser=date_parser,
+                          index_col=index_col,
                           dtype=None,
                           engine='c',
-                          nrows=nrows)
+                          nrows=None)
     print(f"Reading file took {time.time() - start_time}s")
 
     return data_df
 
 
-def insert_datetime_index(df, file_info_row, data_nominal_res):
-    """Insert true timestamp based on number of records in the file and the
-    file duration.
-
-    Files measured at a given time resolution may still produce
-    more or less than the expected number of records.
-
-    For example, a six-hour file with data recorded at 20Hz is expected to have
-    432 000 records, but may in reality produce slightly more or less than that
-    due to small inaccuracies in the measurements instrument's internal clock.
-    This in turn would mean that the defined time resolution of 20Hz is not
-    completely accurate with the true frequency being slightly higher or lower.
-
-    This causes a (minor) issue when merging mutliple data files due to overlapping
-    record timestamps, i.e. the last timestamp in file #1 is the same as the first
-    timestamp in file #2, resulting in duplicate entries in the timestamp index column
-    during merging of files #1 and #2.
-
-    In addition, sometimes more than one timestamp can overlap, resulting in more
-    overlapping timestamps and therefore more data loss. Although this data loss is
-    minor (e.g. 3 records per 432 000 records), missing records are not desirable when
-    calculating covariances between times series. The time series must be as complete
-    and without missing records as possible to avoid errors.
-    """
-    num_records = len(df)
-    ratio = num_records / file_info_row['expected_records']
+def calc_true_resolution(num_records, data_nominal_res, expected_records, expected_duration):
+    ratio = num_records / expected_records
     if (ratio > 0.999) and (ratio < 1.001):
         file_complete = True
-        true_resolution = np.float64(file_info_row['expected_duration'] / num_records)
+        true_resolution = np.float64(expected_duration / num_records)
     else:
         file_complete = False
         true_resolution = data_nominal_res
+    return true_resolution
 
+
+def insert_timestamp(df, file_info_row, num_records, data_nominal_res, expected_records, expected_duration):
+    true_resolution = calc_true_resolution(num_records=num_records, data_nominal_res=data_nominal_res,
+                                           expected_records=expected_records, expected_duration=expected_duration)
     df['sec'] = df.index * true_resolution
     df['file_start_dt'] = file_info_row['start']
     df['TIMESTAMP'] = pd.to_datetime(df['file_start_dt']) \
@@ -268,7 +259,7 @@ def insert_datetime_index(df, file_info_row, data_nominal_res):
     df.drop(['sec', 'file_start_dt'], axis=1, inplace=True)
     df.set_index('TIMESTAMP', inplace=True)
 
-    return df, true_resolution
+    return df
 
 
 def add_data_stats(df, true_resolution, filename, files_overview_df, found_records):
@@ -295,10 +286,6 @@ def generate_missing_cols(header_cols_df, more_data_cols_than_header_cols, num_m
             generated_missing_header_cols_list.append(missing_col)
             header_cols_list.append(missing_col)
     return header_cols_list
-
-
-def detect_dates():
-    pass
 
 
 def length_data_cols(filepath, header_rows_list, skip_rows_list):
