@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.signal import find_peaks
-import files
-import matplotlib.pyplot as plt
+
 import plot
 
 
@@ -32,7 +31,9 @@ class LagSearch:
     def setup_lagsearch_df(self):
         df = pd.DataFrame(columns=['index', 'segment_name', 'shift', 'cov', 'cov_abs',
                                    'flag_peak_max_cov_abs', 'flag_peak_auto'])
-        df['shift'] = range(self.win_lagsearch[0], self.win_lagsearch[1] + self.shift_stepsize, self.shift_stepsize)
+        df['shift'] = range(int(self.win_lagsearch[0]),
+                            int(self.win_lagsearch[1]) + self.shift_stepsize,
+                            self.shift_stepsize)
         df['index'] = np.nan
         df['segment_name'] = self.segment_name
         df['cov'] = np.nan
@@ -434,86 +435,3 @@ class AdjustLagsearchWindow():
         # gui.plotfuncs.default_grid(ax=ax)
 
         return None
-
-    # import matplotlib.pyplot as plt
-    #
-    # plt.subplot()
-    # plt.plot(peaks, count[peaks], "ob")
-    # plt.plot(count)
-    # plt.legend(['prominence'])
-    # plt.show()
-
-    # peaks, _ = find_peaks(x, distance=20)
-    # peaks2, _ = find_peaks(x, prominence=1)  # BEST!
-    # peaks3, _ = find_peaks(x, width=20)
-    # peaks4, _ = find_peaks(x,
-    #                        threshold=0.4)  # Required vertical distance to its direct neighbouring samples, pretty useless
-    # plt.subplot(2, 2, 1)
-    # plt.plot(peaks, x[peaks], "xr")
-    # plt.plot(x)
-    # plt.legend(['distance'])
-    #
-    # plt.subplot(2, 2, 2)
-    # plt.plot(peaks2, x[peaks2], "ob")
-    # plt.plot(x)
-    # plt.legend(['prominence'])
-    #
-    # plt.subplot(2, 2, 3)
-    # plt.plot(peaks3, x[peaks3], "vg")
-    # plt.plot(x)
-    # plt.legend(['width'])
-    # plt.subplot(2, 2, 4)
-    # plt.plot(peaks4, x[peaks4], "xk")
-    # plt.plot(x)
-    # plt.legend(['threshold'])
-
-    # return counts, divisions, peak_idx, props
-
-
-def calc_quantiles(df):
-    _df = df.copy()
-    args = dict(window=72, min_periods=37, center=True)
-    _df['shift_median'] = _df['cov_max_shift'].rolling(**args).median()
-    _df['search_win_upper'] = _df['shift_median'] + 100
-    _df['search_win_lower'] = _df['shift_median'] - 100
-    _df['shift_P25'] = _df['cov_max_shift'].rolling(**args).quantile(0.25)
-    _df['shift_P75'] = _df['cov_max_shift'].rolling(**args).quantile(0.75)
-
-    return _df
-
-
-def search_settings(win_lagsearch):
-    """
-    Set step size of shift during lag search and calculate number of
-    histogram bins.
-
-    Parameters
-    ----------
-    win_lagsearch: list
-        Contains start record for lag search in [0] and end record
-        in [1], e.g. [-1000, 1000] searches between records -1000 and
-        +1000.
-
-
-    Returns
-    -------
-    shift_stepsize: int
-        Step-size (number of records) for lag search.
-    hist_num_bins: range
-        Bin range for the histogram of found lag times. The histogram
-        is used to narrow down win_lagsearch.
-
-    Examples
-    --------
-    >> shift_stepsize, hist_num_bins = lagsearch_settings(win_lagsearch=-1000, 1000])
-    >> print(shift_stepsize)
-    10
-    >> print(hist_num_bins)
-    range(-1000, 1000, 50)
-
-    """
-    shift_stepsize = int(np.sum(np.abs(win_lagsearch)) / 100 / 2)
-    hist_num_bins = range(win_lagsearch[0], win_lagsearch[1], int(shift_stepsize * 5))
-    return shift_stepsize, hist_num_bins
-
-

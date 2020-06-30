@@ -36,7 +36,7 @@ lgs_lagsig = 'co2_ppb_qcl_turb'  # Lagged signal
 lgs_hist_perc_thres = 0.9  # Percentage threshold in histogram of found lag times
 lgs_hist_remove_fringe_bins = True  # Remove fringe bins in histogram of found lag times
 lgs_winsize = 1000  # Window size +/-, given as number of records
-lgs_num_iter = 5  # Number of iterations
+lgs_num_iter = 2  # Number of iterations
 
 # Data records
 # Set to False if not in data, uses the available timestamp, otherwise
@@ -44,7 +44,7 @@ lgs_num_iter = 5  # Number of iterations
 dat_recs_timestamp_format = '%Y-%m-%d %H:%M:%S.%f'  # Timestamp format for each row record
 dat_recs_nominal_timeres = 0.05  # Nominal (expected) time resolution, one record every x seconds
 
-del_previous_results = False
+del_previous_results = True
 # del_previous_results = True  # Danger zone! True deletes all output in output folder
 
 dlr(dir_root=Path(os.path.dirname(os.path.abspath(__file__))),
