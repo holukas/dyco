@@ -1,15 +1,8 @@
 import datetime as dt
-import fnmatch
-import os
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-
-
 
 
 def read_segments_file(filepath):
@@ -183,6 +176,3 @@ def data_vs_header(num_data_cols, num_header_cols):
         more_data_cols_than_header_cols = False
         num_missing_header_cols = 0
     return more_data_cols_than_header_cols, num_missing_header_cols
-
-
-

@@ -9,7 +9,8 @@ from matplotlib.collections import LineCollection
 import files
 
 
-def timeseries_segment_lagtimes(df, outdir, iteration, show_all=False):
+def timeseries_segment_lagtimes(df, outdir, iteration, show_all=False, overlay_default=False,
+                                overlay_default_df=None, overlay_target_val=False):
     _df = df.copy()
     if not show_all:
         _df = _df.loc[_df['iteration'] == iteration, :]
@@ -21,15 +22,15 @@ def timeseries_segment_lagtimes(df, outdir, iteration, show_all=False):
 
     gs, fig, ax = setup_fig_ax()
 
-    cmap = plt.cm.get_cmap('RdBu_r', iteration)
+    cmap = plt.cm.get_cmap('Spectral', iteration)
     colors = cmap(np.linspace(0, 1, iteration))
 
-    alpha = 0.5
+    alpha = 0.4
     iteration_grouped = _df.groupby('iteration')
     for idx, group_df in iteration_grouped:
-        # alpha+=0.1
         ax.plot_date(pd.to_datetime(group_df['start']), group_df['shift_peak_cov_abs_max'],
-                     alpha=alpha, marker='o', ms=6, color=colors[int(idx - 1)], lw=1, ls='-')
+                     alpha=alpha, marker='o', ms=6, color=colors[int(idx - 1)], lw=1, ls='-',
+                     label=f'iteration {int(idx)}')
 
     default_format(ax=ax, label_color='black', fontsize=12,
                    txt_xlabel='segment', txt_ylabel='found lag time', txt_ylabel_units='[records]')
@@ -38,6 +39,23 @@ def timeseries_segment_lagtimes(df, outdir, iteration, show_all=False):
             horizontalalignment='left', verticalalignment='top',
             transform=ax.transAxes,
             size=12, color='black', backgroundcolor='none', zorder=100)
+
+    if overlay_default:
+        if not overlay_default_df.empty:
+            ax.plot_date(overlay_default_df.index, overlay_default_df['median'], alpha=1,
+                         marker='s', ms=12, color='black', lw=3, ls='-',
+                         label='3-day median lag time (centered)\nfrom high-quality covariance peaks')
+        else:
+            ax.text(0.5, 0.5, "No high-quality lags found, lag normalization failed",
+                    horizontalalignment='center', verticalalignment='center',
+                    transform=ax.transAxes,
+                    size=20, color='white', backgroundcolor='red', zorder=100)
+
+    if overlay_target_val:
+        ax.hline(0, color='black', ls='--', label='target: normalized default lag')
+
+    ax.legend(frameon=True, loc='upper right').set_zorder(100)
+
 
     outpath = outdir / outfile
     print(f"Saving time series of found segment lag times in {outpath} ...")

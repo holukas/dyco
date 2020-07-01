@@ -17,8 +17,10 @@ from dlr import DynamicLagRemover as dlr
 # hist_perc_threshold = 0.9  # Include bins to both sides of peak bin until x% of total counts is reached
 
 # Directories for input/output
-dir_input_ext = Path(r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\FISP_output\splits')  # Can be False
-dir_output_ext = Path(r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\output')  # Can be False
+dir_input_ext = Path(
+    r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\JOSS paper\1_FISP_output\splits')  # Can be False
+dir_output_ext = Path(
+    r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\JOSS paper\2_DLR_output')  # Can be False
 dir_input = 'input'
 dir_output = 'output'
 
@@ -33,10 +35,13 @@ file_duration = '30T'  # Duration of one data file
 lgs_segment_dur = '30T'  # Segment duration, e.g. calc lag for 10min segments
 lgs_refsig = 'w_ms-1_rot_turb'  # Reference signal
 lgs_lagsig = 'co2_ppb_qcl_turb'  # Lagged signal
-lgs_hist_perc_thres = 0.9  # Percentage threshold in histogram of found lag times
+lgs_hist_perc_thres = 0.9  # Cumulative percentage threshold in histogram of found lag times, expand bins around peak
 lgs_hist_remove_fringe_bins = True  # Remove fringe bins in histogram of found lag times
 lgs_winsize = 1000  # Window size +/-, given as number of records
-lgs_num_iter = 2  # Number of iterations
+lgs_num_iter = 5  # Number of iterations
+
+lag_target = -100  # Set all files to target lag
+normalize_lag_for_cols= ['co2_ppb_qcl_turb', 'n2o_ppb_qcl', 'co2_ppb_qcl', 'h2o_ppb_qcl', 'ch4_ppb_qcl']
 
 # Data records
 # Set to False if not in data, uses the available timestamp, otherwise
@@ -44,8 +49,17 @@ lgs_num_iter = 2  # Number of iterations
 dat_recs_timestamp_format = '%Y-%m-%d %H:%M:%S.%f'  # Timestamp format for each row record
 dat_recs_nominal_timeres = 0.05  # Nominal (expected) time resolution, one record every x seconds
 
-del_previous_results = True
+del_previous_results = False
 # del_previous_results = True  # Danger zone! True deletes all output in output folder
+
+# # TEST DLR FILES (files w/ normalized lag times)
+# dir_input_ext = Path(
+#     r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\JOSS paper\2_DLR_output\3-1_____Normalized_Files')  # Can be False
+# dir_output_ext = Path(
+#     r'A:\FLUXES\CH-DAV\ms - CH-DAV - non-CO2\tests_dynamic_lag\JOSS paper\3_DLR_output_test')  # Can be False
+# lgs_lagsig = 'co2_ppb_qcl_turb_DLR'  # Lagged signal
+# fnm_date_format = '%Y%m%d%H%M%S_DLR'  # Date format in filename
+
 
 dlr(dir_root=Path(os.path.dirname(os.path.abspath(__file__))),
     dir_input=dir_input,
@@ -66,4 +80,6 @@ dlr(dir_root=Path(os.path.dirname(os.path.abspath(__file__))),
     lgs_refsig=lgs_refsig,
     lgs_lagsig=lgs_lagsig,
     lgs_segment_dur=lgs_segment_dur,
-    del_previous_results=del_previous_results)
+    del_previous_results=del_previous_results,
+    lag_target=lag_target,
+    normalize_lag_for_cols=normalize_lag_for_cols)

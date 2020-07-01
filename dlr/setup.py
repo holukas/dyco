@@ -62,7 +62,8 @@ class Setup:
             '2-0_Segment_Lag_Times',
             '2-1_____Histograms',
             '2-2_____Timeseries',
-            '3-0_XXX']
+            '3-0_DLR_Lookup_Table_Normalization',
+            '3-1_____Normalized_Files']
         return new_dirs
 
     def setup_output_dirs(self):

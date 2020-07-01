@@ -2,12 +2,14 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/dlr/loop.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/dlr/setup.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/dlr/analyze.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/dlr/correction.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dlr/dlr.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/dlr.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dlr/files.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/files.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dlr/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/lag.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/loop.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/plot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlr/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlr/setup.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/example/example.py" beforeDir="false" afterPath="$PROJECT_DIR$/example/example.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -260,6 +262,8 @@
       <workItem from="1593466737806" duration="1271000" />
       <workItem from="1593468147560" duration="6400000" />
       <workItem from="1593507185415" duration="1483000" />
+      <workItem from="1593510667162" duration="16016000" />
+      <workItem from="1593594009291" duration="23235000" />
     </task>
     <servers />
   </component>
@@ -271,6 +275,10 @@
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
     <state x="1166" y="563" width="697" height="546" key="#Notifications/0.0.2560.1400@0.0.2560.1400" timestamp="1591862875338" />
+    <state x="512" y="0" key="#com.intellij.refactoring.rename.AutomaticRenamingDialog" timestamp="1593520151263">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="512" y="0" key="#com.intellij.refactoring.rename.AutomaticRenamingDialog/0.0.2560.1400@0.0.2560.1400" timestamp="1593520151263" />
     <state x="1036" y="401" key="#xdebugger.evaluate" timestamp="1593431636656">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
@@ -279,38 +287,38 @@
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
     <state x="1061" y="455" key="FileChooserDialogImpl/0.0.2560.1400@0.0.2560.1400" timestamp="1592474684081" />
-    <state width="2517" height="386" key="GridCell.Tab.0.bottom" timestamp="1593508680226">
+    <state width="2517" height="386" key="GridCell.Tab.0.bottom" timestamp="1593637387979">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="386" key="GridCell.Tab.0.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1593508680226" />
-    <state width="2517" height="386" key="GridCell.Tab.0.center" timestamp="1593508680225">
+    <state width="2517" height="386" key="GridCell.Tab.0.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1593637387979" />
+    <state width="2517" height="386" key="GridCell.Tab.0.center" timestamp="1593637387979">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="386" key="GridCell.Tab.0.center/0.0.2560.1400@0.0.2560.1400" timestamp="1593508680225" />
-    <state width="2517" height="386" key="GridCell.Tab.0.left" timestamp="1593508680225">
+    <state width="2517" height="386" key="GridCell.Tab.0.center/0.0.2560.1400@0.0.2560.1400" timestamp="1593637387979" />
+    <state width="2517" height="386" key="GridCell.Tab.0.left" timestamp="1593637387979">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="386" key="GridCell.Tab.0.left/0.0.2560.1400@0.0.2560.1400" timestamp="1593508680225" />
-    <state width="2517" height="386" key="GridCell.Tab.0.right" timestamp="1593508680226">
+    <state width="2517" height="386" key="GridCell.Tab.0.left/0.0.2560.1400@0.0.2560.1400" timestamp="1593637387979" />
+    <state width="2517" height="386" key="GridCell.Tab.0.right" timestamp="1593637387979">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="386" key="GridCell.Tab.0.right/0.0.2560.1400@0.0.2560.1400" timestamp="1593508680226" />
-    <state width="2517" height="480" key="GridCell.Tab.1.bottom" timestamp="1593508660349">
+    <state width="2517" height="386" key="GridCell.Tab.0.right/0.0.2560.1400@0.0.2560.1400" timestamp="1593637387979" />
+    <state width="2517" height="480" key="GridCell.Tab.1.bottom" timestamp="1593636871258">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1593508660349" />
-    <state width="2517" height="480" key="GridCell.Tab.1.center" timestamp="1593508660349">
+    <state width="2517" height="480" key="GridCell.Tab.1.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1593636871258" />
+    <state width="2517" height="480" key="GridCell.Tab.1.center" timestamp="1593636871258">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.center/0.0.2560.1400@0.0.2560.1400" timestamp="1593508660349" />
-    <state width="2517" height="480" key="GridCell.Tab.1.left" timestamp="1593508660349">
+    <state width="2517" height="480" key="GridCell.Tab.1.center/0.0.2560.1400@0.0.2560.1400" timestamp="1593636871258" />
+    <state width="2517" height="480" key="GridCell.Tab.1.left" timestamp="1593636871258">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.left/0.0.2560.1400@0.0.2560.1400" timestamp="1593508660349" />
-    <state width="2517" height="480" key="GridCell.Tab.1.right" timestamp="1593508660349">
+    <state width="2517" height="480" key="GridCell.Tab.1.left/0.0.2560.1400@0.0.2560.1400" timestamp="1593636871258" />
+    <state width="2517" height="480" key="GridCell.Tab.1.right" timestamp="1593636871258">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.right/0.0.2560.1400@0.0.2560.1400" timestamp="1593508660349" />
+    <state width="2517" height="480" key="GridCell.Tab.1.right/0.0.2560.1400@0.0.2560.1400" timestamp="1593636871258" />
     <state x="333" y="160" width="1723" height="1132" key="SettingsEditor" timestamp="1591909148733">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
@@ -323,10 +331,10 @@
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
     <state x="1090" y="614" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.0.2560.1400@0.0.2560.1400" timestamp="1591492022651" />
-    <state x="521" y="253" width="1453" height="997" key="find.popup" timestamp="1593508527715">
+    <state x="521" y="253" width="1453" height="997" key="find.popup" timestamp="1593616535484">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state x="521" y="253" width="1453" height="997" key="find.popup/0.0.2560.1400@0.0.2560.1400" timestamp="1593508527715" />
+    <state x="521" y="253" width="1453" height="997" key="find.popup/0.0.2560.1400@0.0.2560.1400" timestamp="1593616535484" />
     <state x="1134" y="549" key="refactoring.ChangeSignatureDialog" timestamp="1592306854404">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
@@ -340,9 +348,19 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/dlr/dlr.py</url>
-          <line>142</line>
-          <option name="timeStamp" value="13" />
+          <url>file://$PROJECT_DIR$/dlr/correction.py</url>
+          <line>39</line>
+          <option name="timeStamp" value="38" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/dlr/analyze.py</url>
+          <line>96</line>
+          <option name="timeStamp" value="39" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/dlr/analyze.py</url>
+          <line>15</line>
+          <option name="timeStamp" value="41" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -361,6 +379,6 @@
     <SUITE FILE_PATH="coverage/LagRemover_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587171664690" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$_dash_test.coverage" NAME="_dash_test Coverage Results" MODIFIED="1590708644986" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
     <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587685015226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$example.coverage" NAME="example Coverage Results" MODIFIED="1593508631623" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$example.coverage" NAME="example Coverage Results" MODIFIED="1593637294299" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
   </component>
 </project>

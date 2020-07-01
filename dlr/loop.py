@@ -345,36 +345,50 @@ class Loop:
 
 
 class PlotLoopResults:
-    def __init__(self, outdirs, lgs_num_iter, lgs_hist_perc_thres):
+    def __init__(self, outdirs, lgs_num_iter, lgs_hist_perc_thres,
+                 plot_cov_collection=True, plot_hist=True, plot_timeseries_segment_lagtimes=True):
         self.outdirs = outdirs
         self.lgs_num_iter = lgs_num_iter
         self.lgs_hist_perc_thres = lgs_hist_perc_thres
+        self.plot_cov_collection = plot_cov_collection
+        self.plot_hist = plot_hist
+        self.plot_timeseries_segment_lagtimes = plot_timeseries_segment_lagtimes
 
     def run(self):
-        # Plot covariances from lag search for each segment in one plot
-        plot.cov_collection(indir=self.outdirs['1-0_Covariances'],
-                            outdir=self.outdirs['1-1_____Plots'])
+        # Covariance collection
+        if self.plot_cov_collection:
+            # Plot covariances from lag search for each segment in one plot
+            plot.cov_collection(indir=self.outdirs['1-0_Covariances'],
+                                outdir=self.outdirs['1-1_____Plots'])
 
-        # Read found lag time results from very last iteration
-        segment_lagtimes_df = files.read_segments_file(
-            filepath=self.outdirs['2-0_Segment_Lag_Times']
-                     / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
+        # Histogram
+        if self.plot_hist:
+            # Read found lag time results from very last iteration
+            segment_lagtimes_df = files.read_segments_file(
+                filepath=self.outdirs['2-0_Segment_Lag_Times']
+                         / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
 
-        # Set search window for lag, depending on iteration
-        hist_series = Loop.filter_series(filter_col='iteration', filter_equal_to=self.lgs_num_iter,
-                                         df=segment_lagtimes_df, series_col='shift_peak_cov_abs_max')
-        last_win_lagsearch = [int(segment_lagtimes_df.iloc[-1]['lagsearch_start']),
-                              int(segment_lagtimes_df.iloc[-1]['lagsearch_end'])]
-        _, hist_num_bins = Loop.search_settings(win_lagsearch=last_win_lagsearch)
-        _ = lag.AdjustLagsearchWindow(series=hist_series,
-                                      outdir=self.outdirs['2-1_____Histograms'],
-                                      iteration=self.lgs_num_iter,
-                                      plot=True,
-                                      hist_num_bins=hist_num_bins,
-                                      remove_fringe_bins=False,
-                                      perc_threshold=self.lgs_hist_perc_thres).get()
+            # Set search window for lag, depending on iteration
+            hist_series = Loop.filter_series(filter_col='iteration', filter_equal_to=self.lgs_num_iter,
+                                             df=segment_lagtimes_df, series_col='shift_peak_cov_abs_max')
+            last_win_lagsearch = [int(segment_lagtimes_df.iloc[-1]['lagsearch_start']),
+                                  int(segment_lagtimes_df.iloc[-1]['lagsearch_end'])]
+            _, hist_num_bins = Loop.search_settings(win_lagsearch=last_win_lagsearch)
+            _ = lag.AdjustLagsearchWindow(series=hist_series,
+                                          outdir=self.outdirs['2-1_____Histograms'],
+                                          iteration=self.lgs_num_iter,
+                                          plot=True,
+                                          hist_num_bins=hist_num_bins,
+                                          remove_fringe_bins=False,
+                                          perc_threshold=self.lgs_hist_perc_thres).get()
 
-        plot.timeseries_segment_lagtimes(df=segment_lagtimes_df,
-                                         outdir=self.outdirs['2-2_____Timeseries'],
-                                         iteration=self.lgs_num_iter,
-                                         show_all=True)
+        # Timeseries of lag times
+        if self.plot_timeseries_segment_lagtimes:
+            # Read found lag time results from very last iteration
+            segment_lagtimes_df = files.read_segments_file(
+                filepath=self.outdirs['2-0_Segment_Lag_Times']
+                         / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
+            plot.timeseries_segment_lagtimes(df=segment_lagtimes_df,
+                                             outdir=self.outdirs['2-2_____Timeseries'],
+                                             iteration=self.lgs_num_iter,
+                                             show_all=True)

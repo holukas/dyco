@@ -13,16 +13,15 @@ Step (1)
 FilesDetector (files.FilesDetector)
 
 """
-
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
+
+import loop
+from analyze import AnalyzeLoopResults
+from correction import NormalizeLags
+from setup import Setup
 
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
-
-import files
-import loop
 
 
 class DynamicLagRemover:
@@ -47,7 +46,9 @@ class DynamicLagRemover:
                  dir_input_ext=False,
                  dir_output_ext=False,
                  dir_input='input',
-                 dir_output='output'):
+                 dir_output='output',
+                 lag_target=-100,
+                 normalize_lag_for_cols=None):
 
         # Input and output directories
         self.dir_root = dir_root
@@ -76,13 +77,15 @@ class DynamicLagRemover:
         self.lgs_hist_remove_fringe_bins = lgs_hist_remove_fringe_bins
         self.lgs_hist_perc_thres = lgs_hist_perc_thres
 
+        self.lag_target = lag_target
+        self.normalize_lag_for_cols = normalize_lag_for_cols
+
         self.run()
 
     def run(self):
 
         # SETUP
         # =====
-        from setup import Setup
         setup = Setup(outdir=self.dir_output,
                       del_previous_results=self.del_previous_results,
                       dir_input=self.dir_input,
@@ -118,125 +121,22 @@ class DynamicLagRemover:
                                           lgs_num_iter=self.lgs_num_iter,
                                           lgs_hist_perc_thres=self.lgs_hist_perc_thres)
         loop_plots.run()
-        # XXX = loop.get() todo
 
         # ANALYZE RESULTS
         # ===============
-        self.generate_lut_default_lag_times()
+        analyze = AnalyzeLoopResults(lgs_num_iter=self.lgs_num_iter,
+                                     outdirs=self.outdirs,
+                                     lag_target=self.lag_target)
+        analyze.run()
+        # lut_default_lag_times_df = analyze.get()
 
-    def generate_lut_default_lag_times(self):
-        """Analyse found lag times from last iteration."""
-
-        # Load results from last iteration
-        last_iteration = self.lgs_num_iter
-        filepath_last_iteration = self.outdirs['2-0_Segment_Lag_Times'] \
-                                  / f'{last_iteration}_segments_found_lag_times_after_iteration-{last_iteration}.csv'
-        results_last_iteration_df = self.filter_dataframe(filter_col='iteration',
-                                                          filter_equal_to=last_iteration,
-                                                          df=files.read_segments_file(filepath=filepath_last_iteration))
-
-        # High-quality covariance peaks
-        peaks_hq_S = self.get_hq_peaks(df=results_last_iteration_df)
-
-        lut_df = self.make_lut(series=peaks_hq_S)
-
-        lut_df['median'].plot()
-        plt.show()
-
-        # counts, divisions = lag.AdjustLagsearchWindow.calc_hist(series=peaks_hq_S,
-        #                                                         bins=20,
-        #                                                         remove_fringe_bins=False)
-
-        # {start}  {end}:
-        # print(f"Max bin b/w {divisions[np.argmax(counts)]} and {divisions[np.argmax(counts) + 1]}    "
-
-        # quantiles_df = lag.calc_quantiles(df=_df).copy()
-        # plot.results(df=quantiles_df)
-
-    def get_hq_peaks(self, df):
-        """
-        Detect high-quality covariance peaks in results from last lag search iteration
-
-        High-quality means that during the covariance calculations the max covariance
-        peak and the automatically detected peak yielded the same results, i.e. the
-        same record.
-
-        Parameters
-        ----------
-        df: pandas DataFrame containing results from the last lag search iteration
-
-        Returns
-        -------
-        pandas Series of high-quality lag times, given as number of records
-
-        """
-        df.set_index('start', inplace=True)
-        df.index = pd.to_datetime(df.index)
-        peaks_hq_S = df.loc[df['shift_peak_cov_abs_max'] == df['shift_peak_auto'],
-                            'shift_peak_cov_abs_max']
-        peaks_hq_S.index = peaks_hq_S.index.to_pydatetime()  # Convert to DatetimeIndex
-        return peaks_hq_S
-
-    def make_lut(self, series):
-        """
-        Generate look-up table that contains the default lag time for each day
-
-        Default lag times are determined by
-            (1) pooling data of the current day with data of the day before and
-                the day after,
-            (2) calculating the median of the pooled data.
-
-        Parameters
-        ----------
-        series: pandas Series containing high-quality lag times
-
-        Returns
-        -------
-        pandas DataFrame with default lag times for each day
-
-        """
-        lut_df = pd.DataFrame()
-        unique_dates = np.unique(series.index.date)
-        for this_date in unique_dates:
-            from_date = this_date - pd.Timedelta('1D')
-            to_date = this_date + pd.Timedelta('1D')
-            filter_around_this_day = (series.index.date > from_date) & \
-                                     (series.index.date <= to_date)
-            subset = series[filter_around_this_day]
-            num_vals = len(subset)
-            print(f"{this_date}    {num_vals}    {subset.median()}")
-            lut_df.loc[this_date, 'median'] = subset.median()
-            lut_df.loc[this_date, 'counts'] = subset.count()
-            lut_df.loc[this_date, 'from'] = from_date
-            lut_df.loc[this_date, 'to'] = to_date
-
-        lut_df['correction'] = -100 - lut_df['median']
-        return lut_df
-
-    def find_default(self, df):
-        plot_df = df[['cov_max_shift']].copy()
-
-        for b in range(1, 4, 1):
-            bins = 2
-            plot_df['group'] = pd.cut(plot_df['cov_max_shift'],
-                                      bins=bins, retbins=False,
-                                      duplicates='drop', labels=False)
-            plot_df_agg = plot_df.groupby('group').agg(['count', 'min', 'max'])
-            idxmax = plot_df_agg['cov_max_shift']['count'].idxmax()  # Most counts
-            group_max = plot_df_agg.iloc[idxmax].name
-
-            plot_df_agg['count_maxperc'] = \
-                plot_df_agg['cov_max_shift']['count'] / plot_df_agg['cov_max_shift']['count'].sum()
-            # plot_df_agg['cov_max_shift']['count'] / plot_df_agg.iloc[idxmax]['cov_max_shift']['count']
-
-            plot_df = plot_df.loc[plot_df['group'] == group_max]
-
-        median = plot_df['cov_max_shift'].median()
-        _min = plot_df['cov_max_shift'].min()
-        _max = plot_df['cov_max_shift'].max()
-
-        print(plot_df)
-        print(f"{median}  {_min}  {_max}")
+        # NORMALIZE LAGS
+        # ==============
+        if analyze.lut_success:
+            normalize_lags = NormalizeLags(files_overview_df=self.files_overview_df,
+                                           dat_recs_timestamp_format=self.dat_recs_timestamp_format,
+                                           outdirs=self.outdirs,
+                                           normalize_lag_for_cols=self.normalize_lag_for_cols)
 
     def check_if_file_exists(self, file_idx, filepath):
         print(f"\n-------------------\n{file_idx}")
@@ -257,11 +157,6 @@ class DynamicLagRemover:
             file_exists = False
 
         return file_exists
-
-    def filter_dataframe(self, filter_col, filter_equal_to, df):
-        filter_this_iteration = df[filter_col] == filter_equal_to
-        df_filtered = df.loc[filter_this_iteration, :]
-        return df_filtered
 
     def collect_file_data(self, data_df, file_idx, data_collection_df):
         if file_idx == self.files_overview_df.index[0]:
