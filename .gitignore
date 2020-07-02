@@ -1,7 +1,7 @@
 # Custom
 _archive/
 _raw_photoshop/
-example/
+examples/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -118,5 +118,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-/dlr/_dash_test.py
+/dyla/_dash_test.py
 /first_figure.html

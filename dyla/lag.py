@@ -351,7 +351,7 @@ class AdjustLagsearchWindow():
         peaks are considered and all bins before and after each detected peak are
         included to calculate the adjusted start and end indices.
 
-        For example:
+        For examples:
             Three peaks were with max count were found in the histogram. The peaks
             were found in bins 5, 9 and 14:
                 peak_max_count_index = [5,9,14]

@@ -4,6 +4,7 @@ DYNAMIC LAG REMOVER - DLR
 -------------------------
 A Python package to detect and compensate for shifting lag times in ecosystem time series
 
+LARE
 
 
 File:       Data file
@@ -18,14 +19,16 @@ import pandas as pd
 import loop
 from analyze import AnalyzeLoopResults
 from correction import NormalizeLags
-from setup import Setup
+from dlr_setup import Setup
 
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
 
 
 class DynamicLagRemover:
-    # Dataframes for results collection
+    """
+    DLR - Dynamic lag remover
+    """
 
     files_overview_df = pd.DataFrame()
 
@@ -49,6 +52,151 @@ class DynamicLagRemover:
                  dir_output='output',
                  lag_target=-100,
                  normalize_lag_for_cols=None):
+        """
+
+        Parameters
+        ----------
+        lgs_refsig: str
+            Column name of the reference signal in the data. Lags are
+            determined in relation to this signal.
+
+        lgs_lagsig: str
+            Column name of the lagged signal  for which the lag time in
+            relation to the reference signal is determined.
+
+        dir_root todo
+
+        fnm_date_format: str
+            Date format in data filenames.
+
+        del_previous_results: bool
+            If True, delete all previous results in the current folder
+            settings.
+            If False, search for previously calculated results and
+            continue.
+
+        fnm_pattern: str, accepts regex
+            Filename pattern for file search.
+
+        dat_recs_timestamp_format: str
+            Timestamp format for each row record.
+
+        files_how_many: int
+            Limits number of found files that are be used.
+
+        file_generation_res: pandas DateOffset
+            Frequency at which new files were generated. This does not
+            relate to the data records but to the file creation time.
+            Examples:
+                * '30T' means a new file was generated every 30 minutes.
+                * '1H' means a new file was generated every hour.
+                * '6H' means a new file was generated every six hours.
+
+        file_duration: pandas DateOffset
+            Duration of one data file.
+            Example:
+                * '30T': data file contains data from 30 minutes.
+
+        lgs_segment_dur: pandas DateOffset
+            Segment duration for lag determination. If it is the same
+            as file_duration, the lag time for the complete file is
+            calculated from all file data. If it is shorter than
+            file_duration, then the file data is split into segments
+            and the lag time is calculated for each segment separately.
+            Examples:
+                * '10T': calculates lag times for 10-minute segments.
+                * With the settings
+                    file_duration = '30T' and
+                    lgs_segments_dur = '10T'
+                    the 30-minute data file is split into three 10-minute
+                    segments and the lag time is determined in each of the
+                    segments, yielding three lag times.
+
+        lgs_hist_perc_thres: float between 0 and 1 (percentage)
+            Cumulative percentage threshold in histogram of found lag times.
+            The time window for lag search during each iteration (i) is
+            narrowed down based on the histogram of all found lag times
+            from the previous iteration (i-1).
+
+            During each iteration and after lag times were determined for
+            all files and segments, a histogram of found lag times is created
+            to identify the histogram bin in which most lag times (most counts)
+            were found (peak bin). To narrow down the time window for lag search
+            during the next iteration (i+1), the bins around the peak bin are
+            included until a certain percentage of the total values is reached
+            over the expanded bin range, centered on the peak bin.
+
+            Example:
+                * 0.9: include all bins to each site of the peak bin until 90%
+                    of the total found lag times are included. The time window
+                    for the lag search during the next iteration (i+1) is
+                    determined by checking the left side (start) of the first
+                    included bin and the right side (end) of the last included
+                    bin.
+
+        lgs_hist_remove_fringe_bins: bool
+            Remove fringe bins in histogram of found lag times. In case of low
+            signal-to-noise ratios the lag search yields less clear results and
+            found lag times tend to accumulate in the fringe bins of the histogram,
+            i.e. in the very first and last bins, potentially creating non-desirable
+            peak bins. In other words, if True the first and last bins of the
+            histogram are removed before the time window for lag search is adjusted.
+
+        dat_recs_nominal_timeres: float
+            Nominal (expected) time resolution of data records.
+            Example:
+                * 0.05: one record every 0.05 seconds (20Hz)
+
+        lgs_winsize: int
+            Starting time window size for lag search +/-, given as number of records.
+            Example:
+                * 1000: Lag search during the first iteration is done in a time window
+                    from -1000 records to +1000 records.
+
+        lgs_num_iter: int
+            Number of lag search interations. Before each iteration, the time window
+            for the lag search is narrowed down, taking into account results from the
+            previous iteration. Exception is the first iteration for which the time
+            window as given in lgs_winsize is used.
+            Example:
+                * lgs_num_iter = 3: lag search in iteration 1 (i1) uses lgs_winsize
+                    to search for lag times, then the lag window is narrowed down using
+                    results from i1. The adjusted search window is the used in i2 to
+                    again search lag times for the same data. Likewise, i3 uses the
+                    adjusted search window based on results from i2.
+
+        dir_input_ext: str or Path or False
+            Source folder that contains the data files. If False, a folder named 'input'
+            is searched in the current working directory.
+
+        dir_output_ext: str or Path or False
+            Output folder for results. If False, a folder named 'output'
+            is created in the current working directory.
+
+        dir_input: str
+            Name of source folder that is used in the current working directory in
+            case dir_input_ext is set to False.
+
+        dir_output: str
+            Name of output folder that is created in the current working directory in
+            case dir_output_ext is set to False.
+
+        lag_target: int
+            The target lag given in records to which lag times of all files are
+            normalized.
+            Example:
+                * -100: The default lag time for all files is set to -100 records.
+                    This means that if a lag search is performed on these date, the
+                    lag time should be consistently be found around -100 records.
+
+        normalize_lag_for_cols: list of strings
+            Column names of the time series the normalized lag should be applied to.
+
+        Links
+        -----
+        * Overview of pandas DateOffsets:
+            https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
+        """
 
         # Input and output directories
         self.dir_root = dir_root
@@ -190,5 +338,5 @@ class DynamicLagRemover:
             dir_output = self.dir_root / dir_output
         return dir_input, dir_output
 
-# if __name__ == "__main__":
-#     DynamicLagRemover()
+if __name__ == "__main__":
+    DynamicLagRemover()

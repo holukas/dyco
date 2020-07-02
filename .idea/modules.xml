@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/DynamicLagRemover_DLR_INDEV.iml" filepath="$PROJECT_DIR$/.idea/DynamicLagRemover_DLR_INDEV.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/DYLA_Dynamic_Lag_Remover.iml" filepath="$PROJECT_DIR$/.idea/DYLA_Dynamic_Lag_Remover.iml" />
     </modules>
   </component>
 </project>

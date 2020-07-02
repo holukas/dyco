@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from dlr import DynamicLagRemover as dlr
+from dyla.dlr import DynamicLagRemover as dlr
 
 # # Default parameters
 # dir_input = 'input'

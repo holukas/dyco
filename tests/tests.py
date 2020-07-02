@@ -1,5 +1,5 @@
 import unittest
-from dlr import DynamicLagRemover as dlr
+from dyla import DynamicLagRemover as dlr
 import files
 
 class TestClass(unittest.TestCase):

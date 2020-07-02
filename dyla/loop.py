@@ -30,9 +30,6 @@ class Loop:
     def run(self):
         self.loop_files()
 
-    # def get(self): todo
-    #     return XXX
-
     def loop_files(self):
         """Loop through all found files."""
 
@@ -128,7 +125,7 @@ class Loop:
         """
         Loop through all data segments in each file.
 
-        For example, one six hour raw data file consists of twelve half-hour segments.
+        For examples, one six hour raw data file consists of twelve half-hour segments.
 
         Parameters
         ----------
