@@ -46,9 +46,9 @@ class Loop:
             segment_lagtimes_df = prev_results[0]
             self.lgs_winsize = prev_results[1]
 
-        force_min_stepsize = True if self.iteration == self.lgs_num_iter else False
+        # force_min_stepsize = True if self.iteration == self.lgs_num_iter else False
         shift_stepsize, hist_bin_range = self.lagsearch_settings(win_lagsearch=self.lgs_winsize,
-                                                                 force_min_stepsize=force_min_stepsize)
+                                                                 force_min_stepsize=False)
 
         num_files = self.files_overview_df['file_available'].sum()
         # data_collection_df = pd.DataFrame() # todo activate
@@ -399,13 +399,13 @@ class PlotLoopResults:
         self.logger = create_logger(logfile_path=logfile_path, name=__name__)
 
     def run(self):
-        # Covariance collection
-        if self.plot_cov_collection:
-            # Plot covariances from lag search for each segment in one plot
-            plot.cov_collection(indir=self.outdirs['1-0_Covariances'],
-                                outdir=self.outdirs['1-1_____Plots'],
-                                logfile_path=self.logfile_path)
-            # self.logger.info(f"Saved covariance collection plot in {outfile}")
+        # # Covariance collection
+        # if self.plot_cov_collection:
+        #     # Plot covariances from lag search for each segment in one plot
+        #     plot.cov_collection(indir=self.outdirs['1-0_Covariances'],
+        #                         outdir=self.outdirs['1-1_____Plots'],
+        #                         logfile_path=self.logfile_path)
+        #     # self.logger.info(f"Saved covariance collection plot in {outfile}")
 
         # Histogram
         if self.plot_hist:

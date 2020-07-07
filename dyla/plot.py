@@ -34,12 +34,12 @@ def timeseries_segment_lagtimes(df, outdir, iteration, show_all=False, overlay_d
                      label=f'iteration {int(idx)}')
 
     default_format(ax=ax, label_color='black', fontsize=12,
-                   txt_xlabel='segment', txt_ylabel='found lag time', txt_ylabel_units='[records]')
+                   txt_xlabel='segment date', txt_ylabel='lag', txt_ylabel_units='[records]')
 
     ax.text(0.02, 0.98, txt_info,
             horizontalalignment='left', verticalalignment='top',
-            transform=ax.transAxes,
-            size=12, color='black', backgroundcolor='none', zorder=100)
+            transform=ax.transAxes, size=14, color='black',
+            backgroundcolor='none', zorder=100)
 
     if overlay_default:
         if not overlay_default_df.empty:
@@ -127,97 +127,7 @@ def setup_fig_ax():
     return gs, fig, ax
 
 
-def make_scatter_cov(df, idx_peak_cov_abs_max, idx_peak_auto, iteration, win_lagsearch,
-                     segment_name, segment_start, segment_end, filename,
-                     file_idx, shift_stepsize, props_peak_auto):
-    """Make scatter plot with z-values as colors and display found max covariance."""
 
-    gs, fig, ax = setup_fig_ax()
-
-    # Time series of covariances per shift
-    x_shift = df.loc[:, 'shift']
-    y_cov = df.loc[:, 'cov']
-    z_cov_abs = df.loc[:, 'cov_abs']
-    ax.scatter(x_shift, y_cov, c=z_cov_abs,
-               alpha=0.9, edgecolors='none',
-               marker='o', s=24, cmap='coolwarm', zorder=98)
-
-    # z values as colors
-    # From: https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/multicolored_line.html
-    # Create a set of line segments so that we can color them individually
-    # This creates the points as a N x 1 x 2 array so that we can stack points
-    # together easily to get the segments. The segments array for line collection
-    # needs to be (numlines) x (points per line) x 2 (for x and y)
-    points = np.array([x_shift, y_cov]).T.reshape(-1, 1, 2)
-    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-    # Create a continuous norm to map from data points to colors
-    norm = plt.Normalize(z_cov_abs.min(), z_cov_abs.max())
-    lc = LineCollection(segments, cmap='coolwarm', norm=norm)
-    # Set the values used for colormapping
-    lc.set_array(z_cov_abs)
-    lc.set_linewidth(2)
-    line = ax.add_collection(lc)
-    cbar = fig.colorbar(line, ax=ax)
-    cbar.set_label('absolute covariance', rotation=90)
-
-    txt_info = \
-        f"Iteration: {iteration}\n" \
-        f"Time lag search window: from {win_lagsearch[0]} to {win_lagsearch[1]} records\n" \
-        f"Segment name: {segment_name}\n" \
-        f"Segment start: {segment_start}\n" \
-        f"Segment end: {segment_end}\n" \
-        f"File: {filename} - File date: {file_idx}\n" \
-        f"Lag search step size: {shift_stepsize} records\n"
-
-    # Mark max cov abs peak
-    if idx_peak_cov_abs_max:
-        ax.scatter(df.iloc[idx_peak_cov_abs_max]['shift'],
-                   df.iloc[idx_peak_cov_abs_max]['cov'],
-                   alpha=1, edgecolors='red', marker='o', s=72, c='red',
-                   label='maximum absolute covariance', zorder=99)
-
-        txt_info += \
-            f"\nFOUND PEAK MAX ABS COV\n" \
-            f"    cov {df.iloc[idx_peak_cov_abs_max]['cov']:.3f}\n" \
-            f"    record {df.iloc[idx_peak_cov_abs_max]['shift']}\n"
-
-    else:
-        txt_info += \
-            f"\n(!)NO PEAK MAX ABS COV FOUND\n"
-
-    # Mark auto-detected peak
-    if idx_peak_auto:
-        ax.scatter(df.iloc[idx_peak_auto]['shift'],
-                   df.iloc[idx_peak_auto]['cov'],
-                   alpha=1, edgecolors='black', marker='o', s=200, c='None',
-                   label='auto-detected peak', zorder=90)
-
-        txt_info += \
-            f"\nFOUND AUTO-PEAK\n" \
-            f"    cov {df.iloc[idx_peak_auto]['cov']:.3f}\n" \
-            f"    record {df.iloc[idx_peak_auto]['shift']}\n" \
-            f"    peak_score {props_peak_auto['peak_score']:.0f}\n" \
-            f"    peak_rank {props_peak_auto['peak_rank']:.0f}\n" \
-            f"    peak_height {props_peak_auto['peak_heights']:.0f}\n" \
-            f"    prominence {props_peak_auto['prominences']:.0f}\n" \
-            f"    width {props_peak_auto['widths']:.0f}\n" \
-            f"    width_height {props_peak_auto['width_heights']:.0f}\n"
-
-    else:
-        txt_info += \
-            f"\n(!)NO AUTO-PEAK FOUND\n"
-
-    ax.text(0.02, 0.98, txt_info,
-            horizontalalignment='left', verticalalignment='top',
-            transform=ax.transAxes, size=10, color='black', backgroundcolor='none', zorder=100)
-
-    default_format(ax=ax, label_color='black', fontsize=12,
-                   txt_xlabel='shift [records]', txt_ylabel='covariance', txt_ylabel_units='-')
-
-    ax.legend(frameon=False, loc='upper right').set_zorder(100)
-
-    return fig
 
 
 def cov_collection(indir, outdir, logfile_path):
