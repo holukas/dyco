@@ -3,10 +3,8 @@
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyla/lag.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyla/loop.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyla/plot.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/example.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/example.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/environment.yml" beforeDir="false" afterPath="$PROJECT_DIR$/environment.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -260,6 +258,7 @@
       <workItem from="1594106694899" duration="26385000" />
       <workItem from="1594137707665" duration="37000" />
       <workItem from="1594155776478" duration="5616000" />
+      <workItem from="1594163244991" duration="1787000" />
     </task>
     <servers />
   </component>
