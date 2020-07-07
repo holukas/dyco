@@ -25,13 +25,13 @@ dyla.DynamicLagRemover(
     files_how_many=False,  # Limit number of files to use
     file_generation_res='30T',  # One file generated every x mins
     file_duration='30T',  # Duration of one data file
-    lgs_num_iter=1,  # Number of lag search iterations
+    lgs_num_iter=5,  # Number of lag search iterations
     lgs_winsize=1000,  # Window size +/-, given as number of records
     lgs_hist_remove_fringe_bins=True,  # Remove fringe bins in histogram of found lag times
     lgs_hist_perc_thres=0.9,  # Cumulative % threshold in histogram of found lag times, expand bins around peak
     lgs_refsig='w_ms-1_rot_turb',  # Reference signal
     lgs_lagsig='co2_ppb_qcl_turb',  # Lagged signal
-    lgs_segment_dur='30T',  # Segment duration, e.g. calc lag for 10min segments
+    lgs_segment_dur='10T',  # Segment duration, e.g. calc lag for 10min segments
     del_previous_results=True,  # Danger zone! True deletes all previous output in outdir
     target_lag=-100,  # Normalize lag time for target_cols to target_lag, in records
     target_cols=['co2_ppb_qcl_turb', 'n2o_ppb_qcl', 'co2_ppb_qcl', 'h2o_ppb_qcl', 'ch4_ppb_qcl'])  # Target columns

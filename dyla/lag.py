@@ -25,9 +25,9 @@ class LagSearch:
         self.shift_stepsize = shift_stepsize  # Negative moves lagged values "upwards" in column
         self.logfile_path = logfile_path
 
-        self.lagsearch_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
-                                                    shift_stepsize=self.shift_stepsize,
-                                                    segment_name=self.segment_name)
+        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
+                                              shift_stepsize=self.shift_stepsize,
+                                              segment_name=self.segment_name)
 
         if self.logfile_path:
             self.logger = create_logger(logfile_path=self.logfile_path, name=__name__)
@@ -50,35 +50,34 @@ class LagSearch:
         return df
 
     def run(self):
-        self.lagsearch_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
-                                                    shift_stepsize=self.shift_stepsize,
-                                                    segment_name=self.segment_name)
+        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
+                                              shift_stepsize=self.shift_stepsize,
+                                              segment_name=self.segment_name)
 
-        self.lagsearch_df = self.find_max_cov_peak(segment_df=self.segment_df,
-                                                   lagsearch_df=self.lagsearch_df,
-                                                   ref_sig=self.ref_sig,
-                                                   lagged_sig=self.lagged_sig)
+        self.cov_df = self.find_max_cov_peak(segment_df=self.segment_df,
+                                             cov_df=self.cov_df,
+                                             ref_sig=self.ref_sig,
+                                             lagged_sig=self.lagged_sig)
 
-        self.lagsearch_df, self.props_peak_auto = \
-            self.find_peak_auto(df=self.lagsearch_df)
+        self.cov_df, self.props_peak_auto = self.find_peak_auto(cov_df=self.cov_df)
 
         if self.outdir_data:
-            self.save_cov_data(df=self.lagsearch_df)
+            self.save_cov_data(cov_df=self.cov_df)
 
         if self.outdir_plots:
             self.save_cov_plot()
         return None
 
     @staticmethod
-    def find_peak_auto(df):
+    def find_peak_auto(cov_df):
         """
-        Automatically find peak in covariance time series.
+        Automatically find peaks in covariance time series
 
         The found peak is flagged TRUE in df.
 
         Parameters
         ----------
-        df: pandas DataFrame
+        cov_df: pandas DataFrame
             Contains covariances for each shift.
 
         Returns
@@ -86,28 +85,51 @@ class LagSearch:
 
 
         """
-        found_peaks_idx, found_peaks_dict = find_peaks(df['cov_abs'],
-                                                       width=1, prominence=5)
+
+        found_peaks_idx, found_peaks_dict = find_peaks(cov_df['cov_abs'],
+                                                       height=0, width=0, prominence=0)
         found_peaks_props_df = pd.DataFrame.from_dict(found_peaks_dict)
+        found_peaks_props_df['idx_in_cov_df'] = found_peaks_idx
 
-        props_peak_df = pd.DataFrame()  # Props for one peak
+        # Calculate peak score, a combination of peak_height, prominences and width_heights
+        found_peaks_props_df['peak_score'] = found_peaks_props_df['prominences'] \
+                                             * found_peaks_props_df['width_heights'] \
+                                             * found_peaks_props_df['peak_heights']
+        found_peaks_props_df['peak_score'] = found_peaks_props_df['peak_score'] ** .5
+        found_peaks_props_df['peak_rank'] = found_peaks_props_df['peak_score'].rank(ascending=False)
 
-        if len(found_peaks_idx) > 0:
-            max_width_height_idx = found_peaks_dict['width_heights'].argmax()  # Good metric to find peaks
-            most_prominent_idx = found_peaks_dict['prominences'].argmax()
+        score_threshold = found_peaks_props_df['peak_score'].quantile(0.9)
+        _df = found_peaks_props_df.loc[found_peaks_props_df['peak_score'] >= score_threshold]
+        _df = _df.sort_values(by=['peak_score', 'prominences', 'width_heights'], ascending=False)
 
-            if max_width_height_idx == most_prominent_idx:
-                peak_idx = found_peaks_idx[max_width_height_idx]
-                df.loc[peak_idx, 'flag_peak_auto'] = True
-                props_peak_df = found_peaks_props_df.iloc[max_width_height_idx]
+        idx_peak_cov_abs_max, _ = LagSearch.get_peak_idx(df=cov_df)
 
-        return df, props_peak_df
+        # Check if peak of max absolute covariance is also in auto-detected peaks
+        if idx_peak_cov_abs_max in _df['idx_in_cov_df'].values:
+            props_peak_df = _df.iloc[_df['idx_in_cov_df'].values == idx_peak_cov_abs_max]
+            props_peak_df = props_peak_df.iloc[0]
+            peak_idx = int(props_peak_df['idx_in_cov_df'])
+            cov_df.loc[peak_idx, 'flag_peak_auto'] = True
+        else:
+            props_peak_df = pd.DataFrame()
+
+        # props_peak_df = pd.DataFrame()  # Props for one peak
+        # if len(found_peaks_idx) > 0:
+        #     max_width_height_idx = found_peaks_dict['width_heights'].argmax()  # Good metric to find peaks
+        #     most_prominent_idx = found_peaks_dict['prominences'].argmax()
+        #
+        #     if max_width_height_idx == most_prominent_idx:
+        #         peak_idx = found_peaks_idx[max_width_height_idx]
+        #         cov_df.loc[peak_idx, 'flag_peak_auto'] = True
+        #         props_peak_df = found_peaks_props_df.iloc[max_width_height_idx]
+
+        return cov_df, props_peak_df
 
     def get(self):
-        return self.lagsearch_df, self.props_peak_auto
+        return self.cov_df, self.props_peak_auto
 
     @staticmethod
-    def find_max_cov_peak(segment_df, lagsearch_df, lagged_sig, ref_sig):
+    def find_max_cov_peak(segment_df, cov_df, lagged_sig, ref_sig):
         """Find maximum absolute covariance between turbulent wind data
         and turbulent scalar data.
         """
@@ -120,7 +142,7 @@ class LagSearch:
             pass
 
         else:
-            for ix, row in lagsearch_df.iterrows():
+            for ix, row in cov_df.iterrows():
                 shift = int(row['shift'])
                 try:
                     if shift < 0:
@@ -129,8 +151,8 @@ class LagSearch:
                         index_shifted = pd.NaT
                     scalar_data_shifted = _segment_df[lagged_sig].shift(shift)
                     cov = _segment_df[ref_sig].cov(scalar_data_shifted)
-                    lagsearch_df.loc[lagsearch_df['shift'] == row['shift'], 'cov'] = cov
-                    lagsearch_df.loc[lagsearch_df['shift'] == row['shift'], 'index'] = index_shifted
+                    cov_df.loc[cov_df['shift'] == row['shift'], 'cov'] = cov
+                    cov_df.loc[cov_df['shift'] == row['shift'], 'index'] = index_shifted
 
                 except IndexError:
                     # If not enough data in the file to perform the shift, continue
@@ -140,19 +162,19 @@ class LagSearch:
                     continue
 
             # Results
-            lagsearch_df['cov_abs'] = lagsearch_df['cov'].abs()
-            cov_max_ix = lagsearch_df['cov_abs'].idxmax()
+            cov_df['cov_abs'] = cov_df['cov'].abs()
+            cov_max_ix = cov_df['cov_abs'].idxmax()
             # cov_max_shift = lagsearch_df.iloc[cov_max_ix]['shift']
             # cov_max = lagsearch_df.iloc[cov_max_ix]['cov']
             # cov_max_timestamp = lagsearch_df.iloc[cov_max_ix]['index']
-            lagsearch_df.loc[cov_max_ix, 'flag_peak_max_cov_abs'] = True
+            cov_df.loc[cov_max_ix, 'flag_peak_max_cov_abs'] = True
 
-        return lagsearch_df
+        return cov_df
 
-    def save_cov_data(self, df):
+    def save_cov_data(self, cov_df):
         outfile = f'{self.segment_name}_segment_covariance_iteration-{self.iteration}.csv'
         outpath = self.outdir_data / outfile
-        df.to_csv(f"{outpath}")
+        cov_df.to_csv(f"{outpath}")
         # self.logger.info(f"Saved covariance data in {outfile}")
         return None
 
@@ -213,9 +235,9 @@ class LagSearch:
         """Plot and save covariance plot for segment."""
 
         idx_peak_cov_abs_max, idx_peak_auto = \
-            self.get_peak_idx(df=self.lagsearch_df)
+            self.get_peak_idx(df=self.cov_df)
 
-        fig = plot.make_scatter_cov(df=self.lagsearch_df,
+        fig = plot.make_scatter_cov(df=self.cov_df,
                                     idx_peak_cov_abs_max=idx_peak_cov_abs_max,
                                     idx_peak_auto=idx_peak_auto,
                                     props_peak_auto=self.props_peak_auto,

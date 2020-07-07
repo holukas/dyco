@@ -197,9 +197,12 @@ def make_scatter_cov(df, idx_peak_cov_abs_max, idx_peak_auto, iteration, win_lag
             f"\nFOUND AUTO-PEAK\n" \
             f"    cov {df.iloc[idx_peak_auto]['cov']:.3f}\n" \
             f"    record {df.iloc[idx_peak_auto]['shift']}\n" \
-            f"    prominence {props_peak_auto['prominences']}\n" \
-            f"    width {props_peak_auto['widths']}\n" \
-            f"    width_height {props_peak_auto['width_heights']}\n"
+            f"    peak_score {props_peak_auto['peak_score']:.0f}\n" \
+            f"    peak_rank {props_peak_auto['peak_rank']:.0f}\n" \
+            f"    peak_height {props_peak_auto['peak_heights']:.0f}\n" \
+            f"    prominence {props_peak_auto['prominences']:.0f}\n" \
+            f"    width {props_peak_auto['widths']:.0f}\n" \
+            f"    width_height {props_peak_auto['width_heights']:.0f}\n"
 
     else:
         txt_info += \

@@ -46,7 +46,10 @@ class Loop:
             segment_lagtimes_df = prev_results[0]
             self.lgs_winsize = prev_results[1]
 
-        shift_stepsize, hist_num_bins = self.search_settings(win_lagsearch=self.lgs_winsize)
+        force_min_stepsize = True if self.iteration == self.lgs_num_iter else False
+        shift_stepsize, hist_bin_range = self.lagsearch_settings(win_lagsearch=self.lgs_winsize,
+                                                                 force_min_stepsize=force_min_stepsize)
+
         num_files = self.files_overview_df['file_available'].sum()
         # data_collection_df = pd.DataFrame() # todo activate
 
@@ -108,7 +111,7 @@ class Loop:
                                                       iteration=self.iteration,
                                                       plot=True,
                                                       remove_fringe_bins=self.lgs_hist_remove_fringe_bins,
-                                                      hist_num_bins=hist_num_bins,
+                                                      hist_num_bins=hist_bin_range,
                                                       perc_threshold=self.lgs_hist_perc_thres).get()
         self.lgs_winsize = win_lagsearch_adj  # Update lag search window to new range
 
@@ -159,7 +162,7 @@ class Loop:
             segment_start = segment_df.index[0]
             segment_end = segment_df.index[-1]
             self.logger.info(f"    Working on FILE: {filename}    SEGMENT: {segment_name}    "
-                             f"Lag search window: {win_lagsearch} "
+                             f"Lag search window: {win_lagsearch}    Step-size: {shift_stepsize}    "
                              f"segment start: {segment_start}    segment end: {segment_end}")
 
             # # todo expand segment df
@@ -311,7 +314,7 @@ class Loop:
         return
 
     @staticmethod
-    def search_settings(win_lagsearch):
+    def lagsearch_settings(win_lagsearch: list, force_min_stepsize: bool = False):
         """
         Set step size of shift during lag search and calculate number of
         histogram bins.
@@ -323,28 +326,63 @@ class Loop:
             in [1], e.g. [-1000, 1000] searches between records -1000 and
             +1000.
 
+        force_min_stepsize: bool
+            If True, sets the stepsize for lag search to 1, otherwise
+            stepsize is calculated from win_lagsearch.
+
 
         Returns
         -------
         shift_stepsize: int
             Step-size (number of records) for lag search.
-        hist_num_bins: range
+        hist_bin_range: range
             Bin range for the histogram of found lag times. The histogram
             is used to narrow down win_lagsearch.
 
         Examples
         --------
-        >> shift_stepsize, hist_num_bins = lagsearch_settings(win_lagsearch=-1000, 1000])
+        >> shift_stepsize, hist_bin_range = lagsearch_settings(win_lagsearch=-1000, 1000])
         >> print(shift_stepsize)
         10
-        >> print(hist_num_bins)
+        >> print(hist_bin_range)
+        range(-1000, 1000, 50)
+
+        >> shift_stepsize, hist_bin_range = lagsearch_settings(win_lagsearch=-1000, 1000], force_min_stepsize=True)
+        >> print(shift_stepsize)
+        1
+        >> print(hist_bin_range)
         range(-1000, 1000, 50)
 
         """
-        shift_stepsize = int(np.sum(np.abs(win_lagsearch)) / 100 / 2)
-        shift_stepsize = 1 if shift_stepsize < 1 else shift_stepsize  # Step-size cannot be less than 1
-        hist_num_bins = range(int(win_lagsearch[0]), int(win_lagsearch[1]), int(shift_stepsize * 5))
-        return shift_stepsize, hist_num_bins
+        # range_win_lagsearch = np.sum(np.abs(win_lagsearch))
+        range_win_lagsearch = np.abs(win_lagsearch[0] - win_lagsearch[1])
+
+        if not force_min_stepsize:
+            shift_stepsize = int(range_win_lagsearch / 200)
+            # shift_stepsize = int(range_win_lagsearch / 100 / 2)
+            shift_stepsize = 1 if shift_stepsize < 1 else shift_stepsize  # Step-size cannot be less than 1
+        else:
+            shift_stepsize = 1
+
+        # if shift_stepsize != 1:
+        #     bins_stepsize = int(shift_stepsize * 5)
+        # else:
+        #     bins_stepsize = int(shift_stepsize)
+        max_num_bins = range_win_lagsearch / shift_stepsize
+        max_allowed_bins = int(max_num_bins / 3)
+        bins_stepsize = int(range_win_lagsearch / max_allowed_bins)
+
+        hist_bin_range = range(int(win_lagsearch[0]), int(win_lagsearch[1]), bins_stepsize)
+
+        # if shift_stepsize != 1:
+        #     bins_stepsize = int(range_win_lagsearch / (shift_stepsize * 5))
+        #     hist_bin_range = range(int(win_lagsearch[0]), int(win_lagsearch[1]), bins_stepsize)
+        #     # hist_bin_range = range(int(win_lagsearch[0]), int(win_lagsearch[1]), int(shift_stepsize * 5))
+        # else:
+        #     bins_stepsize = shift_stepsize
+        #     hist_bin_range = range(int(win_lagsearch[0]), int(win_lagsearch[1]), bins_stepsize)
+
+        return shift_stepsize, hist_bin_range
 
 
 class PlotLoopResults:
@@ -381,7 +419,7 @@ class PlotLoopResults:
                                              df=segment_lagtimes_df, series_col='shift_peak_cov_abs_max')
             last_win_lagsearch = [int(segment_lagtimes_df.iloc[-1]['lagsearch_start']),
                                   int(segment_lagtimes_df.iloc[-1]['lagsearch_end'])]
-            _, hist_num_bins = Loop.search_settings(win_lagsearch=last_win_lagsearch)
+            _, hist_num_bins = Loop.lagsearch_settings(win_lagsearch=last_win_lagsearch)
             _ = lag.AdjustLagsearchWindow(series=hist_series,
                                           outdir=self.outdirs['2-1_____Histograms'],
                                           iteration=self.lgs_num_iter,
