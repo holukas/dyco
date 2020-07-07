@@ -7,7 +7,7 @@ setup(
   description = 'A Python package to detect and compensate for shifting lag times in ecosystem time series',   # Give a short description about your library
   author = 'Lukas Hörtnagl',                   # Type in your name
   author_email = 'lukas.hoertnagl@usys.ethz.ch',      # Type in your E-Mail
-  url = 'https://gitlab.ethz.ch/holukas/dlr-dynamic-lag-remover',   # Provide either the link to your github or to your website
+  url = 'https://gitlab.ethz.ch/holukas/dyla-dynamic-lag-remover',   # Provide either the link to your github or to your website
   download_url = 'XXX',    # todo
   keywords = ['ecosystem', 'eddy covariance', 'fluxes',
               'time series', 'lag', 'timeshift'],   # Keywords that define your package best

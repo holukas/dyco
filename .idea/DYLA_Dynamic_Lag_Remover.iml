@@ -6,7 +6,7 @@
       <excludeFolder url="file://$MODULE_DIR$/_archive" />
       <excludeFolder url="file://$MODULE_DIR$/_raw_photoshop" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.6 (DLR1)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.6 (DYLA1)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

@@ -1,36 +1,46 @@
+import sys
+
 import numpy as np
 import pandas as pd
 
 import files
 import plot
+from _setup import create_logger
 
 
 class AnalyzeLoopResults:
-    def __init__(self, lgs_num_iter, outdirs, lag_target):
+    def __init__(self, lgs_num_iter, outdirs=None, lag_target=-100, logfile_path=None,
+                 direct_path_to_segment_lagtimes_file=None):
         self.lgs_num_iter = lgs_num_iter
         self.outdirs = outdirs
         self.lag_target = lag_target
+        self.direct_path_to_segment_lagtimes_file = direct_path_to_segment_lagtimes_file
+
+        self.logger = create_logger(logfile_path=logfile_path, name=__name__)
 
     def run(self):
         self.lut_default_lag_times_df, self.lut_success = self.generate_lut_default_lag_times()
-        self.save_lut(lut=self.lut_default_lag_times_df,
-                      outdir=self.outdirs['3-0_DLR_Lookup_Table_Normalization'])
-        self.plot_segment_lagtimes_with_default()
+
+        if self.outdirs:
+            self.save_lut(lut=self.lut_default_lag_times_df,
+                          outdir=self.outdirs['3-0_Lookup_Table_Normalization'])
+            self.plot_segment_lagtimes_with_default()
 
     def get(self):
         return self.lut_default_lag_times_df, self.lut_success
 
     def plot_segment_lagtimes_with_default(self):
         # Read found lag time results from very last iteration
-        segment_lagtimes_df = files.read_segments_file(
+        segment_lagtimes_df = files.read_segment_lagtimes_file(
             filepath=self.outdirs['2-0_Segment_Lag_Times']
                      / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
         plot.timeseries_segment_lagtimes(df=segment_lagtimes_df,
-                                         outdir=self.outdirs['3-0_DLR_Lookup_Table_Normalization'],
+                                         outdir=self.outdirs['3-0_Lookup_Table_Normalization'],
                                          iteration=self.lgs_num_iter,
                                          show_all=True,
                                          overlay_default=True,
-                                         overlay_default_df=self.lut_default_lag_times_df)
+                                         overlay_default_df=self.lut_default_lag_times_df,
+                                         overlay_target_val=-100)
 
     def save_lut(self, lut, outdir):
         outpath = outdir / f'LUT_default_lag_times'
@@ -41,22 +51,31 @@ class AnalyzeLoopResults:
 
         # Load results from last iteration
         last_iteration = self.lgs_num_iter
-        filepath_last_iteration = self.outdirs['2-0_Segment_Lag_Times'] \
-                                  / f'{last_iteration}_segments_found_lag_times_after_iteration-{last_iteration}.csv'
-        results_last_iteration_df = self.filter_dataframe(filter_col='iteration',
-                                                          filter_equal_to=last_iteration,
-                                                          df=files.read_segments_file(filepath=filepath_last_iteration))
+        if self.outdirs:
+            filepath_last_iteration = self.outdirs['2-0_Segment_Lag_Times'] \
+                                      / f'{last_iteration}_segments_found_lag_times_after_iteration-{last_iteration}.csv'
 
+        else:
+            filepath_last_iteration = self.direct_path_to_segment_lagtimes_file  # Implemented for unittest
+
+        segment_lagtimes_last_iteration_df = self.filter_dataframe(filter_col='iteration',
+                                                                   filter_equal_to=last_iteration,
+                                                                   df=files.read_segment_lagtimes_file(
+                                                                       filepath=filepath_last_iteration))
         # High-quality covariance peaks
-        peaks_hq_S = self.get_hq_peaks(df=results_last_iteration_df)
+        peaks_hq_S = self.get_hq_peaks(df=segment_lagtimes_last_iteration_df)
 
         if not peaks_hq_S.empty:
             lut_df = self.make_lut(series=peaks_hq_S,
                                    lag_target=self.lag_target)
             lut_success = True
+            self.logger.info(f"Finished creating look-up table for default lag times and normalization correction")
         else:
             lut_df = pd.DataFrame()
             lut_success = False
+            self.logger.critical(f"(!) Look-up Table for default lag times and normalization correction is empty, "
+                                 f"stopping script.")
+            sys.exit()
 
         return lut_df, lut_success
 
@@ -104,7 +123,7 @@ class AnalyzeLoopResults:
             num_vals = len(subset)
 
             if num_vals >= 5:
-                print(f"{this_date}    {num_vals}    {subset.median()}")
+                # print(f"{this_date}    {num_vals}    {subset.median()}")
                 lut_df.loc[this_date, 'median'] = subset.median()
                 lut_df.loc[this_date, 'counts'] = subset.count()
                 lut_df.loc[this_date, 'from'] = from_date
@@ -116,7 +135,22 @@ class AnalyzeLoopResults:
                 lut_df.loc[this_date, 'to'] = to_date
 
         lut_df['correction'] = -1 * (lag_target - lut_df['median'])
+
+        self.logger.info(f"Created look-up table for {len(lut_df.index)} dates")
+        self.logger.info(f"    First date: {lut_df.index[0]}    Last date: {lut_df.index[-1]}")
+
+        # Fill gaps in 'correction'
+        missing_df = self.check_missing(df=lut_df,
+                                        col='correction')
+        self.logger.warning(f"No correction could be generated from data for dates: {missing_df.index.to_list()}")
+        self.logger.warning(f"Filling missing corrections for dates: {missing_df.index.to_list()}")
+        lut_df['correction'].fillna(method='ffill', inplace=True, limit=1)
         return lut_df
+
+    def check_missing(self, df, col):
+        filter_missing = df[col].isnull()
+        missing_df = df[filter_missing]
+        return missing_df
 
     def get_hq_peaks(self, df):
         """

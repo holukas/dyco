@@ -3,39 +3,46 @@ import pandas as pd
 from scipy.signal import find_peaks
 
 import plot
+from _setup import create_logger
 
 
 class LagSearch:
-    def __init__(self, segment_df, segment_name, ref_sig, lagged_sig, outdir_plots, win_lagsearch,
+    def __init__(self, segment_df, segment_name, ref_sig, lagged_sig, win_lagsearch,
                  file_idx, segment_start, segment_end, filename, iteration, shift_stepsize,
-                 outdir_data):
-        self.wind_rot_df = segment_df
+                 outdir_data=None, outdir_plots=None, logfile_path=None):
+        self.segment_df = segment_df
         self.segment_name = segment_name
         self.segment_start = segment_start
         self.segment_end = segment_end
         self.outdir_data = outdir_data
         self.outdir_plots = outdir_plots
-        self.w_rot_turb_col = ref_sig
-        self.scalar_turb_col = lagged_sig
+        self.ref_sig = ref_sig
+        self.lagged_sig = lagged_sig
         self.file_idx = file_idx
         self.filename = filename
         self.iteration = iteration
         self.win_lagsearch = win_lagsearch
-        # self.shift_stepsize = int(np.sum(np.abs(self.win_lagsearch)) / 100)
         self.shift_stepsize = shift_stepsize  # Negative moves lagged values "upwards" in column
+        self.logfile_path = logfile_path
 
-        self.lagsearch_df = self.setup_lagsearch_df()
+        self.lagsearch_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
+                                                    shift_stepsize=self.shift_stepsize,
+                                                    segment_name=self.segment_name)
+
+        if self.logfile_path:
+            self.logger = create_logger(logfile_path=self.logfile_path, name=__name__)
 
         self.run()
 
-    def setup_lagsearch_df(self):
+    @staticmethod
+    def setup_lagsearch_df(win_lagsearch, shift_stepsize, segment_name):
         df = pd.DataFrame(columns=['index', 'segment_name', 'shift', 'cov', 'cov_abs',
                                    'flag_peak_max_cov_abs', 'flag_peak_auto'])
-        df['shift'] = range(int(self.win_lagsearch[0]),
-                            int(self.win_lagsearch[1]) + self.shift_stepsize,
-                            self.shift_stepsize)
+        df['shift'] = range(int(win_lagsearch[0]),
+                            int(win_lagsearch[1]) + shift_stepsize,
+                            shift_stepsize)
         df['index'] = np.nan
-        df['segment_name'] = self.segment_name
+        df['segment_name'] = segment_name
         df['cov'] = np.nan
         df['cov_abs'] = np.nan
         df['flag_peak_max_cov_abs'] = False  # Flag True = found peak
@@ -43,19 +50,27 @@ class LagSearch:
         return df
 
     def run(self):
-        self.lagsearch_df = self.setup_lagsearch_df()
+        self.lagsearch_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
+                                                    shift_stepsize=self.shift_stepsize,
+                                                    segment_name=self.segment_name)
 
-        self.lagsearch_df = \
-            self.find_max_cov_peak(wind_rot_df=self.wind_rot_df, lagsearch_df=self.lagsearch_df)
+        self.lagsearch_df = self.find_max_cov_peak(segment_df=self.segment_df,
+                                                   lagsearch_df=self.lagsearch_df,
+                                                   ref_sig=self.ref_sig,
+                                                   lagged_sig=self.lagged_sig)
 
         self.lagsearch_df, self.props_peak_auto = \
             self.find_peak_auto(df=self.lagsearch_df)
 
-        self.save_cov_data(df=self.lagsearch_df)
-        self.save_cov_plot()
+        if self.outdir_data:
+            self.save_cov_data(df=self.lagsearch_df)
+
+        if self.outdir_plots:
+            self.save_cov_plot()
         return None
 
-    def find_peak_auto(self, df):
+    @staticmethod
+    def find_peak_auto(df):
         """
         Automatically find peak in covariance time series.
 
@@ -72,7 +87,7 @@ class LagSearch:
 
         """
         found_peaks_idx, found_peaks_dict = find_peaks(df['cov_abs'],
-                                                       width=1, prominence=5)  # todo hier weiter PEAK QUALITY?
+                                                       width=1, prominence=5)
         found_peaks_props_df = pd.DataFrame.from_dict(found_peaks_dict)
 
         props_peak_df = pd.DataFrame()  # Props for one peak
@@ -91,23 +106,17 @@ class LagSearch:
     def get(self):
         return self.lagsearch_df, self.props_peak_auto
 
-    def find_max_cov_peak(self, wind_rot_df, lagsearch_df):
+    @staticmethod
+    def find_max_cov_peak(segment_df, lagsearch_df, lagged_sig, ref_sig):
         """Find maximum absolute covariance between turbulent wind data
         and turbulent scalar data.
         """
 
-        print(f"Searching maximum covariance in range from {self.win_lagsearch[0]} to "
-              f"{self.win_lagsearch[1]} records ...")
-
-        _wind_rot_df = wind_rot_df.copy()
-        _wind_rot_df['index'] = _wind_rot_df.index
-
-        # cov_max_shift = False
-        # cov_max = False
-        # cov_max_timestamp = False
+        _segment_df = segment_df.copy()
+        _segment_df['index'] = _segment_df.index
 
         # Check if data column is empty
-        if _wind_rot_df[self.scalar_turb_col].dropna().empty:
+        if _segment_df[lagged_sig].dropna().empty:
             pass
 
         else:
@@ -115,11 +124,11 @@ class LagSearch:
                 shift = int(row['shift'])
                 try:
                     if shift < 0:
-                        index_shifted = str(_wind_rot_df['index'][-shift])  # Note the negative sign
+                        index_shifted = str(_segment_df['index'][-shift])  # Note the negative sign
                     else:
                         index_shifted = pd.NaT
-                    scalar_data_shifted = _wind_rot_df[self.scalar_turb_col].shift(shift)
-                    cov = _wind_rot_df[self.w_rot_turb_col].cov(scalar_data_shifted)
+                    scalar_data_shifted = _segment_df[lagged_sig].shift(shift)
+                    cov = _segment_df[ref_sig].cov(scalar_data_shifted)
                     lagsearch_df.loc[lagsearch_df['shift'] == row['shift'], 'cov'] = cov
                     lagsearch_df.loc[lagsearch_df['shift'] == row['shift'], 'index'] = index_shifted
 
@@ -141,8 +150,10 @@ class LagSearch:
         return lagsearch_df
 
     def save_cov_data(self, df):
-        outpath = self.outdir_data / f'{self.segment_name}_segment_covariance_iteration-{self.iteration}'
-        df.to_csv(f"{outpath}.csv")
+        outfile = f'{self.segment_name}_segment_covariance_iteration-{self.iteration}.csv'
+        outpath = self.outdir_data / outfile
+        df.to_csv(f"{outpath}")
+        # self.logger.info(f"Saved covariance data in {outfile}")
         return None
 
     @staticmethod
@@ -217,18 +228,19 @@ class LagSearch:
                                     file_idx=self.file_idx,
                                     shift_stepsize=self.shift_stepsize)
 
-        outpath = self.outdir_plots / f'{self.segment_name}_segment_covariance_iteration-{self.iteration}'
+        outfile = f'{self.segment_name}_segment_covariance_iteration-{self.iteration}.png'
+        outpath = self.outdir_plots / outfile
 
         # Save
-        print(f"Saving plot in PNG file: {outpath}.png ...")
-        fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
+        fig.savefig(f"{outpath}", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=100)
+        # self.logger.info(f"Saved covariance plot in {outfile}")
         return None
 
 
 class AdjustLagsearchWindow():
-    def __init__(self, series, outdir, iteration, plot=True, hist_num_bins=30, remove_fringe_bins=True,
-                 perc_threshold=0.9):
+    def __init__(self, series, iteration, plot=True, hist_num_bins=30, remove_fringe_bins=True,
+                 perc_threshold=0.9, outdir=None):
         self.series = series.dropna()  # NaNs yield error in histogram
         self.numvals_series = self.series.size
         self.outdir = outdir
@@ -268,7 +280,7 @@ class AdjustLagsearchWindow():
                                                                           peak_most_prom_idx=peak_most_prom_idx)
 
         # Check if most prominent peak is also the max peak
-        if peak_most_prom_idx in peak_max_count_idx:  # todo hier weiter
+        if peak_most_prom_idx in peak_max_count_idx:  # todo
             clear_peak_idx = np.where(peak_max_count_idx == peak_most_prom_idx)
         else:
             clear_peak_idx = False
@@ -283,7 +295,7 @@ class AdjustLagsearchWindow():
         return self.win_lagsearch_adj
 
     def search_bin_max_counts(self, counts):
-        print("Searching peak of maximum counts ...")
+        # print("Searching peak of maximum counts ...")
         max_count = np.amax(counts)
         peak_max_count_idx = np.where(counts == np.amax(max_count))  # Returns array in tuple
         if len(peak_max_count_idx) == 1:
@@ -305,7 +317,7 @@ class AdjustLagsearchWindow():
     def search_bin_most_prominent(counts):
         # kudos: https://www.kaggle.com/simongrest/finding-peaks-in-the-histograms-of-the-variables
         # Increase prominence until only one single peak is found
-        print("Searching most prominent peak ...")
+        # print("Searching most prominent peak ...")
         peak_most_prom_idx = []
         prom = 0  # Prominence for peak finding
         while (len(peak_most_prom_idx) == 0) or (len(peak_most_prom_idx) > 1):
@@ -314,7 +326,7 @@ class AdjustLagsearchWindow():
                 peak_most_prom_idx = False
                 break
             peak_most_prom_idx, props = find_peaks(counts, prominence=prom)
-            print(f"Prominence: {prom}    Peaks at: {peak_most_prom_idx}")
+            # print(f"Prominence: {prom}    Peaks at: {peak_most_prom_idx}")
         if peak_most_prom_idx:
             peak_most_prom_idx = int(peak_most_prom_idx)
         return peak_most_prom_idx
@@ -335,7 +347,7 @@ class AdjustLagsearchWindow():
             end_idx = end_idx + 1 if end_idx < len(counts) else end_idx
             c = counts[start_idx:end_idx]
             perc = np.sum(c) / counts_total
-            print(f"Expanding lag window: {perc}  from record: {start_idx}  to record: {end_idx}")
+            # print(f"Expanding lag window: {perc}  from record: {start_idx}  to record: {end_idx}")
             if (start_idx == 0) and (end_idx == len(counts)):
                 break
         win_lagsearch_adj = [divisions[start_idx], divisions[end_idx]]
@@ -421,9 +433,10 @@ class AdjustLagsearchWindow():
 
         # ax.legend()
 
-        outpath = self.outdir / f'{self.iteration}_HISTOGRAM_found_lag_times_iteration-{self.iteration}'
-        fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
-                    transparent=True, dpi=150)
+        if self.outdir:
+            outpath = self.outdir / f'{self.iteration}_HISTOGRAM_found_lag_times_iteration-{self.iteration}'
+            fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
+                        transparent=True, dpi=150)
 
         # ax.set_xticklabels(division)  # Labels of ticks, shown in plot
         # if len(label_bin_start) > 30:

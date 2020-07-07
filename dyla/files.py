@@ -1,11 +1,10 @@
 import datetime as dt
-import time
 
 import numpy as np
 import pandas as pd
 
 
-def read_segments_file(filepath):
+def read_segment_lagtimes_file(filepath):
     """
     Read file.
 
@@ -23,8 +22,6 @@ def read_segments_file(filepath):
 
     """
     # parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
-    import time
-    start_time = time.time()
     found_lags_df = pd.read_csv(filepath,
                                 skiprows=None,
                                 header=0,
@@ -39,7 +36,6 @@ def read_segments_file(filepath):
                                 index_col=0,
                                 dtype=None,
                                 engine='c')
-    # print(f"Read file {filepath} in {time.time() - start_time}s")
     return found_lags_df
 
 
@@ -77,7 +73,6 @@ def read_raw_data(filepath, data_timestamp_format):
         parse_dates = False
         index_col = None
 
-    start_time = time.time()
     data_df = pd.read_csv(filepath,
                           skiprows=header_section_rows,
                           header=None,
@@ -93,7 +88,6 @@ def read_raw_data(filepath, data_timestamp_format):
                           dtype=None,
                           engine='c',
                           nrows=None)
-    print(f"Reading file took {time.time() - start_time}s")
 
     return data_df
 
@@ -176,3 +170,11 @@ def data_vs_header(num_data_cols, num_header_cols):
         more_data_cols_than_header_cols = False
         num_missing_header_cols = 0
     return more_data_cols_than_header_cols, num_missing_header_cols
+
+
+def collect_file_data(self, data_df, file_idx, data_collection_df):
+    if file_idx == self.files_overview_df.index[0]:
+        data_collection_df = data_df.copy()
+    else:
+        data_collection_df = data_collection_df.append(data_df)
+    return data_collection_df
