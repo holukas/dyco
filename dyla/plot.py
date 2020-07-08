@@ -1,29 +1,24 @@
-import os
-
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.collections import LineCollection
-
-import files
 
 
-def timeseries_segment_lagtimes(df, outdir, iteration, show_all=False, overlay_default=False,
+def timeseries_segment_lagtimes(segment_lagtimes_df, outdir, iteration, show_all=False, overlay_default=False,
                                 overlay_default_df=None, overlay_target_val=False,
                                 overlay_default_target=False):
-    _df = df.copy()
+    _df = segment_lagtimes_df.copy()
     if not show_all:
         _df = _df.loc[_df['iteration'] == iteration, :]
         txt_info = f"Found lag times in iteration {iteration}"
-        outfile = f"{iteration}_TIMESERIES-PLOT_found_segment_lag_times_iteration-{iteration}"
+        outfile = f"{iteration}_TIMESERIES-PLOT_segment_lag_times_iteration-{iteration}"
     else:
         txt_info = f"Found lag times from ALL iterations"
-        outfile = f"TIMESERIES-PLOT_found_segment_lag_times_iteration-ALL"
+        outfile = f"TIMESERIES-PLOT_segment_lag_times_FINAL"
 
     gs, fig, ax = setup_fig_ax()
 
-    cmap = plt.cm.get_cmap('Spectral', iteration)
+    cmap = plt.cm.get_cmap('rainbow', iteration)
     colors = cmap(np.linspace(0, 1, iteration))
 
     alpha = 0.4
@@ -125,83 +120,3 @@ def setup_fig_ax():
     fig = plt.Figure(facecolor='white', figsize=(16, 9))
     ax = fig.add_subplot(gs[0, 0])
     return gs, fig, ax
-
-
-
-
-
-def cov_collection(indir, outdir, logfile_path):
-    """
-    Read and plot segment covariance files.
-
-    Parameters
-    ----------
-    indir: Path
-    outdir: Path
-
-    Returns
-    -------
-    None
-
-    """
-    from _setup import create_logger
-    logger = create_logger(logfile_path=logfile_path, name=__name__)
-
-    gs = gridspec.GridSpec(3, 1)  # rows, cols
-    gs.update(wspace=0.3, hspace=0.2, left=0.03, right=0.97, top=0.95, bottom=0.03)
-    fig = plt.Figure(facecolor='white', figsize=(16, 12))
-    ax1 = fig.add_subplot(gs[0, 0])
-    ax2 = fig.add_subplot(gs[1, 0], sharex=ax1)
-    ax3 = fig.add_subplot(gs[2, 0], sharex=ax1)
-
-    # Read results from last iteration
-    cov_collection_df = pd.DataFrame()
-    filelist = os.listdir(indir)
-    num_files = len(filelist)
-    logger.info(f"Plotting covariance collection from {num_files} files")
-    for idx, filename in enumerate(filelist):
-        # if idx > 1000:
-        #     break
-        # print(f"Reading segment covariance file {idx + 1} of {num_files}: {filename}")
-        filepath = os.path.join(indir, filename)
-        segment_cov_df = files.read_segment_lagtimes_file(filepath=filepath)
-        cov_collection_df = cov_collection_df.append(segment_cov_df)
-
-        args = dict(alpha=0.05, c='black', lw=0.5, marker='None', zorder=98)
-        ax1.plot(segment_cov_df['shift'], segment_cov_df['cov'], **args)
-        ax2.plot(segment_cov_df['shift'], segment_cov_df['cov_abs'], **args)
-        ax3.plot(segment_cov_df['shift'], segment_cov_df['cov_abs'].divide(segment_cov_df['cov_abs'].max()), **args)
-
-    # Median lines
-    _df = cov_collection_df[cov_collection_df['segment_name'].str.contains('iter')]
-    _df = _df.groupby('shift').agg('median')
-    args = dict(alpha=1, c='red', lw=1, marker='None', zorder=98)
-    ax1.plot(_df.index, _df['cov'], label='median', **args)
-    ax2.plot(_df.index, _df['cov_abs'], **args)
-    ax3.plot(_df.index, _df['cov_abs'].divide(_df['cov_abs'].max()), **args)
-
-    ax1.set_ylim(cov_collection_df['cov'].quantile(0.05), cov_collection_df['cov'].quantile(0.95))
-    ax2.set_ylim(cov_collection_df['cov_abs'].quantile(0.05), cov_collection_df['cov_abs'].quantile(0.95))
-
-    fig.suptitle("Results for all segments and from all iterations")
-    text_args = dict(horizontalalignment='left', verticalalignment='top',
-                     size=12, color='black', backgroundcolor='none', zorder=100)
-    ax1.text(0.02, 0.97, "Covariances",
-             transform=ax1.transAxes, **text_args)
-    ax2.text(0.02, 0.97, "Absolute covariances",
-             transform=ax2.transAxes, **text_args)
-    ax3.text(0.02, 0.97, "Normalized absolute covariances\n(normalized to max of median line)",
-             transform=ax3.transAxes, **text_args)
-
-    ax1.legend(frameon=False, loc='upper right')
-    default_format(ax=ax1, txt_xlabel='', txt_ylabel='covariance', txt_ylabel_units='')
-    default_format(ax=ax2, txt_xlabel='', txt_ylabel='absolute covariance', txt_ylabel_units='')
-    default_format(ax=ax3, txt_xlabel='shift [records]', txt_ylabel='normalized absolute covariance',
-                   txt_ylabel_units='')
-
-    outfile = '1_covariance_collection_all_segments.png'
-    outpath = outdir / outfile
-    fig.savefig(f"{outpath}", format='png', bbox_inches='tight', facecolor='w',
-                transparent=True, dpi=150)
-
-    return None

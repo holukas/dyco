@@ -2,7 +2,8 @@
 
 DYLA - DYNAMIC LAG REMOVER
 --------------------------
-A Python package to detect and compensate for shifting lag times in ecosystem time series
+A Python package to detect and compensate for shifting lag times in
+ecosystem time series
 
 
 
@@ -29,29 +30,31 @@ pd.set_option('display.width', 1000)
 
 class DynamicLagRemover:
     """
-    DLR - Dynamic lag remover
+    DYLA - Dynamic lag remover
     """
 
     files_overview_df = pd.DataFrame()
 
-    def __init__(self, lgs_refsig, lgs_lagsig,
-                 fnm_date_format='%Y%m%d%H%M%S',
-                 del_previous_results=False,
-                 fnm_pattern='*.csv',
-                 dat_recs_timestamp_format=False,
-                 files_how_many=False,
-                 file_generation_res='30T',
-                 file_duration='30T',
-                 lgs_segment_dur=False,
-                 lgs_hist_perc_thres=0.9,
-                 lgs_hist_remove_fringe_bins=True,
-                 dat_recs_nominal_timeres=0.05,
-                 lgs_winsize=1000,
-                 lgs_num_iter=3,
-                 indir=False,
-                 outdir=False,
-                 target_lag=-100,
-                 target_cols=None):
+    def __init__(self,
+                 lgs_refsig: str,
+                 lgs_lagsig: str,
+                 fnm_date_format: str = '%Y%m%d%H%M%S',
+                 del_previous_results: bool = False,
+                 fnm_pattern: str = '*.csv',
+                 dat_recs_timestamp_format: False or str = False,
+                 files_how_many: False or int = False,
+                 file_generation_res: str = '30T',
+                 file_duration: str = '30T',
+                 lgs_segment_dur: False or pd.DateOffset = False,
+                 lgs_hist_perc_thres: float = 0.9,
+                 lgs_hist_remove_fringe_bins: bool = True,
+                 dat_recs_nominal_timeres: float = 0.05,
+                 lgs_winsize: int = 1000,
+                 lgs_num_iter: int = 3,
+                 indir: Path = False,
+                 outdir: Path = False,
+                 target_lag: int = -100,
+                 target_cols: list = None):
         """
 
         Parameters
@@ -63,8 +66,6 @@ class DynamicLagRemover:
         lgs_lagsig: str
             Column name of the lagged signal  for which the lag time in
             relation to the reference signal is determined.
-
-        dir_root todo
 
         fnm_date_format: str
             Date format in data filenames.
@@ -81,22 +82,26 @@ class DynamicLagRemover:
             Timestamp format for each row record.
 
         files_how_many: int
-            Limits number of found files that are be used.
+            Limits number of found files that are used.
 
-        file_generation_res: pandas DateOffset
+        file_generation_res: str (pandas DateOffset)
             Frequency at which new files were generated. This does not
             relate to the data records but to the file creation time.
             Examples:
                 * '30T' means a new file was generated every 30 minutes.
                 * '1H' means a new file was generated every hour.
                 * '6H' means a new file was generated every six hours.
+            For pandas DateOffset options see:
+                https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
-        file_duration: pandas DateOffset
+        file_duration: str (pandas DateOffset)
             Duration of one data file.
             Example:
                 * '30T': data file contains data from 30 minutes.
+            For pandas DateOffset options see:
+                https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
-        lgs_segment_dur: pandas DateOffset
+        lgs_segment_dur: str (pandas DateOffset)
             Segment duration for lag determination. If it is the same
             as file_duration, the lag time for the complete file is
             calculated from all file data. If it is shorter than
@@ -110,12 +115,15 @@ class DynamicLagRemover:
                     the 30-minute data file is split into three 10-minute
                     segments and the lag time is determined in each of the
                     segments, yielding three lag times.
+            For pandas DateOffset options see:
+                https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
-        lgs_hist_perc_thres: float between 0 and 1 (percentage)
+        lgs_hist_perc_thres: float between 0.1 and 1 (percentage)
             Cumulative percentage threshold in histogram of found lag times.
             The time window for lag search during each iteration (i) is
             narrowed down based on the histogram of all found lag times
-            from the previous iteration (i-1).
+            from the previous iteration (i-1). Is set to 1 if > 1 or set
+            to 0.1 if < 0.1.
 
             During each iteration and after lag times were determined for
             all files and segments, a histogram of found lag times is created
@@ -127,8 +135,8 @@ class DynamicLagRemover:
 
             Example:
                 * 0.9: include all bins to each site of the peak bin until 90%
-                    of the total found lag times are included. The time window
-                    for the lag search during the next iteration (i+1) is
+                    of the total found lag times (counts) are included. The time
+                    window for the lag search during the next iteration (i+1) is
                     determined by checking the left side (start) of the first
                     included bin and the right side (end) of the last included
                     bin.
@@ -148,6 +156,7 @@ class DynamicLagRemover:
 
         lgs_winsize: int
             Starting time window size for lag search +/-, given as number of records.
+            If negative, the absolute value will be used.
             Example:
                 * 1000: Lag search during the first iteration is done in a time window
                     from -1000 records to +1000 records.
@@ -164,11 +173,11 @@ class DynamicLagRemover:
                     again search lag times for the same data. Likewise, i3 uses the
                     adjusted search window based on results from i2.
 
-        indir: str or Path or False
+        indir: Path or False
             Source folder that contains the data files. If False, a folder named 'input'
             is searched in the current working directory.
 
-        outdir: str or Path or False
+        outdir: Path or False
             Output folder for results. If False, a folder named 'output'
             is created in the current working directory.
 
@@ -183,6 +192,7 @@ class DynamicLagRemover:
         target_cols: list of strings
             Column names of the time series the normalized lag should be applied to.
 
+
         Links
         -----
         * Overview of pandas DateOffsets:
@@ -194,38 +204,65 @@ class DynamicLagRemover:
         # Input and output directories
         self.indir, self.outdir = _setup.set_dirs(indir=indir, outdir=outdir)
 
-        # Measurements
-        self.lgs_refsig = lgs_refsig
-        self.lgs_lagsig = lgs_lagsig
-
         # File settings
         self.fnm_date_format = fnm_date_format
         self.file_generation_res = file_generation_res
         self.fnm_pattern = fnm_pattern
         self.files_how_many = files_how_many
+        self.file_duration = file_duration
         self.del_previous_results = del_previous_results
 
+        # Data records
         self.dat_recs_nominal_timeres = dat_recs_nominal_timeres
         self.dat_recs_timestamp_format = dat_recs_timestamp_format
-        self.file_duration = file_duration
         # self.data_segment_overhang = data_segment_overhang
 
+        # Lag search and normalization
+        self.lgs_refsig = lgs_refsig
+        self.lgs_lagsig = lgs_lagsig
         self.lgs_segment_dur = lgs_segment_dur
-        self.lgs_winsize = [lgs_winsize * -1, lgs_winsize]
+        self.lgs_winsize = [abs(lgs_winsize) * -1, abs(lgs_winsize)]
         self.lgs_num_iter = lgs_num_iter
         self.lgs_hist_remove_fringe_bins = lgs_hist_remove_fringe_bins
-        self.lgs_hist_perc_thres = lgs_hist_perc_thres
-
+        if lgs_hist_perc_thres > 1:
+            self.lgs_hist_perc_thres = 1
+        elif lgs_hist_perc_thres < 0.1:
+            self.lgs_hist_perc_thres = 0.1  # Minimum 10% since less would not be useful
+        else:
+            self.lgs_hist_perc_thres = lgs_hist_perc_thres
         self.lag_target = target_lag
         self.normalize_lag_for_cols = target_cols
 
+        # Start scripts
         self.run()
 
     def run(self):
+        """
+        Run setup, calculations, analyses and correction of files
+
+        Full processing consists of 4 steps:
+            * Step 1: Setup
+            * Step 2: Calculation of lag times for each file segment
+            * Step 3: Analyses of results
+            * Step 4: Lag-time normalization for each file
+
+        Each step uses results from the previous step.
+
+        Returns
+        -------
+        None
+        """
+        # Step 1: Setup
         self.logfile_path, self.files_overview_df = self.setup()
+
+        # Step 2: Calculation of lag times for each file segment
         self.calc_lagtimes()
-        lut_success = self.analyze_lagtimes()
-        self.normalize_lagtimes(lut_success=lut_success)
+
+        # # Step 3: Analyses of results
+        # lut_success = self.analyze_lagtimes()
+        # 
+        # # Step 4: Lag-time normalization for each file
+        # self.normalize_lagtimes(lut_success=lut_success)
 
     def setup(self):
         """Create output folders, start logger and search for files"""
@@ -234,48 +271,32 @@ class DynamicLagRemover:
                                                del_previous_results=self.del_previous_results).setup_output_dirs()
 
         # Start logging
-        logfile_path = _setup.create_logfile(run_id=self.run_id, outdir=self.outdirs['_log'])
+        logfile_path = _setup.set_logfile_path(run_id=self.run_id, outdir=self.outdirs['_log'])
         logger = _setup.create_logger(logfile_path=logfile_path, name=__name__)
         logger.info(f"Run ID: {self.run_id}")
 
         # Search files
-        fd = _setup.FilesDetector(dir_input=self.indir,
+        fd = _setup.FilesDetector(dyla_instance=self,
                                   outdir=self.outdirs['0-0_Found_Files'],
-                                  file_pattern=self.fnm_pattern,
-                                  file_date_format=self.fnm_date_format,
-                                  file_generation_res=self.file_generation_res,
-                                  data_res=self.dat_recs_nominal_timeres,
-                                  files_how_many=self.files_how_many,
                                   logfile_path=logfile_path)
         fd.run()
         files_overview_df = fd.get()
         return logfile_path, files_overview_df
 
     def calc_lagtimes(self):
-        """Calculate covariances and detect covariance peaks to determine lags"""
+        """
+        Calculate covariances and detect covariance peaks to determine lags
+        for each file segment
+        """
 
-        # Loop through files and their segments
         for iteration in range(1, 1 + self.lgs_num_iter):
-            loop_iter = loop.Loop(dat_recs_timestamp_format=self.dat_recs_timestamp_format,
-                                  dat_recs_nominal_timeres=self.dat_recs_nominal_timeres,
-                                  iteration=iteration,
-                                  lgs_hist_remove_fringe_bins=self.lgs_hist_remove_fringe_bins,
-                                  lgs_hist_perc_thres=self.lgs_hist_perc_thres,
-                                  outdirs=self.outdirs,
-                                  lgs_segment_dur=self.lgs_segment_dur,
-                                  lgs_refsig=self.lgs_refsig,
-                                  lgs_lagsig=self.lgs_lagsig,
-                                  lgs_num_iter=self.lgs_num_iter,
-                                  lgs_winsize=self.lgs_winsize,
-                                  files_overview_df=self.files_overview_df,
-                                  logfile_path=self.logfile_path)
+            loop_iter = loop.Loop(dyla_instance=self,
+                                  iteration=iteration)
             loop_iter.run()
+            self.lgs_winsize = loop_iter.get()  # Update search window for next iteration
 
-        # Plot loop results
-        loop_plots = loop.PlotLoopResults(outdirs=self.outdirs,
-                                          lgs_num_iter=self.lgs_num_iter,
-                                          lgs_hist_perc_thres=self.lgs_hist_perc_thres,
-                                          logfile_path=self.logfile_path)
+        # Plot loop results after all iterations finished
+        loop_plots = loop.PlotLoopResults(dyla_instance=self)
         loop_plots.run()
         return
 
@@ -290,13 +311,11 @@ class DynamicLagRemover:
         return analyze.lut_success
 
     def normalize_lagtimes(self, lut_success):
-        """Apply look-up table to normalize lag for each file"""
+        """
+        Apply look-up table to normalize lag for each file
+        """
         if lut_success:
-            normalize_lags = NormalizeLags(files_overview_df=self.files_overview_df,
-                                           dat_recs_timestamp_format=self.dat_recs_timestamp_format,
-                                           outdirs=self.outdirs,
-                                           normalize_lag_for_cols=self.normalize_lag_for_cols,
-                                           logfile_path=self.logfile_path)
+            NormalizeLags(dyla_instance=self)
         return
 
 # if __name__ == "__main__":

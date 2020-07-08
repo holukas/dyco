@@ -9,7 +9,8 @@ from pathlib import Path
 import pandas as pd
 
 
-def set_dirs(indir, outdir):
+def set_dirs(indir: False or Path,
+             outdir: False or Path):
     """
     In case no input or output directory is given, use folders 'input'
     and 'output' in current working directory.
@@ -20,22 +21,35 @@ def set_dirs(indir, outdir):
 
     """
     cwd = Path(os.path.dirname(os.path.abspath(__file__)))  # Current working directory
-
     if not indir:
         indir = cwd / 'input'
     if not outdir:
         outdir = cwd / 'output'
     return indir, outdir
 
-def create_logfile(run_id, outdir):
-    name = f'{run_id}.log'
-    path = outdir / name
-    return path
 
+def create_logger(name: str, logfile_path: Path = None):
+    """
+    Create name logger and log outputs to file
 
-def create_logger(logfile_path, name):
-    # https://www.youtube.com/watch?v=jxmzY9soFXg
-    # https://stackoverflow.com/questions/53129716/how-to-check-if-a-logger-exists
+    A new logger is only created if name does not exist.
+
+    Parameters
+    ----------
+    logfile_path: Path
+        Path to the log file to which the log output is saved.
+    name:
+        Corresponds to the __name__ of the calling file.
+
+    Returns
+    -------
+    logger class
+
+    References
+    ----------
+    https://www.youtube.com/watch?v=jxmzY9soFXg
+    https://stackoverflow.com/questions/53129716/how-to-check-if-a-logger-exists
+    """
 
     logger = logging.getLogger(name)
 
@@ -109,44 +123,40 @@ class CreateOutputDirs:
 
 
 class FilesDetector:
-    """Create overview dataframe of available and missing (expected) files."""
+    """
+    Create overview dataframe of available and missing (expected) files
+    """
     found_files = []
     files_overview_df = pd.DataFrame()
 
-    def __init__(self, dir_input, outdir, file_pattern, file_date_format, file_generation_res, data_res,
-                 files_how_many, logfile_path):
-        """Initialize with basic file information.
-
-        :param dir_input: Input directory to search for files
-        :type dir_input: Path
-        :param file_pattern: Pattern to identify files
-        :type file_pattern: str
-        :param file_date_format: Datetime information contained in file name
-        :type file_date_format: str
-        :param file_generation_res: Regular interval at which files were created, e.g. '6H' for every 6 hours
-        :type file_generation_res: str
-        :param data_res: Interval in seconds at which data are logged, e.g. 0.05
-        :type data_res: float
+    def __init__(self,
+                 dyla_instance,
+                 logfile_path: Path = None,
+                 outdir: bool or Path = False):
+        """
+        Parameters
+        ----------
+        outdir: Path or False
+            Export folder to save the files overview to.
         """
 
-        self.dir_input = dir_input
+        self.indir = dyla_instance.indir
+        self.fnm_pattern = dyla_instance.fnm_pattern
+        self.fnm_date_format = dyla_instance.fnm_date_format
+        self.file_generation_res = dyla_instance.file_generation_res
+        self.dat_recs_nominal_timeres = dyla_instance.dat_recs_nominal_timeres
+        self.files_how_many = dyla_instance.files_how_many
         self.outdir = outdir
-        self.pattern = file_pattern
-        self.file_date_format = file_date_format
-        self.file_generation_res = file_generation_res
-        self.data_res = data_res
-        self.files_how_many = files_how_many
 
         self.logger = create_logger(logfile_path=logfile_path, name=__name__)
 
-
     def run(self):
-        """Execute full processing stack."""
+        """Execute processing stack"""
         self.logger.info("Start file search")
-        self.found_files = self.search_files(dir=self.dir_input,
-                                             pattern=self.pattern)
+        self.found_files = self.search_files(indir=self.indir,
+                                             fnm_pattern=self.fnm_pattern)
         if not self.found_files:
-            self.logger.error(f"\n(!)ERROR No files found with pattern {self.pattern}. Stopping script.")
+            self.logger.error(f"\n(!)ERROR No files found with pattern {self.fnm_pattern}. Stopping script.")
             sys.exit()
 
         self.files_overview_df = self.add_expected()
@@ -170,41 +180,52 @@ class FilesDetector:
         self.logger.info(f"Exported file {outfile}")
 
     @staticmethod
-    def search_files(dir, pattern):
-        """Search files in dir.
-
-        :param dir: Directory that is searched
-        :param pattern: Pattern to identify files
-        :return: List of found files
-        :rtype: list
+    def search_files(indir, fnm_pattern):
         """
+        Search files in indir
+
+        Parameters
+        ----------
+        indir: Path
+            Directory that will be searched.
+        fnm_pattern: str
+            Filename search pattern, accepts regex.
+
+        Returns
+        -------
+        List of found files
+        """
+
         found_files = []
-        for root, dirs, files in os.walk(dir):
+        for root, dirs, files in os.walk(str(indir)):
             root = Path(root)
             for idx, filename in enumerate(files):
-                if fnmatch.fnmatch(filename, pattern):
+                if fnmatch.fnmatch(filename, fnm_pattern):
                     filepath = Path(root) / Path(filename)
                     found_files.append(filepath)
         found_files.sort()  # Sorts inplace
         return found_files
 
     def add_expected(self):
-        """Create index of expected files (regular start time) and check
-        which of these regular files are available.
-
-        :return: DataFrame with info about regular (expected) files
-        :rtype: pandas DataFrame
         """
-        len_before = len(self.found_files)
-        first_file_dt = dt.datetime.strptime(self.found_files[0].stem, self.file_date_format)
-        last_file_dt = dt.datetime.strptime(self.found_files[-1].stem, self.file_date_format)
+        Create index of expected files (regular start time) and check
+        which of these regular files are available
+
+        Returns
+        -------
+        pandas Dataframe
+        """
+
+        # len_before = len(self.found_files)
+        first_file_dt = dt.datetime.strptime(self.found_files[0].stem, self.fnm_date_format)
+        last_file_dt = dt.datetime.strptime(self.found_files[-1].stem, self.fnm_date_format)
         expected_end_dt = last_file_dt + pd.Timedelta(self.file_generation_res)
         expected_index_dt = pd.date_range(first_file_dt, expected_end_dt, freq=self.file_generation_res)
         files_df = pd.DataFrame(index=expected_index_dt)
 
         for file_idx, filepath in enumerate(self.found_files):
             filename = filepath.stem
-            file_start_dt = dt.datetime.strptime(filename, self.file_date_format)
+            file_start_dt = dt.datetime.strptime(filename, self.fnm_date_format)
 
             if file_start_dt in files_df.index:
                 files_df.loc[file_start_dt, 'file_available'] = 1
@@ -218,15 +239,17 @@ class FilesDetector:
         return files_df
 
     def add_unexpected(self):
-        """Add info about unexpected files (irregular start time).
+        """
+        Add info about unexpected files (irregular start time)
 
-        :return: DataFrame with added info about irregular files
-        :rtype: pandas DataFrame
+        Returns
+        -------
+        pandas DataFrame with added info about irregular files
         """
         files_df = self.files_overview_df.copy()
         for file_idx, filepath in enumerate(self.found_files):
             filename = filepath.stem
-            file_start_dt = dt.datetime.strptime(filename, self.file_date_format)
+            file_start_dt = dt.datetime.strptime(filename, self.fnm_date_format)
 
             if file_start_dt not in files_df.index:
                 files_df.loc[file_start_dt, 'file_available'] = 1
@@ -239,22 +262,31 @@ class FilesDetector:
         return files_df
 
     def calc_expected_values(self):
-        """Calculate expected end time, duration and records of files
+        """
+        Calculate expected end time, duration and number of records for each file
 
-        :return: DataFrame with added info about expected values
+        Returns
+        -------
+        pandas DataFrame with added info about expected values
         """
         files_df = self.files_overview_df.copy()
         files_df['expected_end'] = files_df.index
         files_df['expected_end'] = files_df['expected_end'].shift(-1)
         files_df['expected_duration'] = (files_df['expected_end'] - files_df['start']).dt.total_seconds()
-        files_df['expected_records'] = files_df['expected_duration'] / self.data_res
+        files_df['expected_records'] = files_df['expected_duration'] / self.dat_recs_nominal_timeres
         # files_df['expected_end'] = files_df['start'] + pd.Timedelta(file_generation_res)
         # files_df.loc[files_df['file_available'] == 1, 'next_file'] = files_df['expected_file']
         # files_df['next_file'] = files_df['next_file'].shift(-1)
         return files_df
 
     def limit_num_files(self):
-        """Limit the number of files used"""
+        """
+        Limit the number of files used
+
+        Returns
+        -------
+        pandas DataFrame
+        """
         if self.files_how_many:
             self.logger.info(f"Limit number of files to {int(self.files_how_many)}")
             for idx, file in self.files_overview_df.iterrows():
@@ -274,8 +306,15 @@ class FilesDetector:
 
 
 def generate_run_id():
-    # current time
+    """Generate unique id for this run"""
     script_start_time = time.strftime("%Y-%m-%d %H:%M:%S")
     run_id = time.strftime("%Y%m%d-%H%M%S")
     run_id = f"DYLA-{run_id}"
     return run_id, script_start_time
+
+
+def set_logfile_path(run_id: str, outdir: Path):
+    """Set full path to log file"""
+    name = f'{run_id}.log'
+    path = outdir / name
+    return path

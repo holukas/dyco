@@ -8,9 +8,8 @@ def read_segment_lagtimes_file(filepath):
     """
     Read file.
 
-    Is used for reading segment covariances and lag search
-    results for each segment. Can be used for all text files
-    for which the .read_csv args are valid.
+    Reading segment covariances and lag search results for each segment.
+    Can be used for all text files for which the .read_csv args are valid.
 
     Parameters
     ----------

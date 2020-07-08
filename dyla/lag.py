@@ -12,20 +12,22 @@ from _setup import create_logger
 
 class LagSearch:
     def __init__(self,
+                 loop_instance,
                  segment_df: pd.DataFrame,
                  segment_name: str,
-                 ref_sig: str,
-                 lagged_sig: str,
-                 win_lagsearch: list,
                  file_idx: pd.Timestamp,
                  segment_start: pd.Timestamp,
                  segment_end: pd.Timestamp,
                  filename: str,
-                 iteration: int,
-                 shift_stepsize: int,
                  outdir_data: Path = None,
-                 outdir_plots: Path = None,
-                 logfile_path: Path = None):
+                 outdir_plots: Path = None):
+
+        self.lgs_refsig = loop_instance.lgs_refsig
+        self.lgs_lagsig = loop_instance.lgs_lagsig
+        self.lgs_winsize = loop_instance.lgs_winsize
+        self.iteration = loop_instance.iteration
+        self.shift_stepsize = loop_instance.shift_stepsize  # Negative moves lagged values "upwards" in column
+        self.logfile_path = loop_instance.logfile_path
 
         self.segment_df = segment_df
         self.segment_name = segment_name
@@ -33,16 +35,10 @@ class LagSearch:
         self.segment_end = segment_end
         self.outdir_data = outdir_data
         self.outdir_plots = outdir_plots
-        self.ref_sig = ref_sig
-        self.lagged_sig = lagged_sig
         self.file_idx = file_idx
         self.filename = filename
-        self.iteration = iteration
-        self.win_lagsearch = win_lagsearch
-        self.shift_stepsize = shift_stepsize  # Negative moves lagged values "upwards" in column
-        self.logfile_path = logfile_path
 
-        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
+        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.lgs_winsize,
                                               shift_stepsize=self.shift_stepsize,
                                               segment_name=self.segment_name)
 
@@ -52,15 +48,16 @@ class LagSearch:
         self.run()
 
     def run(self):
-        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.win_lagsearch,
+        """Execute processing stack"""
+        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.lgs_winsize,
                                               shift_stepsize=self.shift_stepsize,
                                               segment_name=self.segment_name)
 
         # Max covariance peak detection
         self.cov_df = self.find_max_cov_peak(segment_df=self.segment_df,
                                              cov_df=self.cov_df,
-                                             ref_sig=self.ref_sig,
-                                             lagged_sig=self.lagged_sig)
+                                             ref_sig=self.lgs_refsig,
+                                             lagged_sig=self.lgs_lagsig)
 
         # Automatic peak detection
         self.cov_df, self.props_peak_auto = self.find_peak_auto(cov_df=self.cov_df)
@@ -75,7 +72,7 @@ class LagSearch:
                                     idx_peak_auto=idx_peak_auto,
                                     props_peak_auto=self.props_peak_auto,
                                     iteration=self.iteration,
-                                    win_lagsearch=self.win_lagsearch,
+                                    win_lagsearch=self.lgs_winsize,
                                     segment_name=self.segment_name,
                                     segment_start=self.segment_start,
                                     segment_end=self.segment_end,
@@ -239,43 +236,16 @@ class LagSearch:
         """
         if True in df['flag_peak_auto'].values:
             idx_peak_auto = df.loc[df['flag_peak_auto'] == True, :].index.values[0]
-            # shift_peak_auto = df.iloc[idx_peak_auto]['shift']
-            # cov_peak_auto = df.iloc[idx_peak_auto]['cov']
         else:
             idx_peak_auto = False
 
         if True in df['flag_peak_max_cov_abs'].values:
             idx_peak_cov_abs_max = df.loc[df['flag_peak_max_cov_abs'] == True, :].index.values[0]
-            # shift_peak_cov_abs_max = df.iloc[idx_peak_cov_abs_max]['shift']
-            # cov_peak_cov_abs_max = df.iloc[idx_peak_cov_abs_max]['cov']
         else:
             idx_peak_cov_abs_max = False
 
         return idx_peak_cov_abs_max, idx_peak_auto
 
-    def prepare_info_txt(self, shift_peak_auto, cov_abs_peak_auto, shift_peak_cov_abs_max, cov_peak_cov_abs_max):
-        txt_info = \
-            f"Iteration: {self.iteration}\n" \
-            f"Time lag search window: from {self.win_lagsearch[0]} to {self.win_lagsearch[1]} records\n" \
-            f"Segment name: {self.segment_name}\n" \
-            f"Segment start: {self.segment_start}\n" \
-            f"Segment end: {self.segment_end}\n" \
-            f"File: {self.filename} - File date: {self.file_idx}\n" \
-            f"Max absolute covariance {cov_peak_cov_abs_max:.3f} found @ record {shift_peak_cov_abs_max}\n" \
-            f"Lag search step size: {self.shift_stepsize} records"
-
-        # Check if automatically detected peak available
-        if not self.props_peak_auto.empty:
-            txt_auto_peak_props = \
-                f"Peak auto-detected found @ record {shift_peak_auto}\n" \
-                f"    cov: {cov_abs_peak_auto}\n" \
-                f"    prominence: {self.props_peak_auto['prominences']}\n" \
-                f"    width: {self.props_peak_auto['widths']}\n" \
-                f"    width height: {self.props_peak_auto['width_heights']}\n"
-        else:
-            txt_auto_peak_props = "No auto-detected peak"
-
-        return txt_info, txt_auto_peak_props
 
     def save_cov_plot(self, fig):
         """Save covariance plot for segment"""
@@ -542,11 +512,12 @@ class AdjustLagsearchWindow():
         bar_width = (hist_bins[1] - hist_bins[0]) * 0.9  # Calculate bar width
         args = dict(width=bar_width, align='edge')
         ax.bar(x=hist_bins[0:-1], height=self.counts, label='counts', zorder=90, color='#78909c', **args)
+        ax.set_xlim(hist_bins[0], hist_bins[-1])
 
         # Text counts
-        ax.set_xlim(hist_bins[0], hist_bins[-1])
         for i, v in enumerate(self.counts):
-            ax.text(hist_bins[0:-1][i] + (bar_width / 2), 1, str(v), zorder=99)
+            if v > 0:
+                ax.text(hist_bins[0:-1][i] + (bar_width / 2), v, str(v), zorder=99, size=6)
 
         ax.bar(x=hist_bins[self.peak_max_count_idx], height=self.counts[self.peak_max_count_idx],
                label='most counts', zorder=98, edgecolor='#ef5350', linewidth=4,
@@ -569,19 +540,30 @@ class AdjustLagsearchWindow():
             f"Histogram of found lag times in iteration {self.iteration}\n" \
             f"Number of found lag times: {self.numvals_series}"
 
+        if self.remove_fringe_bins:
+            txt_info += "\nFringe bins removed: yes"
+        else:
+            txt_info += "\nFringe bins removed: no"
+
         ax.text(0.02, 0.98, txt_info,
                 horizontalalignment='left', verticalalignment='top',
                 transform=ax.transAxes, size=14, color='black',
                 backgroundcolor='none', zorder=100)
 
-        ax.legend()
+        ax.legend(loc='upper right', prop={'size': 10}).set_zorder(100)
 
         plot.default_format(ax=ax, label_color='black', fontsize=12,
                             txt_xlabel='lag [records]', txt_ylabel='counts', txt_ylabel_units='[#]')
 
         if self.outdir:
-            outpath = self.outdir / f'{self.iteration}_HISTOGRAM_found_lag_times_iteration-{self.iteration}'
-            fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
+
+            if self.remove_fringe_bins:
+                outfile = f'{self.iteration}_HISTOGRAM_segment_lag_times_iteration-{self.iteration}.png'
+            else:
+                outfile = f'HISTOGRAM_segment_lag_times_FINAL.png'
+
+            outpath = self.outdir / outfile
+            fig.savefig(f"{outpath}", format='png', bbox_inches='tight', facecolor='w',
                         transparent=True, dpi=150)
 
         # ax.set_xticklabels(division)  # Labels of ticks, shown in plot

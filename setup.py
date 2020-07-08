@@ -7,7 +7,7 @@ setuptools.setup(
     name='dyla',
     packages=setuptools.find_packages(),
     # packages=['dyla'],
-    version='0.0.2',
+    version='0.0.3',
     license='GNU General Public License v3 (GPLv3)',
     description='A Python package to detect and compensate for shifting lag times in ecosystem time series',
     long_description=long_description,

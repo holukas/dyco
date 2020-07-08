@@ -25,15 +25,20 @@ class Tests(unittest.TestCase):
         self.assertEqual(raw_data_df['co2_ppb_qcl'].mean(), 369599.2060149097)
 
     def test_files_detector(self):
-        dir_input = Path('test_data/test_raw_data/')
+        indir = Path('test_data/test_raw_data/')
 
-        fd = _setup.FilesDetector(dir_input=dir_input,
+        class TestClass(object):
+            def __init__(self):
+                self.indir = indir
+                self.fnm_pattern = '2016*.csv'
+                self.fnm_date_format = '%Y%m%d%H%M%S'
+                self.file_generation_res = '30T'
+                self.dat_recs_nominal_timeres = 0.05
+                self.files_how_many = False
+        test_class_instance = TestClass()
+
+        fd = _setup.FilesDetector(dyla_instance=test_class_instance,
                                   outdir=False,
-                                  file_pattern='2016*.csv',
-                                  file_date_format='%Y%m%d%H%M%S',
-                                  file_generation_res='30T',
-                                  data_res=0.05,
-                                  files_how_many=False,
                                   logfile_path=None)
         fd.run()
         self.files_overview_df = fd.get()
@@ -51,17 +56,23 @@ class Tests(unittest.TestCase):
         filepath = 'test_data/test_raw_data/20161020113000.csv'
         segment_df = files.read_raw_data(filepath=filepath, data_timestamp_format='%Y-%m-%d %H:%M:%S.%f')
 
-        lagsearch_df, props_peak_auto = lag.LagSearch(segment_df=segment_df,
+        class TestClass(object):
+            def __init__(self):
+                self.lgs_refsig = 'w_ms-1_rot_turb'
+                self.lgs_lagsig = 'co2_ppb_qcl_turb'
+                self.lgs_winsize = [-1000, 1000]
+                self.iteration = 1
+                self.shift_stepsize = 10
+                self.logfile_path = None
+        test_class_instance = TestClass()
+
+        lagsearch_df, props_peak_auto = lag.LagSearch(loop_instance=test_class_instance,
+                                                      segment_df=segment_df,
                                                       segment_name='20161020113000_iter1',
-                                                      ref_sig='w_ms-1_rot_turb',
-                                                      lagged_sig='co2_ppb_qcl_turb',
-                                                      win_lagsearch=[-1000, 1000],
                                                       file_idx=dt.datetime(2016, 10, 20, 11, 30, 00),
                                                       segment_start=dt.datetime(2016, 10, 20, 11, 30, 00, 24999),
                                                       segment_end=dt.datetime(2016, 10, 20, 11, 59, 59, 966666),
-                                                      filename='20161020113000',
-                                                      iteration=1,
-                                                      shift_stepsize=10).get()
+                                                      filename='20161020113000').get()
 
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'shift'].values[0], -290)
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)
@@ -121,6 +132,9 @@ class Tests(unittest.TestCase):
     #     self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)
     #     self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'cov_abs'].values[0],
     #                      223.13887346667508)
+
+
+
 
 
 if __name__ == '__main__':

@@ -9,14 +9,13 @@ from _setup import create_logger
 
 
 class NormalizeLags:
-    def __init__(self, files_overview_df, dat_recs_timestamp_format, outdirs, normalize_lag_for_cols,
-                 logfile_path):
-        self.files_overview_df = files_overview_df
-        self.dat_recs_timestamp_format = dat_recs_timestamp_format
-        self.outdirs = outdirs
-        self.normalize_lag_for_cols = normalize_lag_for_cols
+    def __init__(self, dyla_instance):
+        self.files_overview_df = dyla_instance.files_overview_df
+        self.dat_recs_timestamp_format = dyla_instance.dat_recs_timestamp_format
+        self.outdirs = dyla_instance.outdirs
+        self.normalize_lag_for_cols = dyla_instance.normalize_lag_for_cols
 
-        self.logger = create_logger(logfile_path=logfile_path, name=__name__)
+        self.logger = create_logger(logfile_path=dyla_instance.logfile_path, name=__name__)
 
         self.lut_default_lag_times_df = self.read_lut()
 

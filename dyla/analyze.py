@@ -34,7 +34,7 @@ class AnalyzeLoopResults:
         segment_lagtimes_df = files.read_segment_lagtimes_file(
             filepath=self.outdirs['2-0_Segment_Lag_Times']
                      / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
-        plot.timeseries_segment_lagtimes(df=segment_lagtimes_df,
+        plot.timeseries_segment_lagtimes(segment_lagtimes_df=segment_lagtimes_df,
                                          outdir=self.outdirs['3-0_Lookup_Table_Normalization'],
                                          iteration=self.lgs_num_iter,
                                          show_all=True,
