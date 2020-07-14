@@ -94,10 +94,10 @@ def read_raw_data(filepath, data_timestamp_format):
 def calc_true_resolution(num_records, data_nominal_res, expected_records, expected_duration):
     ratio = num_records / expected_records
     if (ratio > 0.999) and (ratio < 1.001):
-        file_complete = True
+        # file_complete = True
         true_resolution = np.float64(expected_duration / num_records)
     else:
-        file_complete = False
+        # file_complete = False
         true_resolution = data_nominal_res
     return true_resolution
 

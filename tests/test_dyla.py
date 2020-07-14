@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from dyla import _setup, analyze, files, loop, lag
+from dyco import _setup, analyze, files, loop, lag
 
 
 class Tests(unittest.TestCase):
@@ -37,7 +37,7 @@ class Tests(unittest.TestCase):
                 self.files_how_many = False
         test_class_instance = TestClass()
 
-        fd = _setup.FilesDetector(dyla_instance=test_class_instance,
+        fd = _setup.FilesDetector(dyco_instance=test_class_instance,
                                   outdir=False,
                                   logfile_path=None)
         fd.run()

@@ -9,13 +9,13 @@ from _setup import create_logger
 
 
 class NormalizeLags:
-    def __init__(self, dyla_instance):
-        self.files_overview_df = dyla_instance.files_overview_df
-        self.dat_recs_timestamp_format = dyla_instance.dat_recs_timestamp_format
-        self.outdirs = dyla_instance.outdirs
-        self.normalize_lag_for_cols = dyla_instance.normalize_lag_for_cols
+    def __init__(self, dyco_instance):
+        self.files_overview_df = dyco_instance.files_overview_df
+        self.dat_recs_timestamp_format = dyco_instance.dat_recs_timestamp_format
+        self.outdirs = dyco_instance.outdirs
+        self.normalize_lag_for_cols = dyco_instance.normalize_lag_for_cols
 
-        self.logger = create_logger(logfile_path=dyla_instance.logfile_path, name=__name__)
+        self.logger = create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
         self.lut_default_lag_times_df = self.read_lut()
 
@@ -40,14 +40,19 @@ class NormalizeLags:
 
             this_date = file_info_row['start'].date()
 
-            shift_correction = int(self.lut_default_lag_times_df.loc[this_date]['correction'])
-            data_df = self.normalize_default_lag(df=data_df,
-                                                 shift=shift_correction)
 
-            self.save_dyla_files(outdir=self.outdirs['3-1_____Normalized_Files'],
-                                 original_filename=file_info_row['filename'],
-                                 df=data_df,
-                                 export_timestamp=True)
+            shift_correction = self.lut_default_lag_times_df.loc[this_date]['correction']
+            if pd.isnull(shift_correction):
+                shift_correction = np.nan
+            else:
+                shift_correction = int(shift_correction)
+                data_df = self.normalize_default_lag(df=data_df,
+                                                     shift=shift_correction)
+
+                self.save_dyco_files(outdir=self.outdirs['1-7_input_files_normalized'],
+                                     original_filename=file_info_row['filename'],
+                                     df=data_df,
+                                     export_timestamp=True)
 
             time_needed = time.time() - start
             times_needed.append(time_needed)
@@ -65,19 +70,22 @@ class NormalizeLags:
                        f"    remaining files: {int(remaining_files)}    progress: {progress:.2f}%"
             self.logger.info(txt_info)
 
-    def save_dyla_files(self, df, outdir, original_filename, export_timestamp):
+
+
+
+    def save_dyco_files(self, df, outdir, original_filename, export_timestamp):
         df.fillna(-9999, inplace=True)
-        outpath = outdir / f"{original_filename}_DYLA.csv"
+        outpath = outdir / f"{original_filename}_DYCO.csv"
         df.to_csv(outpath, index=export_timestamp)
 
     def normalize_default_lag(self, df, shift):
         for col in self.normalize_lag_for_cols:
-            outcol = f"{col}_DYLA"
+            outcol = f"{col}_DYCO"
             df[outcol] = df[col].shift(shift)
         return df
 
     def read_lut(self):
-        filepath = self.outdirs['3-0_Lookup_Table_Normalization'] / f'LUT_default_lag_times.csv'
+        filepath = self.outdirs['1-6_input_files_normalization_lookup_table'] / f'LUT_default_lag_times.csv'
         parse = lambda x: dt.datetime.strptime(x, '%Y-%m-%d')
         df = pd.read_csv(filepath,
                          skiprows=None,

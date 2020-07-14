@@ -4,26 +4,32 @@ import numpy as np
 import pandas as pd
 
 import files
-import plot
 from _setup import create_logger
+from loop import Loop
 
 
 class AnalyzeLoopResults:
-    def __init__(self, lgs_num_iter, outdirs=None, lag_target=-100, logfile_path=None,
+    """
+    Analyze lag search results and create look-up table for lag-time normalization
+    """
+
+    def __init__(self,
+                 dyco_instance,
                  direct_path_to_segment_lagtimes_file=None):
-        self.lgs_num_iter = lgs_num_iter
-        self.outdirs = outdirs
-        self.lag_target = lag_target
+
+        self.lgs_num_iter = dyco_instance.lgs_num_iter
+        self.outdirs = dyco_instance.outdirs
+        self.lag_target = dyco_instance.lag_target
         self.direct_path_to_segment_lagtimes_file = direct_path_to_segment_lagtimes_file
 
-        self.logger = create_logger(logfile_path=logfile_path, name=__name__)
+        self.logger = create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
     def run(self):
         self.lut_default_lag_times_df, self.lut_success = self.generate_lut_default_lag_times()
 
         if self.outdirs:
             self.save_lut(lut=self.lut_default_lag_times_df,
-                          outdir=self.outdirs['3-0_Lookup_Table_Normalization'])
+                          outdir=self.outdirs['1-6_input_files_normalization_lookup_table'])
             self.plot_segment_lagtimes_with_default()
 
     def get(self):
@@ -32,15 +38,15 @@ class AnalyzeLoopResults:
     def plot_segment_lagtimes_with_default(self):
         # Read found lag time results from very last iteration
         segment_lagtimes_df = files.read_segment_lagtimes_file(
-            filepath=self.outdirs['2-0_Segment_Lag_Times']
+            filepath=self.outdirs['1-3_input_files_time_lags_overview']
                      / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
-        plot.timeseries_segment_lagtimes(segment_lagtimes_df=segment_lagtimes_df,
-                                         outdir=self.outdirs['3-0_Lookup_Table_Normalization'],
-                                         iteration=self.lgs_num_iter,
-                                         show_all=True,
-                                         overlay_default=True,
-                                         overlay_default_df=self.lut_default_lag_times_df,
-                                         overlay_target_val=-100)
+        Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
+                                      outdir=self.outdirs['1-6_input_files_normalization_lookup_table'],
+                                      iteration=self.lgs_num_iter,
+                                      show_all=False,
+                                      overlay_default=True,
+                                      overlay_default_df=self.lut_default_lag_times_df,
+                                      overlay_target_val=-100)
 
     def save_lut(self, lut, outdir):
         outpath = outdir / f'LUT_default_lag_times'
@@ -52,7 +58,7 @@ class AnalyzeLoopResults:
         # Load results from last iteration
         last_iteration = self.lgs_num_iter
         if self.outdirs:
-            filepath_last_iteration = self.outdirs['2-0_Segment_Lag_Times'] \
+            filepath_last_iteration = self.outdirs['1-3_input_files_time_lags_overview'] \
                                       / f'{last_iteration}_segments_found_lag_times_after_iteration-{last_iteration}.csv'
 
         else:
@@ -67,7 +73,7 @@ class AnalyzeLoopResults:
 
         if not peaks_hq_S.empty:
             lut_df = self.make_lut(series=peaks_hq_S,
-                                   lag_target=self.lag_target)
+                                   target_lag=self.lag_target)
             lut_success = True
             self.logger.info(f"Finished creating look-up table for default lag times and normalization correction")
         else:
@@ -94,7 +100,7 @@ class AnalyzeLoopResults:
         df_filtered = df.loc[filter_this_iteration, :]
         return df_filtered
 
-    def make_lut(self, series, lag_target):
+    def make_lut(self, series, target_lag):
         """
         Generate look-up table that contains the default lag time for each day
 
@@ -134,7 +140,8 @@ class AnalyzeLoopResults:
                 lut_df.loc[this_date, 'from'] = from_date
                 lut_df.loc[this_date, 'to'] = to_date
 
-        lut_df['correction'] = -1 * (lag_target - lut_df['median'])
+        lut_df['target_lag'] = target_lag
+        lut_df['correction'] = -1 * (lut_df['target_lag'] - lut_df['median'])
 
         self.logger.info(f"Created look-up table for {len(lut_df.index)} dates")
         self.logger.info(f"    First date: {lut_df.index[0]}    Last date: {lut_df.index[-1]}")
@@ -145,6 +152,12 @@ class AnalyzeLoopResults:
         self.logger.warning(f"No correction could be generated from data for dates: {missing_df.index.to_list()}")
         self.logger.warning(f"Filling missing corrections for dates: {missing_df.index.to_list()}")
         lut_df['correction'].fillna(method='ffill', inplace=True, limit=1)
+
+        try:
+            lut_df['recommended_default_winsize'] = \
+                int((np.abs(lut_df['correction'].min() - lut_df['correction'].max())) / 2) * 1.2
+        except ValueError:
+            lut_df['recommended_default_winsize'] = np.nan
         return lut_df
 
     def check_missing(self, df, col):

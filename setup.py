@@ -4,9 +4,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='dyla',
+    name='dyco',
     packages=setuptools.find_packages(),
-    # packages=['dyla'],
+    # packages=['dyco'],
     version='0.0.3',
     license='GNU General Public License v3 (GPLv3)',
     description='A Python package to detect and compensate for shifting lag times in ecosystem time series',
@@ -14,8 +14,8 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     author='Lukas Hörtnagl',
     author_email='lukas.hoertnagl@usys.ethz.ch',
-    url='https://gitlab.ethz.ch/holukas/dyla-dynamic-lag-remover',
-    download_url='https://pypi.org/project/dyla/',
+    url='https://gitlab.ethz.ch/holukas/dyco-dynamic-lag-compensation',
+    download_url='https://pypi.org/project/dyco/',
     keywords=['ecosystem', 'eddy covariance', 'fluxes',
               'time series', 'lag', 'timeshift'],
     install_requires=['pandas', 'numpy', 'matplotlib', ],

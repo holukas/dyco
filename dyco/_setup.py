@@ -82,14 +82,15 @@ class CreateOutputDirs:
     def new_dirs(self):
         outdirs = [
             '_log',
-            '0-0_Found_Files',
-            '1-0_Covariances',
-            '1-1_____Plots',
-            '2-0_Segment_Lag_Times',
-            '2-1_____Histograms',
-            '2-2_____Timeseries',
-            '3-0_Lookup_Table_Normalization',
-            '3-1_____Normalized_Files']
+            '1-0_input_files_overview',
+            '1-1_input_files_covariances',
+            '1-2_input_files_covariances_plots',
+            '1-3_input_files_time_lags_overview',
+            '1-4_input_files_time_lags_overview_histograms',
+            '1-5_input_files_time_lags_overview_timeseries',
+            '1-6_input_files_normalization_lookup_table',
+            '1-7_input_files_normalized',
+        ]
         return outdirs
 
     def setup_output_dirs(self):
@@ -130,7 +131,7 @@ class FilesDetector:
     files_overview_df = pd.DataFrame()
 
     def __init__(self,
-                 dyla_instance,
+                 dyco_instance,
                  logfile_path: Path = None,
                  outdir: bool or Path = False):
         """
@@ -140,12 +141,12 @@ class FilesDetector:
             Export folder to save the files overview to.
         """
 
-        self.indir = dyla_instance.indir
-        self.fnm_pattern = dyla_instance.fnm_pattern
-        self.fnm_date_format = dyla_instance.fnm_date_format
-        self.file_generation_res = dyla_instance.file_generation_res
-        self.dat_recs_nominal_timeres = dyla_instance.dat_recs_nominal_timeres
-        self.files_how_many = dyla_instance.files_how_many
+        self.indir = dyco_instance.indir
+        self.fnm_pattern = dyco_instance.fnm_pattern
+        self.fnm_date_format = dyco_instance.fnm_date_format
+        self.file_generation_res = dyco_instance.file_generation_res
+        self.dat_recs_nominal_timeres = dyco_instance.dat_recs_nominal_timeres
+        self.files_how_many = dyco_instance.files_how_many
         self.outdir = outdir
 
         self.logger = create_logger(logfile_path=logfile_path, name=__name__)
@@ -309,7 +310,7 @@ def generate_run_id():
     """Generate unique id for this run"""
     script_start_time = time.strftime("%Y-%m-%d %H:%M:%S")
     run_id = time.strftime("%Y%m%d-%H%M%S")
-    run_id = f"DYLA-{run_id}"
+    run_id = f"DYCO-{run_id}"
     return run_id, script_start_time
 
 

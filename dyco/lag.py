@@ -11,6 +11,11 @@ from _setup import create_logger
 
 
 class LagSearch:
+    """
+    Determine the time lag for each file by calculating covariances
+    and finding covariance peaks
+    """
+
     def __init__(self,
                  loop_instance,
                  segment_df: pd.DataFrame,
@@ -193,6 +198,7 @@ class LagSearch:
                     else:
                         index_shifted = pd.NaT
                     scalar_data_shifted = _segment_df[lagged_sig].shift(shift)
+                    # cov = _segment_df[ref_sig].corr(scalar_data_shifted)
                     cov = _segment_df[ref_sig].cov(scalar_data_shifted)
                     cov_df.loc[cov_df['shift'] == row['shift'], 'cov'] = cov
                     cov_df.loc[cov_df['shift'] == row['shift'], 'index'] = index_shifted
