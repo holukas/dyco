@@ -2,35 +2,17 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/dyco/plot.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/DYLA_Dynamic_Lag_Remover.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/DYCO_Dynamic_Lag_Compensation.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LICENSE" beforeDir="false" afterPath="$PROJECT_DIR$/LICENSE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/.idea/LagRemover_INDEV.iml" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/.idea/LagRemover_INDEV.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/_setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/_setup.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/analyze.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/analyze.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/correction.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/correction.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/dyla.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/dyco.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/files.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/files.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/lag.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/loop.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyla/plot.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/environment.yml" beforeDir="false" afterPath="$PROJECT_DIR$/environment.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/_setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/_setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/analyze.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/analyze.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/correction.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/correction.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/dyco.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/files.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/files.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/lag.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/loop.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/plot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/examples/example.py" beforeDir="false" afterPath="$PROJECT_DIR$/examples/example.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_dyla.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_dyla.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_dyla.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_dyco.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,7 +75,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="pytest for test_dyla.Tests" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
+    <configuration name="pytest for tests.test_dyco.Tests" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -106,11 +88,11 @@
       <option name="_new_keywords" value="&quot;&quot;" />
       <option name="_new_parameters" value="&quot;&quot;" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_dyla.Tests&quot;" />
+      <option name="_new_target" value="&quot;tests.test_dyco.Tests&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="pytest for test_dyla.Tests.test_files_detector" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
+    <configuration name="pytest for tests.test_dyco.Tests.test_files_detector" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -123,11 +105,11 @@
       <option name="_new_keywords" value="&quot;&quot;" />
       <option name="_new_parameters" value="&quot;&quot;" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_dyla.Tests.test_files_detector&quot;" />
+      <option name="_new_target" value="&quot;tests.test_dyco.Tests.test_files_detector&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="pytest for test_dyla.Tests.test_lagsearch_class" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
+    <configuration name="pytest for tests.test_dyco.Tests.test_lagsearch_class" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -140,11 +122,11 @@
       <option name="_new_keywords" value="&quot;&quot;" />
       <option name="_new_parameters" value="&quot;&quot;" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_dyla.Tests.test_lagsearch_class&quot;" />
+      <option name="_new_target" value="&quot;tests.test_dyco.Tests.test_lagsearch_class&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="pytest in test_dyla.py" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
+    <configuration name="pytest in test_dyco.py" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -157,17 +139,17 @@
       <option name="_new_keywords" value="&quot;&quot;" />
       <option name="_new_parameters" value="&quot;&quot;" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_dyla.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/tests/test_dyco.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="Python.example" />
-        <item itemvalue="Python tests.pytest in test_dyla.py" />
-        <item itemvalue="Python tests.pytest for test_dyla.Tests" />
-        <item itemvalue="Python tests.pytest for test_dyla.Tests.test_files_detector" />
-        <item itemvalue="Python tests.pytest for test_dyla.Tests.test_lagsearch_class" />
+        <item itemvalue="Python tests.pytest for tests.test_dyco.Tests" />
+        <item itemvalue="Python tests.pytest in test_dyco.py" />
+        <item itemvalue="Python tests.pytest for tests.test_dyco.Tests.test_files_detector" />
+        <item itemvalue="Python tests.pytest for tests.test_dyco.Tests.test_lagsearch_class" />
       </list>
     </recent_temporary>
   </component>
@@ -294,7 +276,22 @@
       <workItem from="1594645707869" duration="19806000" />
       <workItem from="1594717456776" duration="11000" />
       <workItem from="1594721124574" duration="30000" />
-      <workItem from="1594721934471" duration="873000" />
+      <workItem from="1594721934471" duration="21731000" />
+      <workItem from="1594798931048" duration="4092000" />
+      <workItem from="1594888658754" duration="15152000" />
+      <workItem from="1594979160642" duration="8000" />
+      <workItem from="1594990292445" duration="33354000" />
+      <workItem from="1595166109051" duration="3304000" />
+      <workItem from="1595249754180" duration="15709000" />
+      <workItem from="1595315121348" duration="25000" />
+      <workItem from="1595325306368" duration="11941000" />
+      <workItem from="1595355998418" duration="11707000" />
+      <workItem from="1595405584311" duration="13916000" />
+      <workItem from="1595439022088" duration="9112000" />
+      <workItem from="1595497141357" duration="15798000" />
+      <workItem from="1595534228287" duration="10405000" />
+      <workItem from="1595580234050" duration="86000" />
+      <workItem from="1595580738551" duration="10145000" />
     </task>
     <servers />
   </component>
@@ -326,38 +323,38 @@
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
     <state x="1070" y="536" key="FileChooserDialogImpl/0.0.2560.1400@0.0.2560.1400" timestamp="1594209313756" />
-    <state width="2517" height="480" key="GridCell.Tab.0.bottom" timestamp="1594685342508">
+    <state width="2517" height="366" key="GridCell.Tab.0.bottom" timestamp="1595625078398">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.0.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342508" />
-    <state width="2517" height="480" key="GridCell.Tab.0.center" timestamp="1594685342507">
+    <state width="2517" height="366" key="GridCell.Tab.0.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1595625078398" />
+    <state width="2517" height="366" key="GridCell.Tab.0.center" timestamp="1595625078398">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.0.center/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342507" />
-    <state width="2517" height="480" key="GridCell.Tab.0.left" timestamp="1594685342507">
+    <state width="2517" height="366" key="GridCell.Tab.0.center/0.0.2560.1400@0.0.2560.1400" timestamp="1595625078398" />
+    <state width="2517" height="366" key="GridCell.Tab.0.left" timestamp="1595625078398">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.0.left/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342507" />
-    <state width="2517" height="480" key="GridCell.Tab.0.right" timestamp="1594685342507">
+    <state width="2517" height="366" key="GridCell.Tab.0.left/0.0.2560.1400@0.0.2560.1400" timestamp="1595625078398" />
+    <state width="2517" height="366" key="GridCell.Tab.0.right" timestamp="1595625078398">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.0.right/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342507" />
-    <state width="2517" height="480" key="GridCell.Tab.1.bottom" timestamp="1594685342507">
+    <state width="2517" height="366" key="GridCell.Tab.0.right/0.0.2560.1400@0.0.2560.1400" timestamp="1595625078398" />
+    <state width="2517" height="479" key="GridCell.Tab.1.bottom" timestamp="1595594402541">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342507" />
-    <state width="2517" height="480" key="GridCell.Tab.1.center" timestamp="1594685342507">
+    <state width="2517" height="479" key="GridCell.Tab.1.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1595594402541" />
+    <state width="2517" height="479" key="GridCell.Tab.1.center" timestamp="1595594402541">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.center/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342507" />
-    <state width="2517" height="480" key="GridCell.Tab.1.left" timestamp="1594685342507">
+    <state width="2517" height="479" key="GridCell.Tab.1.center/0.0.2560.1400@0.0.2560.1400" timestamp="1595594402541" />
+    <state width="2517" height="479" key="GridCell.Tab.1.left" timestamp="1595594402541">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.left/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342507" />
-    <state width="2517" height="480" key="GridCell.Tab.1.right" timestamp="1594685342507">
+    <state width="2517" height="479" key="GridCell.Tab.1.left/0.0.2560.1400@0.0.2560.1400" timestamp="1595594402541" />
+    <state width="2517" height="479" key="GridCell.Tab.1.right" timestamp="1595594402541">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state width="2517" height="480" key="GridCell.Tab.1.right/0.0.2560.1400@0.0.2560.1400" timestamp="1594685342507" />
+    <state width="2517" height="479" key="GridCell.Tab.1.right/0.0.2560.1400@0.0.2560.1400" timestamp="1595594402541" />
     <state x="417" y="329" width="1723" height="934" key="SettingsEditor" timestamp="1594306175425">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
@@ -366,22 +363,22 @@
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
     <state x="1152" y="545" key="cloudConfig.SelfSettingsDialog/0.0.2560.1400@0.0.2560.1400" timestamp="1591472845586" />
-    <state x="1090" y="614" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1593989036649">
+    <state x="1090" y="614" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1595411539124">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state x="1090" y="614" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.0.2560.1400@0.0.2560.1400" timestamp="1593989036649" />
+    <state x="1090" y="614" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.0.2560.1400@0.0.2560.1400" timestamp="1595411539124" />
     <state x="836" y="429" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2" timestamp="1594134384000">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
     <state x="836" y="429" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2/0.0.2560.1400@0.0.2560.1400" timestamp="1594134384000" />
-    <state x="521" y="253" width="1453" height="997" key="find.popup" timestamp="1594722536841">
+    <state x="552" y="234" width="1453" height="997" key="find.popup" timestamp="1595624987042">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state x="521" y="253" width="1453" height="997" key="find.popup/0.0.2560.1400@0.0.2560.1400" timestamp="1594722536841" />
-    <state x="1134" y="549" key="refactoring.ChangeSignatureDialog" timestamp="1594160339461">
+    <state x="552" y="234" width="1453" height="997" key="find.popup/0.0.2560.1400@0.0.2560.1400" timestamp="1595624987042" />
+    <state x="1134" y="549" key="refactoring.ChangeSignatureDialog" timestamp="1595594417329">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
-    <state x="1134" y="549" key="refactoring.ChangeSignatureDialog/0.0.2560.1400@0.0.2560.1400" timestamp="1594160339461" />
+    <state x="1134" y="549" key="refactoring.ChangeSignatureDialog/0.0.2560.1400@0.0.2560.1400" timestamp="1595594417329" />
     <state x="943" y="315" width="672" height="678" key="search.everywhere.popup" timestamp="1594158255705">
       <screen x="0" y="0" width="2560" height="1400" />
     </state>
@@ -391,14 +388,24 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/tests/test_dyla.py</url>
+          <url>file://$PROJECT_DIR$/tests/test_dyco.py</url>
           <line>68</line>
           <option name="timeStamp" value="244" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/dyco/plot.py</url>
+          <line>119</line>
+          <option name="timeStamp" value="247" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/dyco/dyco.py</url>
-          <line>39</line>
-          <option name="timeStamp" value="287" />
+          <line>73</line>
+          <option name="timeStamp" value="248" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/dyco/plot.py</url>
+          <line>16</line>
+          <option name="timeStamp" value="249" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -415,6 +422,7 @@
     <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1587688045123" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
     <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1589273236093" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_setup_py.coverage" NAME="pytest in test_setup.py Coverage Results" MODIFIED="1593995538853" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyla_Tests.coverage" NAME="pytest for test_dyla.Tests Coverage Results" MODIFIED="1594723851108" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1593994440418" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyla" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO_test_read_segments_file.coverage" NAME="pytest for test_io.TestIO.test_read_segments_file Coverage Results" MODIFIED="1593987950591" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO.coverage" NAME="pytest for test_io.TestIO Coverage Results" MODIFIED="1594046549751" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
@@ -427,6 +435,7 @@
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_io_py.coverage" NAME="pytest in test_io.py Coverage Results" MODIFIED="1594046501765" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main.coverage" NAME="main Coverage Results" MODIFIED="1587770618375" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_loop_py.coverage" NAME="pytest in test_loop.py Coverage Results" MODIFIED="1594023965726" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$example.coverage" NAME="example Coverage Results" MODIFIED="1595599926971" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
     <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587685015226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_loop_TestLagSearch_test_lagsearch_class.coverage" NAME="pytest for test_loop.TestLagSearch.test_lagsearch_class Coverage Results" MODIFIED="1594026727064" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$example__1_.coverage" NAME="example (1) Coverage Results" MODIFIED="1593815850409" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />

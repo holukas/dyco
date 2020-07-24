@@ -115,16 +115,18 @@ def insert_timestamp(df, file_info_row, num_records, data_nominal_res, expected_
     return df
 
 
-def add_data_stats(df, true_resolution, filename, files_overview_df, found_records):
+def add_data_stats(df, true_resolution, filename, files_overview_df, found_records, fnm_date_format):
     # Detect overall frequency
     data_duration = found_records * true_resolution
     data_freq = np.float64(found_records / data_duration)
 
-    files_overview_df.loc[filename, 'first_record'] = df.index[0]
-    files_overview_df.loc[filename, 'last_record'] = df.index[-1]
-    files_overview_df.loc[filename, 'file_duration'] = (df.index[-1] - df.index[0]).total_seconds()
-    files_overview_df.loc[filename, 'found_records'] = found_records
-    files_overview_df.loc[filename, 'data_freq'] = data_freq
+    idx = dt.datetime.strptime(filename, fnm_date_format)  # Use filename datetime info as index
+
+    files_overview_df.loc[idx, 'first_record'] = df.index[0]
+    files_overview_df.loc[idx, 'last_record'] = df.index[-1]
+    files_overview_df.loc[idx, 'file_duration'] = (df.index[-1] - df.index[0]).total_seconds()
+    files_overview_df.loc[idx, 'found_records'] = found_records
+    files_overview_df.loc[idx, 'data_freq'] = data_freq
 
     return files_overview_df
 

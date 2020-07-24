@@ -58,8 +58,8 @@ class Tests(unittest.TestCase):
 
         class TestClass(object):
             def __init__(self):
-                self.lgs_refsig = 'w_ms-1_rot_turb'
-                self.lgs_lagsig = 'co2_ppb_qcl_turb'
+                self.var_reference = 'w_ms-1_rot_turb'
+                self.var_lagged = 'co2_ppb_qcl_turb'
                 self.lgs_winsize = [-1000, 1000]
                 self.iteration = 1
                 self.shift_stepsize = 10
@@ -87,15 +87,15 @@ class Tests(unittest.TestCase):
         filepath = 'test_data/test_segment_lagtimes_file/1_segments_found_lag_times_after_iteration-1.csv'
         segment_lagtimes_df = files.read_segment_lagtimes_file(filepath=filepath)
         hist_series = loop.Loop.filter_series(filter_col='iteration', filter_equal_to=1,
-                                              df=segment_lagtimes_df, series_col='shift_peak_cov_abs_max')
-        win_lagsearch_adj = lag.AdjustLagsearchWindow(series=hist_series,
+                                              df=segment_lagtimes_df, series_col='PEAK-COVABSMAX_SHIFT')
+        lgs_winsize_adj = lag.AdjustLagsearchWindow(series=hist_series,
                                                       outdir=None,
                                                       iteration=1,
                                                       plot=True,
                                                       hist_num_bins=30,
                                                       remove_fringe_bins=True,
                                                       perc_threshold=0.9).get()
-        self.assertEqual(win_lagsearch_adj, [-923, 668])
+        self.assertEqual(lgs_winsize_adj, [-923, 668])
 
     def test_analyze_loop_results(self):
         """
@@ -103,8 +103,19 @@ class Tests(unittest.TestCase):
         """
         filepath = 'test_data/test_segment_lagtimes_file/1_segments_found_lag_times_after_iteration-1.csv'
         # segment_lagtimes_df = files.read_segment_lagtimes_file(filepath=filepath)
-        obj = analyze.AnalyzeLoopResults(lgs_num_iter=1,
-                                         direct_path_to_segment_lagtimes_file=filepath)
+
+        class TestClass(object):
+            def __init__(self):
+                self.var_reference = 'w_ms-1_rot_turb'
+                self.var_lagged = 'co2_ppb_qcl_turb'
+                self.lgs_winsize = [-1000, 1000]
+                self.iteration = 1
+                self.shift_stepsize = 10
+                self.logfile_path = None
+        test_class_instance = TestClass()
+
+        obj = analyze.AnalyzeLags(dyco_instance=test_class_instance,
+                                  direct_path_to_segment_lagtimes_file=filepath)
         obj.run()
         lut_default_lag_times_df, lut_success = obj.get()
 

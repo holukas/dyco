@@ -27,12 +27,14 @@ class LagSearch:
                  outdir_data: Path = None,
                  outdir_plots: Path = None):
 
-        self.lgs_refsig = loop_instance.lgs_refsig
-        self.lgs_lagsig = loop_instance.lgs_lagsig
+        self.var_reference = loop_instance.var_reference
+        self.var_lagged = loop_instance.var_lagged
         self.lgs_winsize = loop_instance.lgs_winsize
         self.iteration = loop_instance.iteration
         self.shift_stepsize = loop_instance.shift_stepsize  # Negative moves lagged values "upwards" in column
         self.logfile_path = loop_instance.logfile_path
+        self.phase = loop_instance.phase
+        self.phase_files = loop_instance.phase_files
 
         self.segment_df = segment_df
         self.segment_name = segment_name
@@ -43,10 +45,6 @@ class LagSearch:
         self.file_idx = file_idx
         self.filename = filename
 
-        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.lgs_winsize,
-                                              shift_stepsize=self.shift_stepsize,
-                                              segment_name=self.segment_name)
-
         if self.logfile_path:
             self.logger = create_logger(logfile_path=self.logfile_path, name=__name__)
 
@@ -54,47 +52,54 @@ class LagSearch:
 
     def run(self):
         """Execute processing stack"""
-        self.cov_df = self.setup_lagsearch_df(win_lagsearch=self.lgs_winsize,
+        self.cov_df = self.setup_lagsearch_df(lgs_winsize=self.lgs_winsize,
                                               shift_stepsize=self.shift_stepsize,
                                               segment_name=self.segment_name)
 
-        # Max covariance peak detection
+        # Detect and flag max covariance peak
         self.cov_df = self.find_max_cov_peak(segment_df=self.segment_df,
                                              cov_df=self.cov_df,
-                                             ref_sig=self.lgs_refsig,
-                                             lagged_sig=self.lgs_lagsig)
+                                             var_reference=self.var_reference,
+                                             var_lagged=self.var_lagged)
 
-        # Automatic peak detection
-        self.cov_df, self.props_peak_auto = self.find_peak_auto(cov_df=self.cov_df)
+        # Detect and flag automatic peak
+        self.cov_df, self.props_peak_auto = self.find_auto_peak(cov_df=self.cov_df)
+
+        # Detect and flag instantaneous default lag in Phase 3
+        self.cov_df = self.flag_instantaneous_default_lag(default=0,
+                                                          cov_df=self.cov_df)
 
         if self.outdir_data:
             self.save_cov_data(cov_df=self.cov_df)
 
-        # Plot covariance
-        idx_peak_cov_abs_max, idx_peak_auto = self.get_peak_idx(df=self.cov_df)
-        fig = self.make_scatter_cov(df=self.cov_df,
-                                    idx_peak_cov_abs_max=idx_peak_cov_abs_max,
-                                    idx_peak_auto=idx_peak_auto,
-                                    props_peak_auto=self.props_peak_auto,
-                                    iteration=self.iteration,
-                                    win_lagsearch=self.lgs_winsize,
-                                    segment_name=self.segment_name,
-                                    segment_start=self.segment_start,
-                                    segment_end=self.segment_end,
-                                    filename=self.filename,
-                                    file_idx=self.file_idx,
-                                    shift_stepsize=self.shift_stepsize)
+        # Get indices of peaks and instantaneous default lag
+        self.idx_peak_cov_abs_max = \
+            self.get_peak_idx(df=self.cov_df, flag_col='flag_peak_max_cov_abs')
+        self.idx_peak_auto = \
+            self.get_peak_idx(df=self.cov_df, flag_col='flag_peak_auto')
+        self.idx_instantaneous_default_lag = \
+            self.get_peak_idx(df=self.cov_df, flag_col='flag_instantaneous_default_lag')
 
+        # Plot covariance
+        fig = self.make_scatter_cov()
         if self.outdir_plots:
             self.save_cov_plot(fig=fig)
         return None
 
+    def flag_instantaneous_default_lag(self, default, cov_df):
+        """Flags location with instantaneous default time lag"""
+        if not self.phase == 3:
+            return cov_df
+        default_ix = cov_df['shift'].loc[cov_df['shift'] == default].index[0]
+        cov_df.loc[default_ix, 'flag_instantaneous_default_lag'] = True
+        return cov_df
+
     @staticmethod
-    def setup_lagsearch_df(win_lagsearch: list, shift_stepsize: int, segment_name):
+    def setup_lagsearch_df(lgs_winsize: list, shift_stepsize: int, segment_name):
         df = pd.DataFrame(columns=['index', 'segment_name', 'shift', 'cov', 'cov_abs',
                                    'flag_peak_max_cov_abs', 'flag_peak_auto'])
-        df['shift'] = range(int(win_lagsearch[0]),
-                            int(win_lagsearch[1]) + shift_stepsize,
+        df['shift'] = range(int(lgs_winsize[0]),
+                            int(lgs_winsize[1]) + shift_stepsize,
                             shift_stepsize)
         df['index'] = np.nan
         df['segment_name'] = segment_name
@@ -102,10 +107,11 @@ class LagSearch:
         df['cov_abs'] = np.nan
         df['flag_peak_max_cov_abs'] = False  # Flag True = found peak
         df['flag_peak_auto'] = False
+        df['flag_instantaneous_default_lag'] = False
         return df
 
     @staticmethod
-    def find_peak_auto(cov_df: pd.DataFrame):
+    def find_auto_peak(cov_df: pd.DataFrame):
         """
         Automatically find peaks in covariance time series
 
@@ -149,7 +155,8 @@ class LagSearch:
         top_scoring_peaks_df = top_scoring_peaks_df.sort_values(by=['peak_score', 'prominences', 'width_heights'],
                                                                 ascending=False)
 
-        idx_peak_cov_abs_max, _ = LagSearch.get_peak_idx(df=cov_df)
+        idx_peak_cov_abs_max = \
+            LagSearch.get_peak_idx(df=cov_df, flag_col='flag_peak_max_cov_abs')
 
         # Check if peak of max absolute covariance is also in auto-detected peaks
         if idx_peak_cov_abs_max in top_scoring_peaks_df['idx_in_cov_df'].values:
@@ -177,7 +184,7 @@ class LagSearch:
         return self.cov_df, self.props_peak_auto
 
     @staticmethod
-    def find_max_cov_peak(segment_df, cov_df, lagged_sig, ref_sig):
+    def find_max_cov_peak(segment_df, cov_df, var_lagged, var_reference):
         """
         Find maximum absolute covariance
         """
@@ -186,7 +193,7 @@ class LagSearch:
         _segment_df['index'] = _segment_df.index
 
         # Check if data column is empty
-        if _segment_df[lagged_sig].dropna().empty:
+        if _segment_df[var_lagged].dropna().empty:
             pass
 
         else:
@@ -197,9 +204,9 @@ class LagSearch:
                         index_shifted = str(_segment_df['index'][-shift])  # Note the negative sign
                     else:
                         index_shifted = pd.NaT
-                    scalar_data_shifted = _segment_df[lagged_sig].shift(shift)
+                    scalar_data_shifted = _segment_df[var_lagged].shift(shift)
                     # cov = _segment_df[ref_sig].corr(scalar_data_shifted)
-                    cov = _segment_df[ref_sig].cov(scalar_data_shifted)
+                    cov = _segment_df[var_reference].cov(scalar_data_shifted)
                     cov_df.loc[cov_df['shift'] == row['shift'], 'cov'] = cov
                     cov_df.loc[cov_df['shift'] == row['shift'], 'index'] = index_shifted
 
@@ -228,30 +235,47 @@ class LagSearch:
         return None
 
     @staticmethod
-    def get_peak_idx(df):
+    def get_peak_idx(df, flag_col):
         """
-        Check data rows for peak flags.
+        Search a boolean column for *True* and return index if successful
 
         Parameters
         ----------
-        df
+        df: pandas DataFrame
+        flag_col: str
+            Column name in *df*.
 
         Returns
         -------
+        The index where flag_col is *True*.
 
         """
-        if True in df['flag_peak_auto'].values:
-            idx_peak_auto = df.loc[df['flag_peak_auto'] == True, :].index.values[0]
+        # Peak of maximum covariance
+        if True in df[flag_col].values:
+            idx = df.loc[df[flag_col] == True, :].index.values[0]
         else:
-            idx_peak_auto = False
+            idx = False
+        return idx
 
-        if True in df['flag_peak_max_cov_abs'].values:
-            idx_peak_cov_abs_max = df.loc[df['flag_peak_max_cov_abs'] == True, :].index.values[0]
-        else:
-            idx_peak_cov_abs_max = False
-
-        return idx_peak_cov_abs_max, idx_peak_auto
-
+        # # Peak of maximum covariance
+        # if True in df['flag_peak_max_cov_abs'].values:
+        #     idx_peak_cov_abs_max = df.loc[df['flag_peak_max_cov_abs'] == True, :].index.values[0]
+        # else:
+        #     idx_peak_cov_abs_max = False
+        #
+        # # Auto-detected peak
+        # if True in df['flag_peak_auto'].values:
+        #     idx_peak_auto = df.loc[df['flag_peak_auto'] == True, :].index.values[0]
+        # else:
+        #     idx_peak_auto = False
+        #
+        # # Location of the instantaneous default lag
+        # if True in df['flag_instantaneous_default_lag'].values:
+        #     idx_instantaneous_default_lag = df.loc[df['flag_instantaneous_default_lag'] == True, :].index.values[0]
+        # else:
+        #     idx_instantaneous_default_lag = False
+        #
+        # return idx_peak_cov_abs_max, idx_peak_auto, idx_instantaneous_default_lag
 
     def save_cov_plot(self, fig):
         """Save covariance plot for segment"""
@@ -262,97 +286,128 @@ class LagSearch:
         # self.logger.info(f"Saved covariance plot in {outfile}")
         return
 
-    def make_scatter_cov(self, df, idx_peak_cov_abs_max, idx_peak_auto, iteration, win_lagsearch,
-                         segment_name, segment_start, segment_end, filename,
-                         file_idx, shift_stepsize, props_peak_auto):
+    def make_scatter_cov(self):
         """Make scatter plot with z-values as colors and display found max covariance."""
 
         gs, fig, ax = plot.setup_fig_ax()
 
-        # Time series of covariances per shift
-        x_shift = df.loc[:, 'shift']
-        y_cov = df.loc[:, 'cov']
-        z_cov_abs = df.loc[:, 'cov_abs']
+        # Covariance and shift data
+        x_shift = self.cov_df.loc[:, 'shift']
+        y_cov = self.cov_df.loc[:, 'cov']
+        z_cov_abs = self.cov_df.loc[:, 'cov_abs']
+
+        # Main plot: covariances per shift, vals from abs cov as scatter point colors
         ax.scatter(x_shift, y_cov, c=z_cov_abs,
                    alpha=0.9, edgecolors='none',
                    marker='o', s=24, cmap='coolwarm', zorder=98)
 
+        # Use abs cov also as line colors
+        self.z_as_colored_lines(fig=fig, ax=ax,
+                                x=x_shift,
+                                y=y_cov,
+                                z=z_cov_abs)
+
+        txt_info = \
+            f"PHASE: {self.phase}\n" \
+            f"Iteration: {self.iteration}\n" \
+            f"Time lag search window: from {self.lgs_winsize[0]} to {self.lgs_winsize[1]} records\n" \
+            f"Segment name: {self.segment_name}\n" \
+            f"Segment start: {self.segment_start}\n" \
+            f"Segment end: {self.segment_end}\n" \
+            f"File: {self.filename} - File date: {self.file_idx}\n" \
+            f"Lag search step size: {self.shift_stepsize} records\n"
+
+        # Markers for points of interest, e.g. peaks
+        txt_info = self.mark_max_cov_abs_peak(ax=ax, txt_info=txt_info)
+        txt_info = self.mark_auto_detected_peak(ax=ax, txt_info=txt_info)
+        txt_info = self.mark_instantaneous_default_lag(ax=ax, txt_info=txt_info)
+
+        # Add info text
+        ax.text(0.02, 0.98, txt_info,
+                horizontalalignment='left', verticalalignment='top',
+                transform=ax.transAxes, size=10, color='black', backgroundcolor='none', zorder=100)
+
+        # Format & legend
+        plot.default_format(ax=ax, label_color='black', fontsize=12,
+                            txt_xlabel='lag [records]', txt_ylabel='covariance', txt_ylabel_units='-')
+        ax.legend(frameon=False, loc='upper right').set_zorder(100)
+
+        return fig
+
+    def z_as_colored_lines(self, fig, ax, x, y, z):
         # z values as colors
         # From: https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/multicolored_line.html
         # Create a set of line segments so that we can color them individually
         # This creates the points as a N x 1 x 2 array so that we can stack points
         # together easily to get the segments. The segments array for line collection
         # needs to be (numlines) x (points per line) x 2 (for x and y)
-        points = np.array([x_shift, y_cov]).T.reshape(-1, 1, 2)
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
         # Create a continuous norm to map from data points to colors
-        norm = plt.Normalize(z_cov_abs.min(), z_cov_abs.max())
+        norm = plt.Normalize(z.min(), z.max())
         lc = LineCollection(segments, cmap='coolwarm', norm=norm)
         # Set the values used for colormapping
-        lc.set_array(z_cov_abs)
+        lc.set_array(z)
         lc.set_linewidth(2)
         line = ax.add_collection(lc)
         cbar = fig.colorbar(line, ax=ax)
         cbar.set_label('absolute covariance', rotation=90)
 
-        txt_info = \
-            f"Iteration: {iteration}\n" \
-            f"Time lag search window: from {win_lagsearch[0]} to {win_lagsearch[1]} records\n" \
-            f"Segment name: {segment_name}\n" \
-            f"Segment start: {segment_start}\n" \
-            f"Segment end: {segment_end}\n" \
-            f"File: {filename} - File date: {file_idx}\n" \
-            f"Lag search step size: {shift_stepsize} records\n"
-
-        # Mark max cov abs peak
-        if idx_peak_cov_abs_max:
-            ax.scatter(df.iloc[idx_peak_cov_abs_max]['shift'],
-                       df.iloc[idx_peak_cov_abs_max]['cov'],
+    def mark_max_cov_abs_peak(self, ax, txt_info):
+        """Mark peak of max absolute covariance"""
+        if self.idx_peak_cov_abs_max:
+            ax.scatter(self.cov_df.iloc[self.idx_peak_cov_abs_max]['shift'],
+                       self.cov_df.iloc[self.idx_peak_cov_abs_max]['cov'],
                        alpha=1, edgecolors='red', marker='o', s=72, c='red',
                        label='maximum absolute covariance', zorder=99)
-
             txt_info += \
                 f"\nFOUND PEAK MAX ABS COV\n" \
-                f"    cov {df.iloc[idx_peak_cov_abs_max]['cov']:.3f}\n" \
-                f"    record {df.iloc[idx_peak_cov_abs_max]['shift']}\n"
-
+                f"    cov {self.cov_df.iloc[self.idx_peak_cov_abs_max]['cov']:.3f}\n" \
+                f"    record {self.cov_df.iloc[self.idx_peak_cov_abs_max]['shift']}\n"
         else:
             txt_info += \
                 f"\n(!)NO PEAK MAX ABS COV FOUND\n"
+        return txt_info
 
-        # Mark auto-detected peak
-        if idx_peak_auto:
-            ax.scatter(df.iloc[idx_peak_auto]['shift'],
-                       df.iloc[idx_peak_auto]['cov'],
+    def mark_instantaneous_default_lag(self, ax, txt_info):
+        """Mark instantaneous default time lag, used in Phase 3"""
+        if self.idx_instantaneous_default_lag:
+            ax.scatter(self.cov_df.iloc[self.idx_instantaneous_default_lag]['shift'],
+                       self.cov_df.iloc[self.idx_instantaneous_default_lag]['cov'],
+                       alpha=1, edgecolors='green', marker='o', s=200, c='None',
+                       label='instantaneous default lag', zorder=90)
+            txt_info += \
+                f"\nTIME LAG SET TO DEFAULT (PHASE 3)\n" \
+                f"    lag time was set to default\n" \
+                f"    cov {self.cov_df.iloc[self.idx_instantaneous_default_lag]['cov']:.3f}\n" \
+                f"    record {self.cov_df.iloc[self.idx_instantaneous_default_lag]['shift']}\n"
+        # else:
+        #     txt_info += \
+        #         f"\n(!)NO AUTO-PEAK FOUND\n"
+        return txt_info
+
+    def mark_auto_detected_peak(self, ax, txt_info):
+        """Mark auto-detected peak"""
+        if self.idx_peak_auto:
+            ax.scatter(self.cov_df.iloc[self.idx_peak_auto]['shift'],
+                       self.cov_df.iloc[self.idx_peak_auto]['cov'],
                        alpha=1, edgecolors='black', marker='o', s=200, c='None',
                        label='auto-detected peak', zorder=90)
-
             txt_info += \
                 f"\nFOUND AUTO-PEAK\n" \
-                f"    cov {df.iloc[idx_peak_auto]['cov']:.3f}\n" \
-                f"    record {df.iloc[idx_peak_auto]['shift']}\n" \
-                f"    peak_score {props_peak_auto['peak_score']:.0f}\n" \
-                f"    peak_rank {props_peak_auto['peak_rank']:.0f}\n" \
-                f"    peak_height {props_peak_auto['peak_heights']:.0f}\n" \
-                f"    prominence {props_peak_auto['prominences']:.0f}\n" \
-                f"    width {props_peak_auto['widths']:.0f}\n" \
-                f"    width_height {props_peak_auto['width_heights']:.0f}\n"
-
+                f"    cov {self.cov_df.iloc[self.idx_peak_auto]['cov']:.3f}\n" \
+                f"    record {self.cov_df.iloc[self.idx_peak_auto]['shift']}\n" \
+                f"    peak_score {self.props_peak_auto['peak_score']:.0f}\n" \
+                f"    peak_rank {self.props_peak_auto['peak_rank']:.0f}\n" \
+                f"    peak_height {self.props_peak_auto['peak_heights']:.0f}\n" \
+                f"    prominence {self.props_peak_auto['prominences']:.0f}\n" \
+                f"    width {self.props_peak_auto['widths']:.0f}\n" \
+                f"    width_height {self.props_peak_auto['width_heights']:.0f}\n"
         else:
             txt_info += \
                 f"\n(!)NO AUTO-PEAK FOUND\n"
-
-        ax.text(0.02, 0.98, txt_info,
-                horizontalalignment='left', verticalalignment='top',
-                transform=ax.transAxes, size=10, color='black', backgroundcolor='none', zorder=100)
-
-        plot.default_format(ax=ax, label_color='black', fontsize=12,
-                            txt_xlabel='lag [records]', txt_ylabel='covariance', txt_ylabel_units='-')
-
-        ax.legend(frameon=False, loc='upper right').set_zorder(100)
-
-        return fig
+        return txt_info
 
 
 class AdjustLagsearchWindow():
@@ -370,7 +425,7 @@ class AdjustLagsearchWindow():
         self.run()
 
     def run(self):
-        self.win_lagsearch_adj, self.peak_max_count_idx, self.start_idx, self.end_idx, \
+        self.lgs_winsize_adj, self.peak_max_count_idx, self.start_idx, self.end_idx, \
         self.counts, self.divisions, self.peak_most_prom_idx = \
             self.find_hist_peaks()
 
@@ -391,25 +446,25 @@ class AdjustLagsearchWindow():
         peak_most_prom_idx = self.search_bin_most_prominent(counts=counts)
 
         # Adjust lag search time window for next iteration
-        win_lagsearch_adj, start_idx, end_idx = self.adjust_win_lagsearch(counts=counts, divisions=divisions,
-                                                                          perc_threshold=self.perc_threshold,
-                                                                          peak_max_count_idx=peak_max_count_idx,
-                                                                          peak_most_prom_idx=peak_most_prom_idx)
+        lgs_winsize_adj, start_idx, end_idx = self.adjust_lgs_winsize(counts=counts, divisions=divisions,
+                                                                      perc_threshold=self.perc_threshold,
+                                                                      peak_max_count_idx=peak_max_count_idx,
+                                                                      peak_most_prom_idx=peak_most_prom_idx)
 
         # Check if most prominent peak is also the max peak
-        if peak_most_prom_idx in peak_max_count_idx:  # todo
+        if peak_most_prom_idx in peak_max_count_idx:  # todo (maybe)
             clear_peak_idx = np.where(peak_max_count_idx == peak_most_prom_idx)
         else:
             clear_peak_idx = False
 
-        win_lagsearch_adj = [divisions[start_idx], divisions[end_idx]]
-        win_lagsearch_adj = [int(x) for x in
-                             win_lagsearch_adj]  # Convert elements in array to integers, needed for indexing
+        lgs_winsize_adj = [divisions[start_idx], divisions[end_idx]]
+        lgs_winsize_adj = [int(x) for x in
+                           lgs_winsize_adj]  # Convert elements in array to integers, needed for indexing
 
-        return win_lagsearch_adj, peak_max_count_idx, start_idx, end_idx, counts, divisions, peak_most_prom_idx
+        return lgs_winsize_adj, peak_max_count_idx, start_idx, end_idx, counts, divisions, peak_most_prom_idx
 
     def get(self):
-        return self.win_lagsearch_adj
+        return self.lgs_winsize_adj
 
     def search_bin_max_counts(self, counts):
         # print("Searching peak of maximum counts ...")
@@ -448,7 +503,7 @@ class AdjustLagsearchWindow():
             peak_most_prom_idx = int(peak_most_prom_idx)
         return peak_most_prom_idx
 
-    def adjust_win_lagsearch(self, counts, divisions, perc_threshold, peak_max_count_idx, peak_most_prom_idx):
+    def adjust_lgs_winsize(self, counts, divisions, perc_threshold, peak_max_count_idx, peak_most_prom_idx):
         """Set new time window for next lag search, based on previous results.
 
         Includes more and more bins around the bin where most lag times were found
@@ -467,10 +522,10 @@ class AdjustLagsearchWindow():
             # print(f"Expanding lag window: {perc}  from record: {start_idx}  to record: {end_idx}")
             if (start_idx == 0) and (end_idx == len(counts)):
                 break
-        win_lagsearch_adj = [divisions[start_idx], divisions[end_idx]]
-        win_lagsearch_adj = [int(x) for x in
-                             win_lagsearch_adj]  # Convert elements in array to integers, needed for indexing
-        return win_lagsearch_adj, start_idx, end_idx
+        lgs_winsize_adj = [divisions[start_idx], divisions[end_idx]]
+        lgs_winsize_adj = [int(x) for x in
+                           lgs_winsize_adj]  # Convert elements in array to integers, needed for indexing
+        return lgs_winsize_adj, start_idx, end_idx
 
     def include_bins_next_to_peak(self, peak_max_count_idx, peak_most_prom_idx):
         """Include histogram bins next to the bin for which max was found and the

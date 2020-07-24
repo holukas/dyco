@@ -2,6 +2,7 @@ import datetime as dt
 import fnmatch
 import logging
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -75,50 +76,68 @@ def create_logger(name: str, logfile_path: Path = None):
 
 
 class CreateOutputDirs:
-    def __init__(self, root_dir, del_previous_results):
-        self.root_dir = root_dir
-        self.del_previous_results = del_previous_results
+    def __init__(self, dyco_instance):
+        self.root_dir = dyco_instance.outdir
+        self.del_previous_results = dyco_instance.del_previous_results
+        self.phase = dyco_instance.phase
+        self.phase_files = dyco_instance.phase_files
 
-    def new_dirs(self):
+    def required_dirs(self):
         outdirs = [
-            '_log',
-            '1-0_input_files_overview',
-            '1-1_input_files_covariances',
-            '1-2_input_files_covariances_plots',
-            '1-3_input_files_time_lags_overview',
-            '1-4_input_files_time_lags_overview_histograms',
-            '1-5_input_files_time_lags_overview_timeseries',
-            '1-6_input_files_normalization_lookup_table',
-            '1-7_input_files_normalized',
+            '0-0_log',
+            f'{self.phase}-0_{self.phase_files}_overview',
+            f'{self.phase}-1_{self.phase_files}_covariances',
+            f'{self.phase}-2_{self.phase_files}_covariances_plots',
+            f'{self.phase}-3_{self.phase_files}_time_lags_overview',
+            f'{self.phase}-4_{self.phase_files}_time_lags_overview_histograms',
+            f'{self.phase}-5_{self.phase_files}_time_lags_overview_timeseries',
+            f'{self.phase}-7_{self.phase_files}_normalized',
         ]
+
+        if self.phase != 3:
+            outdirs.append(f'{self.phase}-6_{self.phase_files}_normalization_lookup_table')
+        else:
+            outdirs.append(f'{self.phase}-6_{self.phase_files}_final_time_lags_lookup_table')
         return outdirs
 
     def setup_output_dirs(self):
         """Make output directories."""
-        new_dirs = self.new_dirs()
+        required_dirs = self.required_dirs()
         outdirs = {}
 
-        # Store keys and full paths in dict
-        for nd in new_dirs:
+        # # Delete previous results
+        # if self.del_previous_results and os.path.isdir(self.root_dir):
+        #     print(f"Deleting folder {self.root_dir} ...")
+        #     shutil.rmtree(self.root_dir)
+
+        # Create Path to required directories, store keys and full paths in dict
+        for nd in required_dirs:
             outdirs[nd] = self.root_dir / nd
+
+        # Delete dirs if needed
+        for key, path in outdirs.items():
+            if Path.is_dir(path) and self.del_previous_results:
+                if path.stem == '0-0_log':
+                    continue
+                print(f"Deleting folder {path} ...")
+                shutil.rmtree(path)
 
         # Make dirs
         for key, path in outdirs.items():
             if not Path.is_dir(path):
                 print(f"Creating folder {path} ...")
                 os.makedirs(path)
-            else:
-                if self.del_previous_results:
-                    for filename in os.listdir(path):
-                        filepath = os.path.join(path, filename)
-                        try:
-                            if os.path.isfile(filepath) or os.path.islink(filepath):
-                                print(f"Deleting file {filepath} ...")
-                                os.unlink(filepath)
-                            # elif os.path.isdir(filepath):
-                            #     shutil.rmtree(filepath)
-                        except Exception as e:
-                            print('Failed to delete %s. Reason: %s' % (filepath, e))
+
+        # for filename in os.listdir(path):
+        #     filepath = os.path.join(path, filename)
+        #     try:
+        #         if os.path.isfile(filepath) or os.path.islink(filepath):
+        #             print(f"Deleting file {filepath} ...")
+        #             os.unlink(filepath)
+        #         # elif os.path.isdir(filepath):
+        #         #     shutil.rmtree(filepath)
+        #     except Exception as e:
+        #         print('Failed to delete %s. Reason: %s' % (filepath, e))
 
         return outdirs
 
@@ -314,8 +333,9 @@ def generate_run_id():
     return run_id, script_start_time
 
 
-def set_logfile_path(run_id: str, outdir: Path):
+def set_logfile_path(run_id: str, outdir: Path, phase: int):
     """Set full path to log file"""
     name = f'{run_id}.log'
+    # name = f'{run_id}_phase-{phase}.log'
     path = outdir / name
     return path
