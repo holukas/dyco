@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 
 import files
+import loop
 import plot
 from _setup import create_logger
-from loop import Loop
 
 
 class AnalyzeLags:
@@ -120,15 +120,15 @@ class AnalyzeLags:
         segment_lagtimes_df = files.read_segment_lagtimes_file(
             filepath=self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview']
                      / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
-        Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
-                                      outdir=self.outdirs[
-                                          f'{self.phase}-6_{self.phase_files}_normalization_lookup_table'],
-                                      iteration=self.lgs_num_iter,
-                                      show_all=False,
-                                      overlay_default=True,
-                                      overlay_default_df=self.lut_lag_times_df,
-                                      overlay_target_val=self.target_lag,
-                                      phase=self.phase)
+        loop.Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
+                                           outdir=self.outdirs[
+                                               f'{self.phase}-6_{self.phase_files}_normalization_lookup_table'],
+                                           iteration=self.lgs_num_iter,
+                                           show_all=False,
+                                           overlay_default=True,
+                                           overlay_default_df=self.lut_lag_times_df,
+                                           overlay_target_val=self.target_lag,
+                                           phase=self.phase)
 
     def save_lut(self, lut, outdir, outfile):
         outpath = outdir / outfile

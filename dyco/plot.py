@@ -1,7 +1,7 @@
 import datetime as dt
 import os
 from pathlib import Path
-
+import matplotlib.dates as mdates
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -29,6 +29,7 @@ class SummaryPlots():
         collection_df = pd.DataFrame()
 
         # Plot and collect time lags and covariances from Phase 1 and Phase 2
+        self.logger.info("Plotting found time lags, Phases 1-3")
         phase_instances = [self.instance_phase_1, self.instance_phase_2]
         for phase_instance in phase_instances:
             self.summary_plot_segment_lagtimes(phase=phase_instance.phase,
@@ -67,33 +68,47 @@ class SummaryPlots():
         self.logger.info("Finished DYCO processing.")
 
     def _add_lines_cov(self, ax, df, last_iter_phase_1, last_iter_phase_2):
-        props = {'y': df[f'PHASE-1_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'], 'label': 'XXX', 'zorder': 100,
-                 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': 'dotted',
+        props = {'y': df[f'PHASE-1_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'],
+                 'label': f'Phase 1',
+                 # 'label': f'PHASE-1_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV',
+                 'zorder': 100, 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': 'dotted',
                  'markeredgecolor': '#80DEEA', 'color': '#80DEEA', 'markerfacecolor': 'white'}
         ax.plot_date(df.index, **props)
 
-        props = {'y': df[f'PHASE-2_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'], 'label': 'XXX', 'zorder': 100,
-                 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': '--',
+        props = {'y': df[f'PHASE-2_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'],
+                 'label': f'Phase 2',
+                 # 'label': f'PHASE-2_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV',
+                 'zorder': 100, 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': '--',
                  'markeredgecolor': '#F48FB1', 'color': '#F48FB1', 'markerfacecolor': 'white'}
         ax.plot_date(df.index, **props)
 
-        props = {'y': df['PHASE-3_INSTANTANEOUS_LAG_COV'], 'label': 'XXX', 'zorder': 100,
-                 'alpha': 1, 'marker': 'o', 'ms': 6, 'lw': 2, 'ls': '-',
+        props = {'y': df['PHASE-3_INSTANTANEOUS_LAG_COV'],
+                 'label': 'Phase 3',
+                 # 'label': 'PHASE-3_INSTANTANEOUS_LAG_COV',
+                 'zorder': 100, 'alpha': 1, 'marker': 'o', 'ms': 6, 'lw': 2, 'ls': '-',
                  'markeredgecolor': '#8BC34A', 'color': '#8BC34A', 'markerfacecolor': '#8BC34A'}
         ax.plot_date(df.index, **props)
 
-    def _format_plot(self, ax, title):
+    def _format_plot(self, ax, title, show_legend=True):
+        # Automatic tick locations and formats
+        locator = mdates.AutoDateLocator(minticks=5, maxticks=20)
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
         default_format(ax=ax, label_color='black', fontsize=12,
                        txt_xlabel='file date', txt_ylabel='covariance', txt_ylabel_units='')
 
-        font = {'family': 'sans-serif', 'color': 'black', 'weight': 'bold', 'size': 16, 'alpha': 1, }
-        ax.set_title(title, fontdict=font)
+        font = {'family': 'sans-serif', 'color': 'black', 'weight': 'bold', 'size': 12, 'alpha': 1}
+        ax.set_title(title, fontdict=font, loc='left', pad=12)
 
         ax.axhline(0, color='black', ls='-', lw=1, zorder=1)
         font = {'family': 'sans-serif', 'size': 10}
-        ax.legend(frameon=True, loc='upper right', prop=font).set_zorder(100)
+        if show_legend:
+            ax.legend(frameon=True, loc='upper right', prop=font).set_zorder(100)
 
     def summary_plot_covariances(self, collection_df, outdir, last_iter_phase_1, last_iter_phase_2):
+        self.logger.info("Plotting covariance evolution, Phases 1-3 ...")
         gs = gridspec.GridSpec(2, 1)  # rows, cols
         gs.update(wspace=0.3, hspace=0.3, left=0.03, right=0.97, top=0.97, bottom=0.03)
         fig = plt.Figure(facecolor='white', figsize=(16, 9))
@@ -104,13 +119,13 @@ class SummaryPlots():
         # ax1: Covariance evolution
         # =========================
         self._add_lines_cov(ax=ax1, df=collection_df, **props_ax)
-        self._format_plot(ax=ax1, title="Covariance evolution")
+        self._format_plot(ax=ax1, title="Half-hourly covariance evolution")
 
         # ax2: Cumulative
         # ===============
         collection_df_cum = collection_df.cumsum()
         self._add_lines_cov(ax=ax2, df=collection_df_cum, **props_ax)
-        self._format_plot(ax=ax2, title="Cumulative covariance")
+        self._format_plot(ax=ax2, title="Cumulative covariance evolution", show_legend=False)
 
         # Save
         outfile = f'summary_covariance_evolution'
@@ -240,8 +255,10 @@ def default_format(ax, fontsize=12, label_color='black',
                    width=1, length=5, direction='in', colors='black', facecolor='white'):
     """Apply default format to plot."""
     ax.set_facecolor(facecolor)
-    ax.tick_params(axis='x', width=width, length=length, direction=direction, colors=colors, labelsize=fontsize)
-    ax.tick_params(axis='y', width=width, length=length, direction=direction, colors=colors, labelsize=fontsize)
+    ax.tick_params(axis='x', width=width, length=length, direction=direction, colors=colors, labelsize=fontsize,
+                   top=True)
+    ax.tick_params(axis='y', width=width, length=length, direction=direction, colors=colors, labelsize=fontsize,
+                   right=True)
     format_spines(ax=ax, color=colors, lw=1)
     if txt_xlabel:
         ax.set_xlabel(txt_xlabel, color=label_color, fontsize=fontsize, fontweight='bold')

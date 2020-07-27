@@ -422,7 +422,7 @@ class DynamicLagCompensation:
             loop_iter.run()
             self.lgs_winsize, self.new_iteration_data = loop_iter.get()  # Update search window for next iteration
 
-        # Plot loop results after all iterations finished
+        # Plot loop results after all iterations finished TODO ACT
         loop_plots = loop.PlotLoopResults(dyco_instance=self,
                                           plot_cov_collection=True,
                                           plot_hist=True,
