@@ -1,15 +1,32 @@
+"""
+    DYCO Dynamic Lag Compensation
+    Copyright (C) 2020  holukas
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+
 import datetime as dt
 import os
 from pathlib import Path
+
 import matplotlib.dates as mdates
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import analyze
-import files
-import loop
-from _setup import create_logger
+from . import analyze, files, loop, setup_dyco
 
 
 class SummaryPlots():
@@ -20,7 +37,7 @@ class SummaryPlots():
 
         self.outdir_summary = self._make_outdir()
 
-        self.logger = create_logger(logfile_path=instance_phase_3.logfile_path, name=__name__)
+        self.logger = setup_dyco.create_logger(logfile_path=instance_phase_3.logfile_path, name=__name__)
 
         self.run()
 

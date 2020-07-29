@@ -1,1 +1,1 @@
-from .dyco import DynamicLagCompensation
+from .dyco import DynamicLagCompensation as run

@@ -1,17 +1,17 @@
 ---
-title: 'Maelstrom: A Python package for identifying companions to pulsating stars from their light travel time variations'
+title: 'DYCO: Dynamic lag compensation'
 tags:
   - Python
-  - astronomy
-  - variable stars
+  - eddy covariance
+  - flux
 authors:
-  - name: Daniel R. Hey
-    orcid: 0000-0003-3244-5357
-    affiliation: "1, 2"
+  - name: Lukas Hörtnagl
+    orcid: 0000-0002-5569-0761
+    affiliation: "1"
 affiliations:
- - name: School of Physics, Sydney Institute for Astronomy (SIfA), The University of Sydney, NSW 2006, Australia
+ - name: ETH Zurich, Department of Environmental Systems Science, ETH Zurich, CH-8092, Switzerland
    index: 1
-date: 10 Jul 2020
+date: 29 Jul 2020
 bibliography: paper.bib
 ---
 
@@ -43,7 +43,7 @@ available functions, as well as tutorial notebooks.
 
 # Acknowledgements
 
-ICOS
+ICOS, RINGO
 
 # References
 

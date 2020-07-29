@@ -1,3 +1,22 @@
+"""
+    DYCO Dynamic Lag Compensation
+    Copyright (C) 2020  holukas
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+
 import os
 from pathlib import Path
 
@@ -8,10 +27,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import files
-import lag
-import plot
-from _setup import create_logger
+from . import files, lag, plot, setup_dyco
 
 
 class Loop:
@@ -54,7 +70,7 @@ class Loop:
 
         self.iteration = iteration
 
-        self.logger = create_logger(logfile_path=self.logfile_path, name=__name__)
+        self.logger = setup_dyco.create_logger(logfile_path=self.logfile_path, name=__name__)
 
     def run(self):
         """Loop through all found files"""
@@ -603,7 +619,7 @@ class PlotLoopResults:
         self.phase_files = dyco_instance.phase_files
         self.new_iteration_data = dyco_instance.new_iteration_data
 
-        self.logger = create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
+        self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
     def run(self):
         # # In case no new iteration data was created, there is no need to plot data
@@ -671,8 +687,8 @@ class PlotLoopResults:
         None
 
         """
-        from _setup import create_logger
-        logger = create_logger(logfile_path=logfile_path, name=__name__)
+
+        logger = setup_dyco.create_logger(logfile_path=logfile_path, name=__name__)
 
         # Figure setup
         gs = gridspec.GridSpec(3, 1)  # rows, cols

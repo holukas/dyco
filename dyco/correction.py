@@ -1,3 +1,22 @@
+"""
+    DYCO Dynamic Lag Compensation
+    Copyright (C) 2020  holukas
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+
 import datetime as dt
 import time
 from pathlib import Path
@@ -5,8 +24,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import files
-from _setup import create_logger
+from . import files, setup_dyco
 
 
 class RemoveLags:
@@ -24,7 +42,7 @@ class RemoveLags:
         self.new_iteration_data = dyco_instance.new_iteration_data  # Indicates if new iteration was executed
         self.lgs_num_iter = dyco_instance.lgs_num_iter
 
-        self.logger = create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
+        self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
         if self.phase == 3:
 

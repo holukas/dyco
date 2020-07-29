@@ -2,6 +2,7 @@
 dist/
 _archive/
 _raw_photoshop/
+_raw_drawio/
 examples/
 
 # Byte-compiled / optimized / DLL files

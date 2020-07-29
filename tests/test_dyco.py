@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from dyco import _setup, analyze, files, loop, lag
+from dyco import setup_dyco, analyze, files, loop, lag
 
 
 class Tests(unittest.TestCase):
@@ -12,8 +12,8 @@ class Tests(unittest.TestCase):
     def test_read_segment_lagtimes_file(self):
         filepath = 'test_data/test_segment_lagtimes_file/1_segments_found_lag_times_after_iteration-1.csv'
         segment_lagtimes_df = files.read_segment_lagtimes_file(filepath=filepath)
-        self.assertEqual(len(segment_lagtimes_df), 828)
-        self.assertEqual(len(segment_lagtimes_df.columns), 15)
+        self.assertEqual(len(segment_lagtimes_df), 9)
+        self.assertEqual(len(segment_lagtimes_df.columns), 19)
         self.assertEqual(len(segment_lagtimes_df['lagsearch_next_start'].unique()), 1)
 
     def test_read_raw_data(self):
@@ -35,11 +35,12 @@ class Tests(unittest.TestCase):
                 self.file_generation_res = '30T'
                 self.dat_recs_nominal_timeres = 0.05
                 self.files_how_many = False
+
         test_class_instance = TestClass()
 
-        fd = _setup.FilesDetector(dyco_instance=test_class_instance,
-                                  outdir=False,
-                                  logfile_path=None)
+        fd = setup_dyco.FilesDetector(dyco_instance=test_class_instance,
+                                      outdir=False,
+                                      logfile_path=None)
         fd.run()
         self.files_overview_df = fd.get()
 
@@ -64,6 +65,9 @@ class Tests(unittest.TestCase):
                 self.iteration = 1
                 self.shift_stepsize = 10
                 self.logfile_path = None
+                self.phase = 0
+                self.phase_files = '__testing__'
+
         test_class_instance = TestClass()
 
         lagsearch_df, props_peak_auto = lag.LagSearch(loop_instance=test_class_instance,
@@ -89,19 +93,20 @@ class Tests(unittest.TestCase):
         hist_series = loop.Loop.filter_series(filter_col='iteration', filter_equal_to=1,
                                               df=segment_lagtimes_df, series_col='PEAK-COVABSMAX_SHIFT')
         lgs_winsize_adj = lag.AdjustLagsearchWindow(series=hist_series,
-                                                      outdir=None,
-                                                      iteration=1,
-                                                      plot=True,
-                                                      hist_num_bins=30,
-                                                      remove_fringe_bins=True,
-                                                      perc_threshold=0.9).get()
-        self.assertEqual(lgs_winsize_adj, [-923, 668])
+                                                    outdir=None,
+                                                    iteration=1,
+                                                    plot=True,
+                                                    hist_num_bins=30,
+                                                    remove_fringe_bins=True,
+                                                    perc_threshold=0.9).get()
+        self.assertEqual(lgs_winsize_adj, [-755, -152])
 
     def test_analyze_loop_results(self):
         """
         Test creation of lookup-table containing default lag times
         """
         filepath = 'test_data/test_segment_lagtimes_file/1_segments_found_lag_times_after_iteration-1.csv'
+
         # segment_lagtimes_df = files.read_segment_lagtimes_file(filepath=filepath)
 
         class TestClass(object):
@@ -112,18 +117,24 @@ class Tests(unittest.TestCase):
                 self.iteration = 1
                 self.shift_stepsize = 10
                 self.logfile_path = None
+                self.lgs_num_iter = 1
+                self.outdirs = None
+                self.target_lag = 0
+                self.phase = 0
+                self.phase_files = '__testing__'
+
         test_class_instance = TestClass()
 
-        obj = analyze.AnalyzeLags(dyco_instance=test_class_instance,
-                                  direct_path_to_segment_lagtimes_file=filepath)
-        obj.run()
-        lut_default_lag_times_df, lut_success = obj.get()
+        _analyze = analyze.AnalyzeLags(dyco_instance=test_class_instance,
+                                       direct_path_to_segment_lagtimes_file=filepath)
+        # obj.run()
+        # lut_default_lag_times_df, lut_success = obj.get()
 
-        self.assertEqual(lut_success, True)
-        self.assertEqual(lut_default_lag_times_df.index[6], dt.date(2016, 10, 20))
-        self.assertEqual(len(lut_default_lag_times_df.loc[:, 'median'].dropna()), 18)
-        self.assertEqual(len(lut_default_lag_times_df.loc[:, 'correction'].dropna()), 19)
-        self.assertEqual(lut_default_lag_times_df.loc[lut_default_lag_times_df.index[-1], 'correction'], -320)
+        self.assertEqual(_analyze.lut_available, True)
+        self.assertEqual(_analyze.lut_lag_times_df.index[0], dt.date(2016, 10, 15))
+        self.assertEqual(len(_analyze.lut_lag_times_df.loc[:, 'median'].dropna()), 1)
+        self.assertEqual(len(_analyze.lut_lag_times_df.loc[:, 'correction'].dropna()), 1)
+        self.assertEqual(_analyze.lut_lag_times_df.loc[_analyze.lut_lag_times_df.index[-1], 'correction'], -290)
 
     # def test_detect_covariance_peaks(self):
     #     """Test peak detection only"""
@@ -143,9 +154,6 @@ class Tests(unittest.TestCase):
     #     self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)
     #     self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'cov_abs'].values[0],
     #                      223.13887346667508)
-
-
-
 
 
 if __name__ == '__main__':

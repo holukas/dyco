@@ -9,7 +9,7 @@ import dyco
 # data_segment_overhang = '1T'  # 1min todo
 
 # Example with full arguments
-dyco.DynamicLagCompensation(
+dyco.run(
     var_reference='w_ms-1_rot_turb',  # Reference signal
     var_lagged='co2_ppb_qcl_turb',  # Lagged signal
     var_target=['co2_ppb_qcl_turb', 'n2o_ppb_qcl', 'co2_ppb_qcl', 'ch4_ppb_qcl'],  # Target columns

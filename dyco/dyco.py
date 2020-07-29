@@ -1,24 +1,31 @@
 """
+    DYCO Dynamic Lag Compensation
+    Copyright (C) 2020  holukas
 
-DYCO - DYNAMIC LAG COMPENSATION
--------------------------------
-Dynamic lag detection and compensation
-A Python package to detect and compensate for shifting lag times in
-ecosystem time series
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-import _setup
-import files
-import loop
-import plot
-from analyze import AnalyzeLags
-from correction import RemoveLags
+from . import setup_dyco, files, loop, plot
+from .analyze import AnalyzeLags
+from .correction import RemoveLags
 
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
@@ -315,7 +322,7 @@ class DynamicLagCompensation:
             https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
         """
 
-        self.run_id, self.script_start_time = _setup.generate_run_id()
+        self.run_id, self.script_start_time = setup_dyco.generate_run_id()
 
         # Setup for Phases 1-3
         self.phase = phase
@@ -327,7 +334,7 @@ class DynamicLagCompensation:
             self.phase_files = '_refined_normalized_files_'
 
         # Input and output directories
-        self.indir, self.outdir = _setup.set_dirs(indir=indir, outdir=outdir)
+        self.indir, self.outdir = setup_dyco.set_dirs(indir=indir, outdir=outdir)
 
         # File settings
         self.fnm_date_format = fnm_date_format
@@ -394,19 +401,19 @@ class DynamicLagCompensation:
     def setup(self):
         """Create output folders, start logger and search for files"""
         # Create folders
-        self.outdirs = _setup.CreateOutputDirs(dyco_instance=self).setup_output_dirs()
+        self.outdirs = setup_dyco.CreateOutputDirs(dyco_instance=self).setup_output_dirs()
 
         # Start logging
-        logfile_path = _setup.set_logfile_path(run_id=self.run_id,
-                                               outdir=self.outdirs['0-0_log'],
-                                               phase=self.phase)
-        logger = _setup.create_logger(logfile_path=logfile_path, name=__name__)
+        logfile_path = setup_dyco.set_logfile_path(run_id=self.run_id,
+                                                   outdir=self.outdirs['0-0_log'],
+                                                   phase=self.phase)
+        logger = setup_dyco.create_logger(logfile_path=logfile_path, name=__name__)
         logger.info(f"Run ID: {self.run_id}")
 
         # Search files
-        fd = _setup.FilesDetector(dyco_instance=self,
-                                  outdir=self.outdirs[f'{self.phase}-0_{self.phase_files}_overview'],
-                                  logfile_path=logfile_path)
+        fd = setup_dyco.FilesDetector(dyco_instance=self,
+                                      outdir=self.outdirs[f'{self.phase}-0_{self.phase_files}_overview'],
+                                      logfile_path=logfile_path)
         fd.run()
         files_overview_df = fd.get()
         return logfile_path, files_overview_df
