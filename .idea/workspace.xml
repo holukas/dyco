@@ -2,13 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/images/logo_DYCO1.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/paper/figure.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/paper/__paper.bib" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/paper/__paper.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/paper/paper.bib" beforeDir="false" afterPath="$PROJECT_DIR$/paper/paper.bib" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/paper/paper.md" beforeDir="false" afterPath="$PROJECT_DIR$/paper/paper.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -299,6 +293,7 @@
       <workItem from="1596058609519" duration="1214000" />
       <workItem from="1596112372506" duration="3623000" />
       <workItem from="1596198899737" duration="84000" />
+      <workItem from="1596199457231" duration="27000" />
     </task>
     <servers />
   </component>
