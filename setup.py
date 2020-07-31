@@ -25,7 +25,7 @@ setuptools.setup(
     name='dyco',
     packages=setuptools.find_packages(),
     # packages=['dyco'],
-    version='1.0.0',
+    version='1.0.1',
     license='GNU General Public License v3 (GPLv3)',
     description='A Python package to detect and compensate for shifting lag times in ecosystem time series',
     long_description=long_description,
