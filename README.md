@@ -52,4 +52,4 @@ Nemitz, E., Mammarella, I., Ibrom, A., Aurela, M., Burba, G.G., Dengel, S., Giel
 
 ## Support
 
-* For bug reports and feature requests, please use the [issue tracker](https://gitlab.ethz.ch/holukas/dyco-dynamic-lag-compensation/-/issues) on GitLab.
+* For bug reports and feature requests, please use the GitHub issue tracker.
