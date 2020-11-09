@@ -1,4 +1,6 @@
-# About
+![Normalization example](logo.png)
+
+# DYCO - Dynamic Lag Compensation
 
 `DYCO` facilitates the detection of time lags between two time series using covariance maximization. The time delay for each averaging interval is estimated by incrementally shifting one signal (the *reference signal*) and repeatedly calculating the time-lagged cross-covariance between both variables. The time lag that produces the highest covariance is selected as the *reference lag*, which can then be applied to selected *target* *variables*. The full processing chain comprises several phases and iterations during which *reference lags* are refined iteratively in progressively smaller search windows. The lag search is facilitated by prior normalization of default (nominal) time lags across files. This is achieved by compensating data for daily default lags, calculated from high-quality *reference lags* available around the respective date (Figure 1). Due to this normalization, *reference lags* fall into a specific, pre-defined and therefore known time range, which in turn allows the application of increasingly narrow time windows during lag search.
 
