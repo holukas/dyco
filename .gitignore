@@ -3,7 +3,7 @@ dist/
 _archive/
 _raw_photoshop/
 _raw_drawio/
-examples/
+example/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
