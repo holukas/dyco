@@ -3,7 +3,6 @@ dist/
 _archive/
 _raw_photoshop/
 _raw_drawio/
-example/
 _pip_test/
 
 # Byte-compiled / optimized / DLL files
