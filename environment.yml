@@ -40,7 +40,6 @@ dependencies:
   - mkl_fft=1.0.15=py36h14836fe_0
   - mkl_random=1.1.0=py36h675688f_0
   - more-itertools=8.4.0=py_0
-  - numpy=1.18.1=py36h93ca92e_0
   - numpy-base=1.18.1=py36hc3f5095_1
   - openssl=1.1.1g=he774522_0
   - packaging=20.4=py_0
@@ -96,11 +95,13 @@ dependencies:
     - dash-renderer==1.4.1
     - dash-table==4.7.0
     - docutils==0.16
+    - dyco==1.0.2
     - flask==1.1.2
     - flask-compress==1.5.0
     - future==0.18.2
     - itsdangerous==1.1.0
     - keyring==21.2.1
+    - numpy==1.18.1
     - pkginfo==1.5.0.1
     - pygments==2.6.1
     - pywin32-ctypes==0.2.0
@@ -113,4 +114,3 @@ dependencies:
     - webencodings==0.5.1
     - werkzeug==1.0.1
 prefix: C:\Users\holukas\Anaconda3\envs\DYCO1
-
