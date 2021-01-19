@@ -11,8 +11,8 @@ dyco.run(
     var_reference='w_ms-1_rot_turb',  # Reference signal
     var_lagged='co2_ppb_qcl_turb',  # Lagged signal
     var_target=['co2_ppb_qcl_turb', 'n2o_ppb_qcl', 'ch4_ppb_qcl'],  # Target columns
-    indir=Path(r'L:\Dropbox\luhk_work\programming\DYCO_Dynamic_Lag_Compensation\example\input_data'),
-    outdir=Path(r'L:\Dropbox\luhk_work\programming\DYCO_Dynamic_Lag_Compensation\example\output'),
+    indir=Path('L:/Dropbox/luhk_work/programming/DYCO_Dynamic_Lag_Compensation/example/input_data'),
+    outdir=Path('L:/Dropbox/luhk_work/programming/DYCO_Dynamic_Lag_Compensation/example/output'),
     fnm_date_format='%Y%m%d%H%M%S',  # Date format in filename
     fnm_pattern='2016*.csv',  # Filename pattern for file search, accepts regex
     dat_recs_timestamp_format='%Y-%m-%d %H:%M:%S.%f',  # Timestamp format for each row record, will be created if False

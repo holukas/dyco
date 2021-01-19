@@ -20,7 +20,7 @@ This approach has the advantage that *reference lags* can be calculated from sig
 
 # Documentation
 
-Please refer to the [Wiki](https://gitlab.ethz.ch/holukas/dyco-dynamic-lag-compensation/-/wikis/home) for documentation and examples.
+Please refer to the [Wiki](https://github.com/holukas/dyco/wiki) for documentation and examples.
 
 # Scientific Background
 

@@ -194,6 +194,8 @@ class DynamicLagCompensation:
             Example:
                 - With a data file named '20161015123000.csv' the
                  corresponding setting is: fnm_date_format='%Y%m%d%H%M%S'
+            For format codes see here:
+            https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
 
 
         del_previous_results: bool
