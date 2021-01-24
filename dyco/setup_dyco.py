@@ -124,11 +124,6 @@ class CreateOutputDirs:
         required_dirs = self.required_dirs()
         outdirs = {}
 
-        # # Delete previous results
-        # if self.del_previous_results and os.path.isdir(self.root_dir):
-        #     print(f"Deleting folder {self.root_dir} ...")
-        #     shutil.rmtree(self.root_dir)
-
         # Create Path to required directories, store keys and full paths in dict
         for nd in required_dirs:
             outdirs[nd] = self.root_dir / nd
@@ -146,17 +141,6 @@ class CreateOutputDirs:
             if not Path.is_dir(path):
                 print(f"Creating folder {path} ...")
                 os.makedirs(path)
-
-        # for filename in os.listdir(path):
-        #     filepath = os.path.join(path, filename)
-        #     try:
-        #         if os.path.isfile(filepath) or os.path.islink(filepath):
-        #             print(f"Deleting file {filepath} ...")
-        #             os.unlink(filepath)
-        #         # elif os.path.isdir(filepath):
-        #         #     shutil.rmtree(filepath)
-        #     except Exception as e:
-        #         print('Failed to delete %s. Reason: %s' % (filepath, e))
 
         return outdirs
 
@@ -255,7 +239,6 @@ class FilesDetector:
         pandas Dataframe
         """
 
-        # len_before = len(self.found_files)
         first_file_dt = dt.datetime.strptime(self.found_files[0].stem, self.fnm_date_format)
         last_file_dt = dt.datetime.strptime(self.found_files[-1].stem, self.fnm_date_format)
         expected_end_dt = last_file_dt + pd.Timedelta(self.file_generation_res)
@@ -272,7 +255,6 @@ class FilesDetector:
                 files_df.loc[file_start_dt, 'start'] = file_start_dt
                 files_df.loc[file_start_dt, 'filepath'] = filepath
                 files_df.loc[file_start_dt, 'filesize'] = Path(filepath).stat().st_size
-                # files_df.loc[file_start_dt, 'expected_file'] = file_start_dt
 
         files_df.insert(0, 'expected_file', files_df.index)  # inplace
         return files_df
@@ -313,9 +295,6 @@ class FilesDetector:
         files_df['expected_end'] = files_df['expected_end'].shift(-1)
         files_df['expected_duration'] = (files_df['expected_end'] - files_df['start']).dt.total_seconds()
         files_df['expected_records'] = files_df['expected_duration'] / self.dat_recs_nominal_timeres
-        # files_df['expected_end'] = files_df['start'] + pd.Timedelta(file_generation_res)
-        # files_df.loc[files_df['file_available'] == 1, 'next_file'] = files_df['expected_file']
-        # files_df['next_file'] = files_df['next_file'].shift(-1)
         return files_df
 
     def limit_num_files(self):
@@ -355,6 +334,5 @@ def generate_run_id():
 def set_logfile_path(run_id: str, outdir: Path, phase: int):
     """Set full path to log file"""
     name = f'{run_id}.log'
-    # name = f'{run_id}_phase-{phase}.log'
     path = outdir / name
     return path

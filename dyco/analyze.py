@@ -69,9 +69,6 @@ class AnalyzeLags:
                     phase=self.phase,
                     df=files.read_segment_lagtimes_file(filepath=outdir / 'LUT_final_time_lags.csv'))
 
-    # def get(self):
-    #     return self.lut_default_lag_times_df, self.lut_available
-
     @staticmethod
     def plot_final_instantaneous_lagtimes(outdir, phase, df):
         """Read and plot final lag search result: the instantaneous time lags"""
@@ -106,8 +103,6 @@ class AnalyzeLags:
         txt_info = f"PHASE {phase}: FINAL REFERENCE TIME LAGS"
         font = {'family': 'sans-serif', 'color': 'black', 'weight': 'bold', 'size': 20, 'alpha': 1, }
         ax.set_title(txt_info, fontdict=font)
-        # ax.text(0.02, 0.98, txt_info, horizontalalignment='left', verticalalignment='top',
-        #         transform=ax.transAxes, backgroundcolor='none', zorder=100, fontdict=font)
 
         ax.axhline(0, color='black', ls='-', lw=1, label='default lag', zorder=98)
         limit = df['ABS_LIMIT'].unique()[0]
@@ -350,28 +345,3 @@ class AnalyzeLags:
                             'PEAK-COVABSMAX_SHIFT']
         peaks_hq_S.index = peaks_hq_S.index.to_pydatetime()  # Convert to DatetimeIndex
         return peaks_hq_S
-
-# def find_default(self, df):
-#     plot_df = df[['cov_max_shift']].copy()
-#
-#     for b in range(1, 4, 1):
-#         bins = 2
-#         plot_df['group'] = pd.cut(plot_df['cov_max_shift'],
-#                                   bins=bins, retbins=False,
-#                                   duplicates='drop', labels=False)
-#         plot_df_agg = plot_df.groupby('group').agg(['count', 'min', 'max'])
-#         idxmax = plot_df_agg['cov_max_shift']['count'].idxmax()  # Most counts
-#         group_max = plot_df_agg.iloc[idxmax].name
-#
-#         plot_df_agg['count_maxperc'] = \
-#             plot_df_agg['cov_max_shift']['count'] / plot_df_agg['cov_max_shift']['count'].sum()
-#         # plot_df_agg['cov_max_shift']['count'] / plot_df_agg.iloc[idxmax]['cov_max_shift']['count']
-#
-#         plot_df = plot_df.loc[plot_df['group'] == group_max]
-#
-#     median = plot_df['cov_max_shift'].median()
-#     _min = plot_df['cov_max_shift'].min()
-#     _max = plot_df['cov_max_shift'].max()
-#
-#     print(plot_df)
-#     print(f"{median}  {_min}  {_max}")

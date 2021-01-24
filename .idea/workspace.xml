@@ -3,8 +3,10 @@
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/dyco.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/example.py" beforeDir="false" afterPath="$PROJECT_DIR$/example/example.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/lag.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/loop.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/plot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/setup_dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/setup_dyco.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -338,6 +340,8 @@
       <workItem from="1610965009452" duration="402000" />
       <workItem from="1610965845851" duration="14663000" />
       <workItem from="1611045143025" duration="2771000" />
+      <workItem from="1611233485546" duration="24000" />
+      <workItem from="1611446126645" duration="804000" />
     </task>
     <servers />
   </component>
@@ -348,19 +352,9 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/dyco/plot.py</url>
-          <line>151</line>
-          <option name="timeStamp" value="247" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/dyco/dyco.py</url>
           <line>80</line>
           <option name="timeStamp" value="248" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/dyco/plot.py</url>
-          <line>33</line>
-          <option name="timeStamp" value="249" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/dyco/setup_dyco.py</url>

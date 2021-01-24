@@ -186,16 +186,6 @@ class LagSearch:
         else:
             props_peak_df = pd.DataFrame()
 
-        # props_peak_df = pd.DataFrame()  # Props for one peak
-        # if len(found_peaks_idx) > 0:
-        #     max_width_height_idx = found_peaks_dict['width_heights'].argmax()  # Good metric to find peaks
-        #     most_prominent_idx = found_peaks_dict['prominences'].argmax()
-        #
-        #     if max_width_height_idx == most_prominent_idx:
-        #         peak_idx = found_peaks_idx[max_width_height_idx]
-        #         cov_df.loc[peak_idx, 'flag_peak_auto'] = True
-        #         props_peak_df = found_peaks_props_df.iloc[max_width_height_idx]
-
         return cov_df, props_peak_df
 
     def get(self):
@@ -238,9 +228,6 @@ class LagSearch:
             # Results
             cov_df['cov_abs'] = cov_df['cov'].abs()
             cov_max_ix = cov_df['cov_abs'].idxmax()
-            # cov_max_shift = lagsearch_df.iloc[cov_max_ix]['shift']
-            # cov_max = lagsearch_df.iloc[cov_max_ix]['cov']
-            # cov_max_timestamp = lagsearch_df.iloc[cov_max_ix]['index']
             cov_df.loc[cov_max_ix, 'flag_peak_max_cov_abs'] = True
 
         return cov_df
@@ -249,7 +236,6 @@ class LagSearch:
         outfile = f'{self.segment_name}_segment_covariance_iteration-{self.iteration}.csv'
         outpath = self.outdir_data / outfile
         cov_df.to_csv(f"{outpath}")
-        # self.logger.info(f"Saved covariance data in {outfile}")
         return None
 
     @staticmethod
@@ -275,33 +261,12 @@ class LagSearch:
             idx = False
         return idx
 
-        # # Peak of maximum covariance
-        # if True in df['flag_peak_max_cov_abs'].values:
-        #     idx_peak_cov_abs_max = df.loc[df['flag_peak_max_cov_abs'] == True, :].index.values[0]
-        # else:
-        #     idx_peak_cov_abs_max = False
-        #
-        # # Auto-detected peak
-        # if True in df['flag_peak_auto'].values:
-        #     idx_peak_auto = df.loc[df['flag_peak_auto'] == True, :].index.values[0]
-        # else:
-        #     idx_peak_auto = False
-        #
-        # # Location of the instantaneous default lag
-        # if True in df['flag_instantaneous_default_lag'].values:
-        #     idx_instantaneous_default_lag = df.loc[df['flag_instantaneous_default_lag'] == True, :].index.values[0]
-        # else:
-        #     idx_instantaneous_default_lag = False
-        #
-        # return idx_peak_cov_abs_max, idx_peak_auto, idx_instantaneous_default_lag
-
     def save_cov_plot(self, fig):
         """Save covariance plot for segment"""
         outfile = f'{self.segment_name}_segment_covariance_iteration-{self.iteration}.png'
         outpath = self.outdir_plots / outfile
         fig.savefig(f"{outpath}", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=100)
-        # self.logger.info(f"Saved covariance plot in {outfile}")
         return
 
     def make_scatter_cov(self):
@@ -400,9 +365,6 @@ class LagSearch:
                 f"    lag time was set to default\n" \
                 f"    cov {self.cov_df.iloc[self.idx_instantaneous_default_lag]['cov']:.3f}\n" \
                 f"    record {self.cov_df.iloc[self.idx_instantaneous_default_lag]['shift']}\n"
-        # else:
-        #     txt_info += \
-        #         f"\n(!)NO AUTO-PEAK FOUND\n"
         return txt_info
 
     def mark_auto_detected_peak(self, ax, txt_info):
@@ -485,7 +447,7 @@ class AdjustLagsearchWindow():
         return self.lgs_winsize_adj
 
     def search_bin_max_counts(self, counts):
-        # print("Searching peak of maximum counts ...")
+        """Search histogram peak of maximum counts"""
         max_count = np.amax(counts)
         peak_max_count_idx = np.where(counts == np.amax(max_count))  # Returns array in tuple
         if len(peak_max_count_idx) == 1:
@@ -505,9 +467,11 @@ class AdjustLagsearchWindow():
 
     @staticmethod
     def search_bin_most_prominent(counts):
-        # kudos: https://www.kaggle.com/simongrest/finding-peaks-in-the-histograms-of-the-variables
-        # Increase prominence until only one single peak is found
-        # print("Searching most prominent peak ...")
+        """Search most prominent histogram peak
+
+        Increase prominence until only one single peak is found
+        kudos: https://www.kaggle.com/simongrest/finding-peaks-in-the-histograms-of-the-variables
+        """
         peak_most_prom_idx = []
         prom = 0  # Prominence for peak finding
         while (len(peak_most_prom_idx) == 0) or (len(peak_most_prom_idx) > 1):
@@ -607,9 +571,6 @@ class AdjustLagsearchWindow():
                    label='most prominent counts peak', zorder=99, edgecolor='#FFA726', linewidth=2,
                    color='None', alpha=0.9, linestyle='--', **args)
 
-        # xtick_labels_int = [int(l) for l in xtick_labels]
-        # ax.set_xticks(xtick_labels_int)  # Position of ticks
-
         ax.axvline(x=hist_bins[self.start_idx], ls='--', c='#42A5F5',
                    label='lag search window start for next iteration')
         ax.axvline(x=hist_bins[self.end_idx], ls='--', c='#AB47BC',
@@ -644,14 +605,5 @@ class AdjustLagsearchWindow():
             outpath = self.outdir / outfile
             fig.savefig(f"{outpath}", format='png', bbox_inches='tight', facecolor='w',
                         transparent=True, dpi=150)
-
-        # ax.set_xticklabels(division)  # Labels of ticks, shown in plot
-        # if len(label_bin_start) > 30:
-        #     ax.tick_params(rotation=45)
-        # else:
-        #     ax.tick_params(rotation=0)
-        # default_format(ax=ax, txt_xlabel=f'bin {col[1]}', txt_ylabel=f'{col[0]} counts',
-        #                              txt_ylabel_units='[#]')
-        # gui.plotfuncs.default_grid(ax=ax)
 
         return None

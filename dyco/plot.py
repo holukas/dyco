@@ -87,21 +87,18 @@ class SummaryPlots():
     def _add_lines_cov(self, ax, df, last_iter_phase_1, last_iter_phase_2):
         props = {'y': df[f'PHASE-1_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'],
                  'label': f'Phase 1',
-                 # 'label': f'PHASE-1_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV',
                  'zorder': 100, 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': 'dotted',
                  'markeredgecolor': '#80DEEA', 'color': '#80DEEA', 'markerfacecolor': 'white'}
         ax.plot_date(df.index, **props)
 
         props = {'y': df[f'PHASE-2_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'],
                  'label': f'Phase 2',
-                 # 'label': f'PHASE-2_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV',
                  'zorder': 100, 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': '--',
                  'markeredgecolor': '#F48FB1', 'color': '#F48FB1', 'markerfacecolor': 'white'}
         ax.plot_date(df.index, **props)
 
         props = {'y': df['PHASE-3_INSTANTANEOUS_LAG_COV'],
                  'label': 'Phase 3',
-                 # 'label': 'PHASE-3_INSTANTANEOUS_LAG_COV',
                  'zorder': 100, 'alpha': 1, 'marker': 'o', 'ms': 6, 'lw': 2, 'ls': '-',
                  'markeredgecolor': '#8BC34A', 'color': '#8BC34A', 'markerfacecolor': '#8BC34A'}
         ax.plot_date(df.index, **props)
@@ -147,7 +144,6 @@ class SummaryPlots():
         # Save
         outfile = f'summary_covariance_evolution'
         outpath = outdir / outfile
-        # print(f"Saving time series of found segment lag times in {outpath} ...")
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w', transparent=True, dpi=150)
         a = 1
 

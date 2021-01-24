@@ -451,6 +451,3 @@ class DynamicLagCompensation:
         if lut_success:
             RemoveLags(dyco_instance=self)
         return
-
-# if __name__ == "__main__":
-#     DynamicLagRemover()

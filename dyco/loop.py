@@ -90,8 +90,6 @@ class Loop:
         self.hist_bin_range = self.lagsearch_settings(lgs_winsize=self.lgs_winsize,
                                                       force_min_stepsize=False)
 
-        # data_collection_df = pd.DataFrame() # todo (maybe)
-
         # Loop files
         for file_idx, file_info_row in self.files_overview_df.iterrows():
 
@@ -132,13 +130,6 @@ class Loop:
                                                      filename=file_info_row['filename'],
                                                      segment_lagtimes_df=segment_lagtimes_df)
 
-            # # Collect all file data # todo (maybe)
-            # data_collection_df = self.collect_file_data(data_df=data_df,
-            #                                             file_idx=file_idx,
-            #                                             data_collection_df=data_collection_df)
-
-            # segment_lagtimes_df = lag.calc_quantiles(df=segment_lagtimes_df)
-
         # Set new search window
         hist_series = self.filter_series(filter_col='iteration', filter_equal_to=self.iteration,
                                          df=segment_lagtimes_df, series_col='PEAK-COVABSMAX_SHIFT')
@@ -156,9 +147,6 @@ class Loop:
         self.add_lagsearch_adj_info(segment_lagtimes_df=segment_lagtimes_df,
                                     iteration=self.iteration,
                                     next_lgs_winsize=lgs_winsize_adj)
-
-        # plot.lagsearch_collection(lagsearch_df_collection=lagsearch_df_collection,
-        #                           outdir=self.outdirs['1-1_PLOTS_segment_covariance'])
 
         # Plot all found segment lag times
         self.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
@@ -306,13 +294,6 @@ class Loop:
                     except:
                         pass
 
-            # # Recommended default lag search winsize after normalization
-            # recommended_upper = overlay_default_df['target_lag'] \
-            #                     + overlay_default_df['recommended_default_winsize']
-            # recommended_lower = overlay_default_df['target_lag'] \
-            #                     - overlay_default_df['recommended_default_winsize']
-            # ax.axhline(recommended_upper.iloc[0])
-            # ax.axhline(recommended_lower.iloc[0])
 
         else:
             ax.text(0.5, 0.5, "No high-quality lags found, lag normalization failed",
@@ -366,14 +347,6 @@ class Loop:
                              f"Lag search window: {self.lgs_winsize}    Step-size: {self.shift_stepsize}    "
                              f"segment start: {segment_start}    segment end: {segment_end}")
 
-            # # todo expand segment df (soon)
-            # # Extend segment
-            # this_segment_end = segment_df.index[-1]
-            # segment_extension_end = this_segment_end + pd.to_timedelta(self.data_segment_overhang)
-            # extension_range_df = data_df.loc[this_segment_end:segment_extension_end]
-            # segment_df = segment_df.append(extension_range_df[1:])  # Remove 1st row, overlaps w/ segment
-            # print(f"Adding segment overhang {self.data_segment_overhang}, new end time {segment_df.index[-1]} ... ")
-
             # Search lag
             cov_df, props_peak_auto = \
                 lag.LagSearch(loop_instance=self,
@@ -421,7 +394,6 @@ class Loop:
             # Save found segment lag times after each segment
             outfile = f'{self.iteration}_segments_found_lag_times_after_iteration-{self.iteration}.csv'
             segment_lagtimes_df.to_csv(self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview'] / outfile)
-            # self.logger.info(f"Saved segment lag times in {outfile}")
 
         return segment_lagtimes_df
 
@@ -584,23 +556,11 @@ class Loop:
         else:
             shift_stepsize = 1
 
-        # if shift_stepsize != 1:
-        #     bins_stepsize = int(shift_stepsize * 5)
-        # else:
-        #     bins_stepsize = int(shift_stepsize)
         max_num_bins = range_lgs_winsize / shift_stepsize
         max_allowed_bins = int(max_num_bins / 3)
         bins_stepsize = int(range_lgs_winsize / max_allowed_bins)
 
         hist_bin_range = range(int(lgs_winsize[0]), int(lgs_winsize[1]), bins_stepsize)
-
-        # if shift_stepsize != 1:
-        #     bins_stepsize = int(range_win_lagsearch / (shift_stepsize * 5))
-        #     hist_bin_range = range(int(win_lagsearch[0]), int(win_lagsearch[1]), bins_stepsize)
-        #     # hist_bin_range = range(int(win_lagsearch[0]), int(win_lagsearch[1]), int(shift_stepsize * 5))
-        # else:
-        #     bins_stepsize = shift_stepsize
-        #     hist_bin_range = range(int(win_lagsearch[0]), int(win_lagsearch[1]), bins_stepsize)
 
         return shift_stepsize, hist_bin_range
 
@@ -622,9 +582,6 @@ class PlotLoopResults:
         self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
     def run(self):
-        # # In case no new iteration data was created, there is no need to plot data
-        # if not self.new_iteration_data:
-        #     return None
 
         # Covariance collection
         if self.plot_cov_collection:
@@ -632,7 +589,6 @@ class PlotLoopResults:
             self.cov_collection(indir=self.outdirs[f'{self.phase}-1_{self.phase_files}_covariances'],
                                 outdir=self.outdirs[f'{self.phase}-2_{self.phase_files}_covariances_plots'],
                                 logfile_path=self.dyco_instance.logfile_path)
-            # self.logger.info(f"Saved covariance collection plot in {outfile}")
 
         # Histogram
         if self.plot_hist:
@@ -704,10 +660,6 @@ class PlotLoopResults:
         num_files = len(filelist)
         logger.info(f"Plotting covariance collection from {num_files} files")
         for idx, filename in enumerate(filelist):
-            # print(idx)
-            # if idx > 100:
-            #     break
-            # print(f"Reading segment covariance file {idx + 1} of {num_files}: {filename}")
             filepath = os.path.join(str(indir), filename)
             segment_cov_df = files.read_segment_lagtimes_file(filepath=filepath)
             cov_collection_df = cov_collection_df.append(segment_cov_df)  # Collect for median and quantiles calc
