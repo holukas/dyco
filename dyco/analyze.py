@@ -23,7 +23,7 @@ import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 
-from . import files, loop, plot, setup_dyco
+import files, loop, plot, setup_dyco
 
 
 class AnalyzeLags:

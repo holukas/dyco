@@ -26,7 +26,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from . import analyze, files, loop, setup_dyco
+import analyze, files, loop, setup_dyco
 
 
 class SummaryPlots():

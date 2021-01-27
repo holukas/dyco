@@ -16,16 +16,19 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from . import setup_dyco, files, loop, plot
-from .analyze import AnalyzeLags
-from .correction import RemoveLags
+import cli
+import files
+import loop
+import plot
+import setup_dyco
+from analyze import AnalyzeLags
+from correction import RemoveLags
 
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
@@ -142,28 +145,27 @@ class DynamicLagCompensation:
     files_overview_df = pd.DataFrame()
 
     def __init__(self,
-
                  var_reference: str,
                  var_lagged: str,
-                 phase: int = 1,
-                 phase_files: str = 'input_files',
+                 var_target: list,
+                 indir: str = None,
+                 outdir: str = None,
                  fnm_date_format: str = '%Y%m%d%H%M%S',
-                 del_previous_results: bool = False,
                  fnm_pattern: str = '*.csv',
-                 dat_recs_timestamp_format: False or str = False,
-                 files_how_many: False or int = False,
+                 files_how_many: None or int = None,
                  file_generation_res: str = '30T',
                  file_duration: str = '30T',
-                 lgs_segment_dur: False or pd.DateOffset = False,
-                 lgs_hist_perc_thres: float = 0.9,
-                 lgs_hist_remove_fringe_bins: bool = True,
+                 dat_recs_timestamp_format: None or str = None,
                  dat_recs_nominal_timeres: float = 0.05,
+                 lgs_segment_dur: str = '30T',
                  lgs_winsize: int = 1000,
                  lgs_num_iter: int = 3,
-                 indir: Path = False,
-                 outdir: Path = False,
+                 lgs_hist_remove_fringe_bins: bool = True,
+                 lgs_hist_perc_thres: float = 0.9,
                  target_lag: int = 0,
-                 var_target: list = None):
+                 del_previous_results: bool = False,
+                 phase: int = 1,
+                 phase_files: str = 'input_files'):
         """
 
         Parameters
@@ -451,3 +453,32 @@ class DynamicLagCompensation:
         if lut_success:
             RemoveLags(dyco_instance=self)
         return
+
+
+def main(args):
+    DynamicLagCompensation(var_reference=args.var_reference,
+                           var_lagged=args.var_lagged,
+                           var_target=args.var_target,
+                           indir=args.indir,
+                           outdir=args.outdir,
+                           fnm_date_format=args.filenamedateformat,
+                           fnm_pattern=args.filenamepattern,
+                           files_how_many=args.limitnumfiles,
+                           file_generation_res=args.filegenres,
+                           file_duration=args.fileduration,
+                           dat_recs_timestamp_format=args.datatimestampformat,
+                           dat_recs_nominal_timeres=args.datanominaltimeres,
+                           lgs_segment_dur=args.lssegmentduration,
+                           lgs_winsize=args.lswinsize,
+                           lgs_num_iter=args.lsnumiter,
+                           lgs_hist_remove_fringe_bins=args.lsremovefringebins,
+                           lgs_hist_perc_thres=args.lspercthres,
+                           target_lag=args.targetlag,
+                           del_previous_results=args.delprevresults)
+
+
+if __name__ == '__main__':
+    args = cli.get_args()
+    args = cli.validate_args(args)
+    print(args)
+    main(args)

@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from . import files, lag, plot, setup_dyco
+import files, lag, plot, setup_dyco
 
 
 class Loop:

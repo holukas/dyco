@@ -29,8 +29,8 @@ from pathlib import Path
 import pandas as pd
 
 
-def set_dirs(indir: False or Path,
-             outdir: False or Path):
+def set_dirs(indir: None or Path,
+             outdir: None or Path):
     """
     In case no input or output directory is given, use folders 'input'
     and 'output' in current working directory.

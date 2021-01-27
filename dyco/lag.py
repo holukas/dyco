@@ -25,7 +25,7 @@ import pandas as pd
 from matplotlib.collections import LineCollection
 from scipy.signal import find_peaks
 
-from . import plot, setup_dyco
+import plot, setup_dyco
 
 
 class LagSearch:

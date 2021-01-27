@@ -2,11 +2,18 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/dyco/cli.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/analyze.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/analyze.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/correction.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/correction.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/dyco.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dyco/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/lag.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dyco/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/loop.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dyco/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/plot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dyco/setup_dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/setup_dyco.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example/example.py" beforeDir="false" afterPath="$PROJECT_DIR$/example/example.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -48,6 +55,50 @@
     </key>
   </component>
   <component name="RunManager" selected="Python.example">
+    <configuration name="cli" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="DYCO_Dynamic_Lag_Compensation" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/dyco" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/dyco/cli.py" />
+      <option name="PARAMETERS" value="-r A -l B -t C" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="dyco" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="DYCO_Dynamic_Lag_Compensation" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/dyco" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/dyco/dyco.py" />
+      <option name="PARAMETERS" value="w A B C D -i L:\Dropbox\luhk_work\programming\DYCO_Dynamic_Lag_Compensation\example\input_data" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="example" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -87,40 +138,6 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="pytest for test_dyco.Tests.test_adjust_lag_search_window" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
-      <module name="DYCO_Dynamic_Lag_Compensation" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="_new_keywords" value="&quot;&quot;" />
-      <option name="_new_parameters" value="&quot;&quot;" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_dyco.Tests.test_adjust_lag_search_window&quot;" />
-      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
-      <method v="2" />
-    </configuration>
-    <configuration name="pytest for test_dyco.Tests.test_analyze_loop_results" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
-      <module name="DYCO_Dynamic_Lag_Compensation" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="_new_keywords" value="&quot;&quot;" />
-      <option name="_new_parameters" value="&quot;&quot;" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_dyco.Tests.test_analyze_loop_results&quot;" />
-      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
-      <method v="2" />
-    </configuration>
     <configuration name="pytest in test_dyco.py" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -138,13 +155,20 @@
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.dyco" />
+      <item itemvalue="Python.example" />
+      <item itemvalue="Python.cli" />
+      <item itemvalue="Python tests.pytest for test_dyco.Tests" />
+      <item itemvalue="Python tests.pytest in test_dyco.py" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.example" />
+        <item itemvalue="Python.dyco" />
+        <item itemvalue="Python.cli" />
         <item itemvalue="Python tests.pytest in test_dyco.py" />
         <item itemvalue="Python tests.pytest for test_dyco.Tests" />
-        <item itemvalue="Python tests.pytest for test_dyco.Tests.test_analyze_loop_results" />
-        <item itemvalue="Python tests.pytest for test_dyco.Tests.test_adjust_lag_search_window" />
       </list>
     </recent_temporary>
   </component>
@@ -341,7 +365,11 @@
       <workItem from="1610965845851" duration="14663000" />
       <workItem from="1611045143025" duration="2771000" />
       <workItem from="1611233485546" duration="24000" />
-      <workItem from="1611446126645" duration="804000" />
+      <workItem from="1611446126645" duration="3570000" />
+      <workItem from="1611533907459" duration="5073000" />
+      <workItem from="1611560274351" duration="13786000" />
+      <workItem from="1611647389688" duration="14046000" />
+      <workItem from="1611737829223" duration="5695000" />
     </task>
     <servers />
   </component>
@@ -352,14 +380,14 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/dyco/dyco.py</url>
-          <line>80</line>
-          <option name="timeStamp" value="248" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/dyco/setup_dyco.py</url>
           <line>42</line>
           <option name="timeStamp" value="250" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/dyco/dyco.py</url>
+          <line>458</line>
+          <option name="timeStamp" value="257" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -378,12 +406,14 @@
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_dyla_Tests_test_read_segment_lagtimes_file.coverage" NAME="pytest for test_dyla.Tests.test_read_segment_lagtimes_file Coverage Results" MODIFIED="1594250399689" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO.coverage" NAME="pytest for test_io.TestIO Coverage Results" MODIFIED="1594046549751" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO_test_read_segments_file.coverage" NAME="pytest for test_io.TestIO.test_read_segments_file Coverage Results" MODIFIED="1593987950591" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$example.coverage" NAME="example Coverage Results" MODIFIED="1610984322604" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$example.coverage" NAME="example Coverage Results" MODIFIED="1611754286959" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
     <SUITE FILE_PATH="coverage/LagRemover_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587171664690" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_in_test_dyco_py.coverage" NAME="pytest in test_dyco.py Coverage Results" MODIFIED="1610984240535" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main.coverage" NAME="main Coverage Results" MODIFIED="1587770618375" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$dyco.coverage" NAME="dyco Coverage Results" MODIFIED="1611705680450" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyco" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_io_py.coverage" NAME="pytest in test_io.py Coverage Results" MODIFIED="1594046501765" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$example.coverage" NAME="example Coverage Results" MODIFIED="1593637294299" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$cli.coverage" NAME="cli Coverage Results" MODIFIED="1611536479956" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyco" />
     <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests.coverage" NAME="pytest for test_dyco.Tests Coverage Results" MODIFIED="1596230641069" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_analyze_loop_results.coverage" NAME="pytest for test_dyco.Tests.test_analyze_loop_results Coverage Results" MODIFIED="1595957286005" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$_dash_test.coverage" NAME="_dash_test Coverage Results" MODIFIED="1590708644986" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
