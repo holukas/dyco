@@ -5,6 +5,11 @@
       <sourceFolder url="file://$MODULE_DIR$/dyco" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/_archive" />
       <excludeFolder url="file://$MODULE_DIR$/_raw_photoshop" />
+      <excludeFolder url="file://$MODULE_DIR$/_pip_test" />
+      <excludeFolder url="file://$MODULE_DIR$/_raw_drawio" />
+      <excludeFolder url="file://$MODULE_DIR$/_wiki" />
+      <excludeFolder url="file://$MODULE_DIR$/build" />
+      <excludeFolder url="file://$MODULE_DIR$/dist" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.6 (DYCO1)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

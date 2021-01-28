@@ -311,7 +311,8 @@ class FilesDetector:
                 _df = self.files_overview_df.loc[self.files_overview_df.index[0]:idx]
                 num_available_files = _df['file_available'].sum()
                 if num_available_files >= self.files_how_many:
-                    files_overview_df = _df.copy()
+                    # Stop if enough files
+                    self.files_overview_df = _df.copy()
                     break
 
         files_available = self.files_overview_df['file_available'].sum()

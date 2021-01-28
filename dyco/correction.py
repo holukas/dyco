@@ -24,7 +24,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import files, setup_dyco
+import files
+import setup_dyco
 
 
 class RemoveLags:
@@ -58,6 +59,8 @@ class RemoveLags:
         self.run()
 
     def run(self):
+        """Run lag removal"""
+
         # If no new iteration data was created, skip normalization
         if not self.new_iteration_data:
             self.logger.warning("")
@@ -127,11 +130,42 @@ class RemoveLags:
             self.logger.info(txt_info)
 
     def save_dyco_files(self, df, outdir, original_filename, export_timestamp):
+        """
+        Save lag-removed raw data files as new files with the suffix _DYCO
+
+        Parameters
+        ----------
+        df: pandas DataFrame
+            Data of the raw data file where the lag was removed.
+        outdir: Path
+            Folder where lag-removed raw data files will be stored.
+        original_filename: str
+            The original filename of the raw data file.
+        export_timestamp: bool
+            Defines if the timestamp index is saved to the files.
+
+        Returns
+        -------
+        None
+        """
         df.fillna(-9999, inplace=True)
         outpath = outdir / f"{original_filename}_DYCO.csv"
         df.to_csv(outpath, index=export_timestamp)
 
     def shift_var_target(self, df, shift):
+        """
+        Shift data of target columns by found lag
+
+        Parameters
+        ----------
+        df: pandas DataFrame
+        shift: int
+            Amount by which target columns are shifted, given as number of records.
+
+        Returns
+        -------
+        pandas DataFrame of shifted raw data
+        """
         for col in self.var_target:
             outcol = f"{col}_DYCO"
             df[outcol] = df[col].shift(shift)  # Shift col by found lag
@@ -139,6 +173,7 @@ class RemoveLags:
         return df
 
     def read_lut_time_lags(self):
+        """Read csv file that contains the look-up table for lag correction"""
         filepath = self.outdirs[
                        f'{self.phase}-6_{self.phase_files}_normalization_lookup_table'] / f'LUT_default_agg_time_lags.csv'
         parse = lambda x: dt.datetime.strptime(x, '%Y-%m-%d')

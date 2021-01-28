@@ -58,6 +58,20 @@ def read_segment_lagtimes_file(filepath):
 
 
 def read_raw_data(filepath, data_timestamp_format):
+    """
+    Read raw data files
+
+    Parameters
+    ----------
+    filepath: Path
+        Full path to raw data file.
+    data_timestamp_format: str
+        Datetime format of the timestamp in each data row in the raw data file.
+
+    Returns
+    -------
+    pandas DataFrame that contains raw data from the file in filepath
+    """
     header_rows_list = [0]
     skip_rows_list = []
     header_section_rows = [0]
@@ -111,6 +125,26 @@ def read_raw_data(filepath, data_timestamp_format):
 
 
 def calc_true_resolution(num_records, data_nominal_res, expected_records, expected_duration):
+    """
+    Calculate the true resolution of the raw data
+
+    Parameters
+    ----------
+    num_records: int
+        Number of raw data records.
+    data_nominal_res: float
+        Nominal time resolution of the raw data, e.g. 0.05 for 20 Hz data
+        (one measurement every 0.05 seconds)
+    expected_records: int or float
+        Expected number of records in the raw data file, based on the nominal
+        time resolution of the raw data.
+    expected_duration: int
+        Expected duration of the raw data file in seconds.
+
+    Returns
+    -------
+    float that gives the true resolution in seconds, e.g. 0.05s for 20 Hz (1/20 = 0.05)
+    """
     ratio = num_records / expected_records
     if (ratio > 0.999) and (ratio < 1.001):
         # file_complete = True
@@ -122,6 +156,33 @@ def calc_true_resolution(num_records, data_nominal_res, expected_records, expect
 
 
 def insert_timestamp(df, file_info_row, num_records, data_nominal_res, expected_records, expected_duration):
+    """
+    Calculate the timestamp for each row record if not available
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Raw data without timestamp. In case data already have a timestamp, it
+        will be overwritten.
+    file_info_row: pandas Series
+        Contains info about the current raw data file.
+    num_records: int
+        Number or records in raw data file.
+    data_nominal_res: float
+        Nominal time resolution of the raw data, e.g. 0.05 (one measurement every
+        0.05 seconds, 20 Hz).
+    expected_records: int or float
+        Number of expected records in raw data file, e.g. a 30-minute file of
+        20 Hz data should contain 36000 records (20 * 60 * 30).
+    expected_duration, int or float
+        Expected duration of the raw data file in seconds, e.g. 1800 for a
+        30-minute file.
+
+    Returns
+    -------
+    df: pandas DataFrame with timestamp index
+    true_resolution: time resolution of raw data measurements
+    """
     true_resolution = calc_true_resolution(num_records=num_records, data_nominal_res=data_nominal_res,
                                            expected_records=expected_records, expected_duration=expected_duration)
     df['sec'] = df.index * true_resolution
@@ -130,11 +191,32 @@ def insert_timestamp(df, file_info_row, num_records, data_nominal_res, expected_
                       + pd.to_timedelta(df['sec'], unit='s')
     df.drop(['sec', 'file_start_dt'], axis=1, inplace=True)
     df.set_index('TIMESTAMP', inplace=True)
-
-    return df
+    return df, true_resolution
 
 
 def add_data_stats(df, true_resolution, filename, files_overview_df, found_records, fnm_date_format):
+    """
+    Collect additional info about raw data file
+
+    Parameters
+    ----------
+    df: pandas DataFrame
+        Raw data from the file.
+    true_resolution: float
+        Time resolution of the raw data records in seconds, e.g. 0.05 for 20 Hz data.
+    filename: str
+        Filename of the raw data file, without extension.
+    files_overview_df: pandas DataFrame
+        Overview of all raw data files, with stats.
+    found_records: int
+        Number of records in the raw data file.
+    fnm_date_format: str
+        Datetime format of the datetime info in the raw data filename.
+
+    Returns
+    -------
+    pandas DataFrame with additional info for current raw data file
+    """
     # Detect overall frequency
     data_duration = found_records * true_resolution
     data_freq = np.float64(found_records / data_duration)
@@ -151,6 +233,27 @@ def add_data_stats(df, true_resolution, filename, files_overview_df, found_recor
 
 
 def generate_missing_cols(header_cols_df, more_data_cols_than_header_cols, num_missing_header_cols):
+    """
+    Insert additional column names in data header
+
+    Additional columns are created if the number of data columns
+    does not match the number of header columns.
+
+    Parameters
+    ----------
+    header_cols_df: pandas DataFrame
+        A small DataFrame that only contains the header columns.
+    more_data_cols_than_header_cols: bool
+        True if more data columns than header columns were found in
+        the data file. This can happen due to irregularities during
+        raw data collection.
+    num_missing_header_cols: int
+        Number of missing header columns in comparison to data columns.
+
+    Returns
+    -------
+    list of header columns that contains labels for additionally created columns
+    """
     # Generate missing header columns if necessary
     header_cols_list = header_cols_df.columns.to_list()
     generated_missing_header_cols_list = []
@@ -163,7 +266,22 @@ def generate_missing_cols(header_cols_df, more_data_cols_than_header_cols, num_m
 
 
 def length_data_cols(filepath, header_rows_list, skip_rows_list):
-    # Check number of columns of the first data row after the header part
+    """
+    Check number of columns of the first data row after the header part
+
+    Parameters
+    ----------
+    filepath: Path
+        Path to raw data file
+    header_rows_list: list
+        List of integers that give the row positions of the header lines
+    skip_rows_list: list
+        List of skipped rows
+
+    Returns
+    -------
+    Number of data columns
+    """
     skip_num_lines = len(header_rows_list) + len(skip_rows_list)
     first_data_row_df = pd.read_csv(filepath,
                                     skiprows=skip_num_lines,
@@ -173,7 +291,22 @@ def length_data_cols(filepath, header_rows_list, skip_rows_list):
 
 
 def length_header_cols(filepath, header_rows_list, skip_rows_list):
-    # Check number of columns of the header part
+    """
+    Check number of columns of the header part
+
+    Parameters
+    ----------
+    filepath: Path
+        Path to raw data file
+    header_rows_list: list
+        List of integers that give the row positions of the header lines
+    skip_rows_list: list
+        List of skipped rows
+
+    Returns
+    -------
+    Number of header columns and a pandas DataFrame that contains only the header columns
+    """
     header_cols_df = pd.read_csv(filepath,
                                  skiprows=skip_rows_list,
                                  header=header_rows_list,
@@ -182,7 +315,23 @@ def length_header_cols(filepath, header_rows_list, skip_rows_list):
 
 
 def data_vs_header(num_data_cols, num_header_cols):
-    # Check if there are more data columns than header columns
+    """
+    Check if there are more data columns than header columns
+
+    Parameters
+    ----------
+    num_data_cols: int
+        Number of data columns
+    num_header_cols: int
+        Number of header columns
+
+    Returns
+    -------
+    more_data_cols_than_header_cols: bool
+        True if number of data columns > number of header columns
+    num_missing_header_cols: int
+        Number of missing header columns compared to number of data columns
+    """
     if num_data_cols > num_header_cols:
         more_data_cols_than_header_cols = True
         num_missing_header_cols = num_data_cols - num_header_cols
@@ -190,11 +339,3 @@ def data_vs_header(num_data_cols, num_header_cols):
         more_data_cols_than_header_cols = False
         num_missing_header_cols = 0
     return more_data_cols_than_header_cols, num_missing_header_cols
-
-
-def collect_file_data(self, data_df, file_idx, data_collection_df):
-    if file_idx == self.files_overview_df.index[0]:
-        data_collection_df = data_df.copy()
-    else:
-        data_collection_df = data_collection_df.append(data_df)
-    return data_collection_df

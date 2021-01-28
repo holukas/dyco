@@ -495,7 +495,22 @@ class Loop:
             return segment_lagtimes_df, lgs_winsize
 
     def add_lagsearch_adj_info(self, segment_lagtimes_df, iteration, next_lgs_winsize):
-        """Add adjusted lagsearch window for next iteration to CSV"""
+        """
+        Add info about adjusted lagsearch window for next iteration to CSV
+
+        Parameters
+        ----------
+        segment_lagtimes_df: pandas DataFrame
+            Lag search results for each segment
+        iteration: int
+            Current iteration number
+        next_lgs_winsize: list
+            Time window for lag search in next iteration
+
+        Returns
+        -------
+        None
+        """
         segment_lagtimes_df.loc[:, 'lagsearch_next_start'] = next_lgs_winsize[0]
         segment_lagtimes_df.loc[:, 'lagsearch_next_end'] = next_lgs_winsize[1]
 
@@ -582,6 +597,7 @@ class PlotLoopResults:
         self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
     def run(self):
+        """Generate plots"""
 
         # Covariance collection
         if self.plot_cov_collection:

@@ -105,7 +105,20 @@ class LagSearch:
         return None
 
     def flag_instantaneous_default_lag(self, default, cov_df):
-        """Flags location with instantaneous default time lag"""
+        """
+        Flags location with instantaneous default time lag
+
+        Parameters
+        ----------
+        default: int
+            Default lag time, given as record number
+        cov_df: pandas DataFrame
+            Lag search results for segment
+
+        Returns
+        -------
+        pandas DataFrame with flag True for default time lag location
+        """
         if not self.phase == 3:
             return cov_df
         default_ix = cov_df['shift'].loc[cov_df['shift'] == default].index[0]
@@ -114,6 +127,22 @@ class LagSearch:
 
     @staticmethod
     def setup_lagsearch_df(lgs_winsize: list, shift_stepsize: int, segment_name):
+        """
+        Setup DataFrame that collects lagsearch results
+
+        Parameters
+        ----------
+        lgs_winsize: list
+            Contains min and max of time lag search window, given as number of records
+        shift_stepsize: int
+            Stepsize used for shifting the lag search window
+        segment_name: str
+            Name the current lag search segment
+
+        Returns
+        -------
+        pandas DataFrame prepared for storing segment lag search results
+        """
         df = pd.DataFrame(columns=['index', 'segment_name', 'shift', 'cov', 'cov_abs',
                                    'flag_peak_max_cov_abs', 'flag_peak_auto'])
         df['shift'] = range(int(lgs_winsize[0]),
@@ -195,7 +224,23 @@ class LagSearch:
     def find_max_cov_peak(segment_df, cov_df, var_lagged, var_reference):
         """
         Find maximum absolute covariance
+
+        Parameters
+        ----------
+        segment_df: pandas DataFrame
+            Segment raw data
+        cov_df: pandas DataFrame
+            Stores results of segment lag search
+        var_lagged: str
+            Column name of the lagged variable
+        var_reference: str
+            Column name of the unlagged variable
+
+        Returns
+        -------
+        pandas DataFrame with segment lag search results
         """
+
 
         _segment_df = segment_df.copy()
         _segment_df['index'] = _segment_df.index
@@ -233,6 +278,18 @@ class LagSearch:
         return cov_df
 
     def save_cov_data(self, cov_df):
+        """
+        Save segment lag search results to csv file
+
+        Parameters
+        ----------
+        cov_df: pandas DataFrame
+            Segment lag search results
+
+        Returns
+        -------
+        None
+        """
         outfile = f'{self.segment_name}_segment_covariance_iteration-{self.iteration}.csv'
         outpath = self.outdir_data / outfile
         cov_df.to_csv(f"{outpath}")
@@ -262,7 +319,18 @@ class LagSearch:
         return idx
 
     def save_cov_plot(self, fig):
-        """Save covariance plot for segment"""
+        """
+        Save covariance plot for segment to png
+
+        Parameters
+        ----------
+        fig: Figure
+            The plot that is saved
+
+        Returns
+        -------
+        None
+        """
         outfile = f'{self.segment_name}_segment_covariance_iteration-{self.iteration}.png'
         outpath = self.outdir_plots / outfile
         fig.savefig(f"{outpath}", format='png', bbox_inches='tight', facecolor='w',
@@ -318,12 +386,28 @@ class LagSearch:
         return fig
 
     def z_as_colored_lines(self, fig, ax, x, y, z):
-        # z values as colors
-        # From: https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/multicolored_line.html
-        # Create a set of line segments so that we can color them individually
-        # This creates the points as a N x 1 x 2 array so that we can stack points
-        # together easily to get the segments. The segments array for line collection
-        # needs to be (numlines) x (points per line) x 2 (for x and y)
+        """
+        Add z values as colors to line plot
+
+        From: https://matplotlib.org/3.1.1/gallery/lines_bars_and_markers/multicolored_line.html
+        Create a set of line segments so that we can color them individually
+        This creates the points as a N x 1 x 2 array so that we can stack points
+        together easily to get the segments. The segments array for line collection
+        needs to be (numlines) x (points per line) x 2 (for x and y)
+
+        Parameters
+        ----------
+        fig: Figure
+        ax: axis
+        x: x values, shift
+        y: y values, covariance
+        z: z values, absolute covariance
+
+        Returns
+        -------
+        None
+        """
+
         points = np.array([x, y]).T.reshape(-1, 1, 2)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
@@ -338,7 +422,19 @@ class LagSearch:
         cbar.set_label('absolute covariance', rotation=90)
 
     def mark_max_cov_abs_peak(self, ax, txt_info):
-        """Mark peak of max absolute covariance"""
+        """
+        Mark peak of max absolute covariance
+
+        Parameters
+        ----------
+        ax: axis
+        txt_info: str
+            Info text about segment lag search that is shown in the plot
+
+        Returns
+        -------
+        Extended info text
+        """
         if self.idx_peak_cov_abs_max:
             ax.scatter(self.cov_df.iloc[self.idx_peak_cov_abs_max]['shift'],
                        self.cov_df.iloc[self.idx_peak_cov_abs_max]['cov'],
@@ -354,7 +450,21 @@ class LagSearch:
         return txt_info
 
     def mark_instantaneous_default_lag(self, ax, txt_info):
-        """Mark instantaneous default time lag, used in Phase 3"""
+        """
+        Mark instantaneous default time lag
+
+        Used in Phase 3
+
+        Parameters
+        ----------
+        ax: axis
+        txt_info: str
+            Info text about segment lag times, shown in plot
+
+        Returns
+        -------
+        Extended info text
+        """
         if self.idx_instantaneous_default_lag:
             ax.scatter(self.cov_df.iloc[self.idx_instantaneous_default_lag]['shift'],
                        self.cov_df.iloc[self.idx_instantaneous_default_lag]['cov'],
@@ -368,7 +478,19 @@ class LagSearch:
         return txt_info
 
     def mark_auto_detected_peak(self, ax, txt_info):
-        """Mark auto-detected peak"""
+        """
+        Mark auto-detected peak
+
+        Parameters
+        ----------
+        ax: axis
+        txt_info: str
+            Info text about segment lag search that is shown in the plot
+
+        Returns
+        -------
+        Extended info text
+        """
         if self.idx_peak_auto:
             ax.scatter(self.cov_df.iloc[self.idx_peak_auto]['shift'],
                        self.cov_df.iloc[self.idx_peak_auto]['cov'],
@@ -405,6 +527,7 @@ class AdjustLagsearchWindow():
         self.run()
 
     def run(self):
+        """Start adjustment of lagsearch time window"""
         self.lgs_winsize_adj, self.peak_max_count_idx, self.start_idx, self.end_idx, \
         self.counts, self.divisions, self.peak_most_prom_idx = \
             self.find_hist_peaks()
@@ -447,7 +570,18 @@ class AdjustLagsearchWindow():
         return self.lgs_winsize_adj
 
     def search_bin_max_counts(self, counts):
-        """Search histogram peak of maximum counts"""
+        """
+        Search histogram peak of maximum counts
+
+        Parameters
+        ----------
+        counts: array
+            Counts in histogram bins
+
+        Returns
+        -------
+        Index of the histogram peak with maximum counts
+        """
         max_count = np.amax(counts)
         peak_max_count_idx = np.where(counts == np.amax(max_count))  # Returns array in tuple
         if len(peak_max_count_idx) == 1:
@@ -456,7 +590,26 @@ class AdjustLagsearchWindow():
 
     @staticmethod
     def calc_hist(series=False, bins=20, remove_fringe_bins=False):
-        """Calculate histogram of found lag times."""
+        """
+        Calculate histogram of found lag times
+
+        Done after each iteration.
+
+        Parameters
+        ----------
+        series: pandas Series
+            Found absolute covariance peaks for each segment
+        bins: int or range
+            Number of bins for the histogram, can also be given as range
+        remove_fringe_bins: bool
+            If True, the fringe bins in the histogram will be removed. Important for
+            constraining the lag during lag search.
+
+        Returns
+        -------
+        counts: counts per histogram division
+        divisions: histogram divisions
+        """
         counts, divisions = np.histogram(series, bins=bins)
         # Remove first and last bins from histogram. In case of unclear lag times
         # data tend to accumulate in these edge regions of the search window.
@@ -467,10 +620,20 @@ class AdjustLagsearchWindow():
 
     @staticmethod
     def search_bin_most_prominent(counts):
-        """Search most prominent histogram peak
+        """
+        Search most prominent histogram peak
 
         Increase prominence until only one single peak is found
         kudos: https://www.kaggle.com/simongrest/finding-peaks-in-the-histograms-of-the-variables
+
+        Parameters
+        ----------
+        counts: array
+            Counts per histogram bin/division
+
+        Returns
+        -------
+        Index of the most prominent peak
         """
         peak_most_prom_idx = []
         prom = 0  # Prominence for peak finding
@@ -486,10 +649,32 @@ class AdjustLagsearchWindow():
         return peak_most_prom_idx
 
     def adjust_lgs_winsize(self, counts, divisions, perc_threshold, peak_max_count_idx, peak_most_prom_idx):
-        """Set new time window for next lag search, based on previous results.
+        """
+        Set new time window for next lag search, based on previous results
 
         Includes more and more bins around the bin where most lag times were found
         until a threshold is reached.
+
+        Parameters
+        ----------
+        counts: numpy array
+            Counts per histogram division
+        divisions: numpy array
+            Histogram divisions
+        perc_threshold: float
+            Cumulative percentage threshold in histogram of found lag times. Using the
+            histogram, lagsearch time windows are narrowed down by including bins around
+            the peak until a certain percentage of the total values is reached.
+        peak_max_count_idx:
+            Index of histogram division with max counts
+        peak_most_prom_idx
+            Index of most prominent histogram peak
+
+        Returns
+        -------
+        lgs_winsize_adj: Adjusted (narrowed down) time window for lag search
+        start_idx: Index of histogram division where the adjusted time window start
+        end_idx: Index of histogram division where the adjusted time window ends
         """
         start_idx, end_idx = self.include_bins_next_to_peak(peak_max_count_idx=peak_max_count_idx,
                                                             peak_most_prom_idx=peak_most_prom_idx)
@@ -547,6 +732,18 @@ class AdjustLagsearchWindow():
         return start_idx, end_idx
 
     def plot_results_hist(self, hist_bins):
+        """
+        Plot histogram of found lag times
+
+        Parameters
+        ----------
+        hist_bins: numpy array
+            Histogram bins
+
+        Returns
+        -------
+        None
+        """
 
         gs, fig, ax = plot.setup_fig_ax()
 

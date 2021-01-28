@@ -51,6 +51,7 @@ class AnalyzeLags:
         self.run()
 
     def run(self):
+        """Run the lag analysis"""
         self.lut_lag_times_df, self.lut_available = self.generate_lut_time_lags()
 
         if self.outdirs:
@@ -71,7 +72,22 @@ class AnalyzeLags:
 
     @staticmethod
     def plot_final_instantaneous_lagtimes(outdir, phase, df):
-        """Read and plot final lag search result: the instantaneous time lags"""
+        """
+        Read and plot final lag search result: the instantaneous time lags
+
+        Parameters
+        ----------
+        outdir: Path
+            Output folder where results are stored
+        phase: int
+            Phase of the processing chain.
+        df: pandas DataFrame
+
+        Returns
+        -------
+        None
+        """
+
 
         # Get data
         lagsearch_start = int(df['LAGSEARCH_START'].unique()[0])
@@ -142,11 +158,29 @@ class AnalyzeLags:
                                            phase=self.phase)
 
     def save_lut(self, lut, outdir, outfile):
+        """
+        Save the look-up table for lag correction to csv file
+
+        Parameters
+        ----------
+        lut: pandas DataFrame
+            Contains look-up table information.
+        outdir: Path
+            Output folder for outfile.
+        outfile: str
+            Filename without extension.
+
+        Returns
+        -------
+        None
+        """
         outpath = outdir / outfile
         lut.to_csv(f"{outpath}.csv")
 
     def generate_lut_time_lags(self):
-        """Generate LUT based on found time lags from last iteration"""
+        """
+        Generate LUT based on found time lags from last iteration
+        """
 
         # Load results from last iteration
         last_iteration = self.lgs_num_iter
@@ -182,6 +216,22 @@ class AnalyzeLags:
 
     @staticmethod
     def filter_dataframe(filter_col, filter_equal_to, df):
+        """
+        Keep only rows of df where the value in filter_col matches filter_equal_to
+
+        Parameters
+        ----------
+        filter_col: str
+            Column name in df.
+        filter_equal_to: value
+            Filtering condition, only rows where filter_col == filter_equal_to is True
+            are kept, other rows are removed.
+        df: pandas Dataframe
+
+        Returns
+        -------
+        Filtered pandas DataFrame where filter_col == filter_equal_to
+        """
         filter_this_iteration = df[filter_col] == filter_equal_to
         df_filtered = df.loc[filter_this_iteration, :]
         return df_filtered
@@ -195,6 +245,8 @@ class AnalyzeLags:
 
         Parameters
         ----------
+        segment_lagtimes_df: pandas DataFrame
+            Contains found lag times for each segment.
         default_lag: int
             The median of high-quality peaks is moved to target_lag.
 
@@ -259,6 +311,8 @@ class AnalyzeLags:
 
         Parameters
         ----------
+        segment_lagtimes_df: pandas DataFrame
+            Contains found lag times for each segment.
         target_lag: int
             The median of high-quality peaks is moved to target_lag.
 
@@ -318,6 +372,19 @@ class AnalyzeLags:
         return lut_df, lut_available
 
     def check_missing(self, df, col):
+        """
+        Check for missing values in data rows
+
+        Parameters
+        ----------
+        df: pandas DataFrame
+        col: str
+            Column name of the variable that is checked for missing data.
+
+        Returns
+        -------
+        pandas DataFrame that only contains data rows where a value for col is missing
+        """
         filter_missing = df[col].isnull()
         missing_df = df[filter_missing]
         return missing_df
