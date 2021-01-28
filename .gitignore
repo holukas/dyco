@@ -4,6 +4,7 @@ _archive/
 _raw_photoshop/
 _raw_drawio/
 _pip_test/
+_wiki/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
