@@ -2,6 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/tests/test_data/test_raw_data/README.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/test_data/test_segment_covariance/README.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/tests/test_data/test_segment_lagtimes_file/README.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/test_dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_dyco.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -363,7 +367,8 @@
       <workItem from="1611915407927" duration="2714000" />
       <workItem from="1612089109128" duration="5968000" />
       <workItem from="1612256920413" duration="1579000" />
-      <workItem from="1612398478850" duration="1167000" />
+      <workItem from="1612398478850" duration="1791000" />
+      <workItem from="1612474853175" duration="4445000" />
     </task>
     <servers />
   </component>

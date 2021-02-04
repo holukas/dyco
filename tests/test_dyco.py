@@ -17,6 +17,9 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(segment_lagtimes_df['lagsearch_next_start'].unique()), 1)
 
     def test_read_raw_data(self):
+        """
+        Test reading raw data files
+        """
         filepath = 'test_data/test_raw_data/20161020113000.csv'
         raw_data_df = files.read_raw_data(filepath=filepath, data_timestamp_format='%Y-%m-%d %H:%M:%S.%f')
         self.assertEqual(len(raw_data_df), 36000)
@@ -25,6 +28,9 @@ class Tests(unittest.TestCase):
         self.assertEqual(raw_data_df['co2_ppb_qcl'].mean(), 369599.2060149097)
 
     def test_files_detector(self):
+        """
+        Test detecting raw data files
+        """
         indir = Path('test_data/test_raw_data/')
 
         class TestClass(object):
