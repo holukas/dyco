@@ -136,24 +136,24 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(_analyze.lut_lag_times_df.loc[:, 'correction'].dropna()), 1)
         self.assertEqual(_analyze.lut_lag_times_df.loc[_analyze.lut_lag_times_df.index[-1], 'correction'], -290)
 
-    # def test_detect_covariance_peaks(self):
-    #     """Test peak detection only"""
-    #     filepath = 'test_data/test_raw_data/20161020113000.csv'
-    #     segment_df = files.read_raw_data(filepath=filepath, data_timestamp_format='%Y-%m-%d %H:%M:%S.%f')
-    #     lagsearch_df = lag.LagSearch.setup_lagsearch_df(win_lagsearch=[-1000, 1000],
-    #                                                     shift_stepsize=10,
-    #                                                     segment_name='20161031230000_iter1')
-    #     lagsearch_df = \
-    #         lag.LagSearch.find_max_cov_peak(segment_df=segment_df,
-    #                                         lagsearch_df=lagsearch_df,
-    #                                         ref_sig='w_ms-1_rot_turb',
-    #                                         lagged_sig='co2_ppb_qcl_turb')
-    #     lagsearch_df, props_peak_auto = lag.LagSearch.find_peak_auto(df=lagsearch_df)
-    #
-    #     self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'shift'].values[0], -290)
-    #     self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)
-    #     self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'cov_abs'].values[0],
-    #                      223.13887346667508)
+    def test_detect_covariance_peaks(self):
+        """Test peak detection only"""
+        filepath = 'test_data/test_raw_data/20161020113000.csv'
+        segment_df = files.read_raw_data(filepath=filepath, data_timestamp_format='%Y-%m-%d %H:%M:%S.%f')
+        lagsearch_df = lag.LagSearch.setup_lagsearch_df(lgs_winsize=[-1000, 1000],
+                                                        shift_stepsize=10,
+                                                        segment_name='20161031230000_iter1')
+        lagsearch_df = \
+            lag.LagSearch.find_max_cov_peak(segment_df=segment_df,
+                                            cov_df=lagsearch_df,
+                                            var_reference='w_ms-1_rot_turb',
+                                            var_lagged='co2_ppb_qcl_turb')
+        lagsearch_df, props_peak_auto = lag.LagSearch.find_auto_peak(cov_df=lagsearch_df)
+
+        self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'shift'].values[0], -290)
+        self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)
+        self.assertEqual(int(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'cov_abs'].values[0]),
+                         223)
 
 
 if __name__ == '__main__':
