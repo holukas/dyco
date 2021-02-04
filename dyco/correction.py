@@ -112,10 +112,18 @@ class RemoveLags:
                 data_df = self.shift_var_target(df=data_df,
                                                 shift=shift_correction)
 
-                self.save_dyco_files(outdir=self.outdirs[f'{self.phase}-7_{self.phase_files}_normalized'],
-                                     original_filename=file_info_row['filename'],
-                                     df=data_df,
-                                     export_timestamp=True)
+                if (self.phase == 1) | (self.phase == 2):
+                    # Save timestamp in file
+                    self.save_dyco_files(outdir=self.outdirs[f'{self.phase}-7_{self.phase_files}_normalized'],
+                                         original_filename=file_info_row['filename'],
+                                         df=data_df,
+                                         export_timestamp=True)
+                else:
+                    # No timestamp for final output files
+                    self.save_dyco_files(outdir=self.outdirs[f'{self.phase}-7_{self.phase_files}_normalized'],
+                                         original_filename=file_info_row['filename'],
+                                         df=data_df,
+                                         export_timestamp=False)
 
             time_needed = time.time() - start
             times_needed.append(time_needed)
