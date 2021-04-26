@@ -218,6 +218,8 @@ class LagSearch:
         return cov_df, props_peak_df
 
     def get(self):
+        """Get covariance results as DataFrame and info about the
+        covariance peak"""
         return self.cov_df, self.props_peak_auto
 
     @staticmethod
@@ -513,6 +515,11 @@ class LagSearch:
 
 
 class AdjustLagsearchWindow():
+    """
+
+    Adjust the time window for lag search that is used in the next iteration
+
+    """
     def __init__(self, series, iteration, plot=True, hist_num_bins=30, remove_fringe_bins=True,
                  perc_threshold=0.9, outdir=None):
         self.series = series.dropna()  # NaNs yield error in histogram
@@ -567,6 +574,16 @@ class AdjustLagsearchWindow():
         return lgs_winsize_adj, peak_max_count_idx, start_idx, end_idx, counts, divisions, peak_most_prom_idx
 
     def get(self):
+        """
+        Adjusted time window for lag search
+
+        Returns
+        -------
+        lgs_winsize_adj: list
+            Contains two elements: start index and end index for lag search, i.e. the
+            "search from/to" range for the lag search
+
+        """
         return self.lgs_winsize_adj
 
     def search_bin_max_counts(self, counts):

@@ -302,6 +302,17 @@ class Loop:
                     size=20, color='white', backgroundcolor='red', zorder=100)
 
     def get(self):
+        """
+        After looping through all files, get time lag search window and
+        flag that indicates if new iteration was executed
+
+        Returns
+        -------
+        lgs_winsize: list
+                    Contains min and max of time lag search window, given as number of records
+        new_iteration_data: bool
+                    Indicates if new iteration was executed
+        """
         return self.lgs_winsize, self.new_iteration_data
 
     def loop_segments(self,
@@ -581,6 +592,11 @@ class Loop:
 
 
 class PlotLoopResults:
+    """
+
+    Plot results after looping through all files
+
+    """
     def __init__(self, dyco_instance, plot_cov_collection=True,
                  plot_hist=True, plot_timeseries_segment_lagtimes=True):
         self.dyco_instance = dyco_instance

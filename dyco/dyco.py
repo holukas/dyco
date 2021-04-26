@@ -50,6 +50,18 @@ def dyco(cls):
     """
 
     class ProcessingChain:
+        """
+
+        Wrapper class for executing the main script multiple times, each
+        time with different settings
+
+        The processing chain comprises 3 Phases and one finalization step:
+            * Phase 1: First normalization to default lag
+            * Phase 2: Second normalization to default lag
+            * Phase 3: Correction for instantaneous lag
+            * Finalize: Plots that summarize Phases 1-3
+
+        """
 
         def __init__(self, **args):
             # PHASE 1 - First normalization to default lag
@@ -465,6 +477,8 @@ class DynamicLagCompensation:
 
 
 def main(args):
+    """Main function that is called with the given args when the script
+     is executed from the command line."""
     DynamicLagCompensation(var_reference=args.var_reference,
                            var_lagged=args.var_lagged,
                            var_target=args.var_target,
@@ -489,5 +503,4 @@ def main(args):
 if __name__ == '__main__':
     args = cli.get_args()
     args = cli.validate_args(args)
-    # print(args)
     main(args)

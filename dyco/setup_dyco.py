@@ -95,6 +95,11 @@ def create_logger(name: str, logfile_path: Path = None):
 
 
 class CreateOutputDirs:
+    """
+
+    Setup output folder structure
+
+    """
     def __init__(self, dyco_instance):
         self.root_dir = dyco_instance.outdir
         self.del_previous_results = dyco_instance.del_previous_results
@@ -102,6 +107,7 @@ class CreateOutputDirs:
         self.phase_files = dyco_instance.phase_files
 
     def required_dirs(self):
+        """Define output folder names."""
         outdirs = [
             '0-0_log',
             f'{self.phase}-0_{self.phase_files}_overview',
@@ -193,6 +199,7 @@ class FilesDetector:
             self.export()
 
     def get(self):
+        """Get files overview as DataFrame."""
         return self.files_overview_df
 
     def export(self):

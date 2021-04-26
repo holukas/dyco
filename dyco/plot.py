@@ -26,10 +26,19 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import analyze, files, loop, setup_dyco
+import analyze
+import files
+import loop
+import setup_dyco
 
 
 class SummaryPlots():
+    """
+
+    Make plots summarizing results from Phases 1-3
+
+    """
+
     def __init__(self, instance_phase_1, instance_phase_2, instance_phase_3):
         self.instance_phase_1 = instance_phase_1
         self.instance_phase_2 = instance_phase_2
@@ -42,6 +51,7 @@ class SummaryPlots():
         self.run()
 
     def run(self):
+        """Start creation of summary plots."""
         self.logger.info("CREATING SUMMARY ...")
         collection_df = pd.DataFrame()
 
@@ -122,6 +132,7 @@ class SummaryPlots():
             ax.legend(frameon=True, loc='upper right', prop=font).set_zorder(100)
 
     def summary_plot_covariances(self, collection_df, outdir, last_iter_phase_1, last_iter_phase_2):
+        """Plot covariances found in Phases 1-3."""
         self.logger.info("Plotting covariance evolution, Phases 1-3 ...")
         gs = gridspec.GridSpec(2, 1)  # rows, cols
         gs.update(wspace=0.3, hspace=0.3, left=0.03, right=0.97, top=0.97, bottom=0.03)
@@ -167,6 +178,7 @@ class SummaryPlots():
                                            phase=phase)
 
     def summary_plot_instantaneous_lagtimes(self, phase, phase_files, outdirs):
+        """Plot final reference time lags"""
         df = self._get_instantaneous_time_lags(phase=phase, phase_files=phase_files, outdirs=outdirs)
         analyze.AnalyzeLags.plot_final_instantaneous_lagtimes(outdir=self.outdir_summary, phase=phase, df=df)
 
@@ -255,14 +267,6 @@ class SummaryPlots():
         return outdir
 
 
-def limit_data_range_percentiles(df, col, perc_limits):
-    p_lower = df[col].quantile(perc_limits[0])
-    p_upper = df[col].quantile(perc_limits[1])
-    p_filter = (df[col] >= p_lower) & (df[col] <= p_upper)
-    df = df[p_filter]
-    return df
-
-
 def default_format(ax, fontsize=12, label_color='black',
                    txt_xlabel='', txt_ylabel='', txt_ylabel_units='',
                    width=1, length=5, direction='in', colors='black', facecolor='white'):
@@ -282,6 +286,7 @@ def default_format(ax, fontsize=12, label_color='black',
 
 
 def format_spines(ax, color, lw):
+    """Set color and linewidth of axis spines"""
     spines = ['top', 'bottom', 'left', 'right']
     for spine in spines:
         ax.spines[spine].set_color(color)
