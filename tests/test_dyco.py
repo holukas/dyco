@@ -86,8 +86,6 @@ class Tests(unittest.TestCase):
 
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'shift'].values[0], -290)
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)
-        # self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'cov_abs'].values[0],
-        #                  223.13887346667508)
 
     def test_adjust_lag_search_window(self):
         """
@@ -113,8 +111,6 @@ class Tests(unittest.TestCase):
         """
         filepath = 'test_data/test_segment_lagtimes_file/1_segments_found_lag_times_after_iteration-1.csv'
 
-        # segment_lagtimes_df = files.read_segment_lagtimes_file(filepath=filepath)
-
         class TestClass(object):
             def __init__(self):
                 self.var_reference = 'w_ms-1_rot_turb'
@@ -133,8 +129,6 @@ class Tests(unittest.TestCase):
 
         _analyze = analyze.AnalyzeLags(dyco_instance=test_class_instance,
                                        direct_path_to_segment_lagtimes_file=filepath)
-        # obj.run()
-        # lut_default_lag_times_df, lut_success = obj.get()
 
         self.assertEqual(_analyze.lut_available, True)
         self.assertEqual(_analyze.lut_lag_times_df.index[0], dt.date(2016, 10, 15))
