@@ -1,5 +1,9 @@
 ![Normalization example](images/logo_dyco1_256px.png)
 
+[![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
+
+
+
 # DYCO - Dynamic Lag Compensation
 
 The lag detection between the turbulent departures of measured wind and the scalar of interest is a central step in the calculation of eddy covariance (EC) ecosystem fluxes. In case the covariance maximization fails to detect a clear peak in the covariance function between the wind and the scalar, current flux calculation software can apply a constant default (nominal) time lag to the respective scalar. However, both the detection of clear covariance peaks in a pre-defined time window and the definition of a reliable default time lag is challenging for compounds which are often characterized by low SNR, such as N<sub>2</sub>O. In addition, the application of one static default time lag may produce inaccurate results in case systematic time shifts are present in the raw data.
