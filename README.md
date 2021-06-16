@@ -1,5 +1,7 @@
 ![Normalization example](images/logo_dyco1_256px.png)
 
+[![DOI](status.svg)](https://doi.org/10.21105/joss.02575)
+
 [![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
 
 
