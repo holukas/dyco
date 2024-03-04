@@ -43,7 +43,7 @@ def validate_args(args):
 
 def get_args():
     """Get args from CLI input"""
-    parser = argparse.ArgumentParser(description="BICO - Conversion of ETH binary files to ASCII",
+    parser = argparse.ArgumentParser(description="dyco - dynamic lag compensation",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Positional args
@@ -62,7 +62,7 @@ def get_args():
 
     # Optional args
     parser.add_argument('-i', '--indir', type=Path,
-                        help="Path to the source folder that contains the data files, e.g. 'C:/bico/input'")
+                        help="Path to the source folder that contains the data files, e.g. 'C:/dyco/input'")
     parser.add_argument('-o', '--outdir', type=Path,
                         help="Path to output folder, e.g. C:/bico/output")
     parser.add_argument('-fnd', '--filenamedateformat', type=str, default='%Y%m%d%H%M%S',

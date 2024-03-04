@@ -5,27 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/CHANGELOG.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/poetry.lock" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/DYCO_Dynamic_Lag_Compensation.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/DYCO_Dynamic_Lag_Compensation.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LICENSE" beforeDir="false" afterPath="$PROJECT_DIR$/LICENSE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/analyze.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/analyze.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dyco/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/cli.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/correction.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/correction.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/dyco.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/files.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/files.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/lag.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/loop.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/plot.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/plot.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dyco/setup_dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/setup_dyco.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/environment.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -417,7 +398,7 @@
       <workItem from="1623356369437" duration="4000" />
       <workItem from="1623614261184" duration="61000" />
       <workItem from="1623660133414" duration="9000" />
-      <workItem from="1709548186031" duration="799000" />
+      <workItem from="1709548186031" duration="1749000" />
     </task>
     <servers />
   </component>
