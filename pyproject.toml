@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dyco"
-version = "1.1.2"
+version = "1.2.0"
 description = "Dynamic lag compensation"
 authors = ["Lukas Hörtnagl <lukas.hoertnagl@usys.ethz.ch>"]
 readme = "README.md"
