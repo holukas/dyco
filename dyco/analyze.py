@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020  holukas
+    Copyright (C) 2020-2024 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
 
@@ -99,18 +99,18 @@ class AnalyzeLags:
 
         # Accepted reference lags
         ax.plot_date(pd.to_datetime(df.index), df['INSTANTANEOUS_LAG'],
-                     alpha=1, marker='o', ms=6, color='black', lw=0, ls='-',
+                     alpha=1, fmt='o', ms=6, color='black', lw=0, ls='-',
                      label=f'final reference time lag (absolute limit {abs_limit})', markeredgecolor='None', zorder=100)
 
         # Found lags in Phase 3
         ax.plot_date(pd.to_datetime(df.index), df['PEAK-COVABSMAX_SHIFT'],
-                     alpha=1, marker='o', ms=12, color='#FFC107', lw=0, ls='-', markeredgecolor='None', zorder=99,
+                     alpha=1, fmt='o', ms=12, color='#FFC107', lw=0, ls='-', markeredgecolor='None', zorder=99,
                      label=f'found Phase 3 time lag (search between {lagsearch_start} and {lagsearch_end})')
 
         # Marks lags that were outside limit and therefore set to the default lag
         set_to_default_lags = df.loc[df['SET_TO_DEFAULT'] == True, ['INSTANTANEOUS_LAG']]
         ax.plot_date(pd.to_datetime(set_to_default_lags.index), set_to_default_lags['INSTANTANEOUS_LAG'],
-                     alpha=1, marker='o', ms=12, color='#8BC34A', lw=0, ls='-', markeredgecolor='None', zorder=99,
+                     alpha=1, fmt='o', ms=12, color='#8BC34A', lw=0, ls='-', markeredgecolor='None', zorder=99,
                      label=f'found Phase 3 time lag was set to default')
 
         plot.default_format(ax=ax, label_color='black', fontsize=12,
@@ -337,6 +337,8 @@ class AnalyzeLags:
             subset = peaks_hq_S[filter_around_this_day]
             num_vals = len(subset)
 
+            # lut_df.loc[this_date, 'median'] = 9
+
             if num_vals >= 5:
                 # print(f"{this_date}    {num_vals}    {subset.median()}")
                 lut_df.loc[this_date, 'median'] = subset.median()
@@ -360,7 +362,9 @@ class AnalyzeLags:
                                         col='correction')
         self.logger.warning(f"No correction could be generated from data for dates: {missing_df.index.to_list()}")
         self.logger.warning(f"Filling missing corrections for dates: {missing_df.index.to_list()}")
-        lut_df['correction'].fillna(method='ffill', inplace=True, limit=1)
+        lut_df['correction'] = lut_df['correction'].ffill(limit=1)
+        lut_df['correction'] = lut_df['correction'].bfill(limit=1)
+        # lut_df['correction'] = lut_df['correction'].fillna(method='ffill', inplace=False, limit=1)  # deprecated
 
         try:
             lut_df['recommended_default_winsize'] = \
@@ -407,7 +411,7 @@ class AnalyzeLags:
 
         """
         df.set_index('start', inplace=True)
-        df.index = pd.to_datetime(df.index)
+        df.index = pd.to_datetime(df.index, format="mixed")
         peaks_hq_S = df.loc[df['PEAK-COVABSMAX_SHIFT'] == df['PEAK-AUTO_SHIFT'],
                             'PEAK-COVABSMAX_SHIFT']
         peaks_hq_S.index = peaks_hq_S.index.to_pydatetime()  # Convert to DatetimeIndex

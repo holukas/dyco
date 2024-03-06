@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020  holukas
+    Copyright (C) 2020-2024 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
 
@@ -132,7 +132,7 @@ class CreateOutputDirs:
 
         # Create Path to required directories, store keys and full paths in dict
         for nd in required_dirs:
-            outdirs[nd] = self.root_dir / nd
+            outdirs[nd] = Path(self.root_dir) / nd
 
         # Delete dirs if needed
         for key, path in outdirs.items():
@@ -191,7 +191,10 @@ class FilesDetector:
         self.files_overview_df = self.add_expected()
         self.files_overview_df = self.add_unexpected()
         self.files_overview_df = self.calc_expected_values()
-        self.files_overview_df.loc[:, 'file_available'].fillna(0, inplace=True)
+        _temp = self.files_overview_df.loc[:, 'file_available'].copy()
+        _temp = _temp.fillna(0)
+        self.files_overview_df.loc[:, 'file_available'] = _temp
+        # self.files_overview_df.loc[:, 'file_available'].fillna(0, inplace=True)
         self.files_overview_df = self.limit_num_files()
         self.logger.info(f"Found {int(self.files_overview_df['file_available'].sum())} available files")
 

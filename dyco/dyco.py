@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020  holukas
+    Copyright (C) 2020-2024 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
 import os
@@ -109,7 +109,7 @@ def dyco(cls):
                 args['lgs_winsize'] = 100  # Small window for instantaneous search in Phase 3
                 args['lgs_num_iter'] = 1
 
-            args['indir'] = prev_outdir_files / f"{prev_phase}-7_{prev_phase_files}_normalized"
+            args['indir'] = Path(prev_outdir_files) / f"{prev_phase}-7_{prev_phase_files}_normalized"
             args['var_lagged'] = f"{args['var_lagged']}_DYCO"  # Use normalized signal
             filename, file_extension = os.path.splitext(args['fnm_pattern'])
             args['fnm_pattern'] = f"{filename}_DYCO{file_extension}"  # Search normalized files
@@ -165,13 +165,13 @@ class DynamicLagCompensation:
                  fnm_date_format: str = '%Y%m%d%H%M%S',
                  fnm_pattern: str = '*.csv',
                  files_how_many: None or int = None,
-                 file_generation_res: str = '30T',
-                 file_duration: str = '30T',
+                 file_generation_res: str = '30min',
+                 file_duration: str = '30min',
                  dat_recs_timestamp_format: None or str = None,
                  dat_recs_nominal_timeres: float = 0.05,
-                 lgs_segment_dur: str = '30T',
+                 lgs_segment_dur: str = '30min',
                  lgs_winsize: int = 1000,
-                 lgs_num_iter: int = 3,
+                 lgs_num_iter: int = 1,
                  lgs_hist_remove_fringe_bins: bool = True,
                  lgs_hist_perc_thres: float = 0.9,
                  target_lag: int = 0,
@@ -226,16 +226,16 @@ class DynamicLagCompensation:
             Frequency at which new files were generated. This does not
             relate to the data records but to the file creation time.
             Examples:
-                * '30T' means a new file was generated every 30 minutes.
-                * '1H' means a new file was generated every hour.
-                * '6H' means a new file was generated every six hours.
+                * '30min' means a new file was generated every 30 minutes.
+                * '1h' means a new file was generated every hour.
+                * '6h' means a new file was generated every six hours.
             For pandas DateOffset options see:
                 https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
         file_duration: str (pandas DateOffset)
             Duration of one data file.
             Example:
-                * '30T': data file contains data from 30 minutes.
+                * '30min': data file contains data from 30 minutes.
             For pandas DateOffset options see:
                 https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
@@ -246,10 +246,10 @@ class DynamicLagCompensation:
             *file_duration*, then the file data is split into segments
             and the lag time is calculated for each segment separately.
             Examples:
-                * '10T': calculates lag times for 10-minute segments.
+                * '10m': calculates lag times for 10-minute segments.
                 * With the settings
-                    file_duration = '30T' and
-                    lgs_segments_dur = '10T'
+                    file_duration = '30min' and
+                    lgs_segments_dur = '10m'
                     the 30-minute data file is split into three 10-minute
                     segments and the lag time is determined in each of the
                     segments, yielding three lag times.
@@ -435,10 +435,8 @@ class DynamicLagCompensation:
         return logfile_path, files_overview_df
 
     def calculate_lags(self):
-        """
-        Calculate covariances and detect covariance peaks to determine lags
-        for each file segment
-        """
+        """Calculate covariances and detect covariance peaks to determine lags
+        for each file segment."""
         for iteration in range(1, 1 + self.lgs_num_iter):
             loop_iter = loop.Loop(dyco_instance=self,
                                   iteration=iteration)

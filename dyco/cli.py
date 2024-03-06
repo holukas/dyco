@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020  holukas
+    Copyright (C) 2020-2024 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
 
@@ -43,7 +43,7 @@ def validate_args(args):
 
 def get_args():
     """Get args from CLI input"""
-    parser = argparse.ArgumentParser(description="BICO - Conversion of ETH binary files to ASCII",
+    parser = argparse.ArgumentParser(description="dyco - dynamic lag compensation",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Positional args
@@ -62,7 +62,7 @@ def get_args():
 
     # Optional args
     parser.add_argument('-i', '--indir', type=Path,
-                        help="Path to the source folder that contains the data files, e.g. 'C:/bico/input'")
+                        help="Path to the source folder that contains the data files, e.g. 'C:/dyco/input'")
     parser.add_argument('-o', '--outdir', type=Path,
                         help="Path to output folder, e.g. C:/bico/output")
     parser.add_argument('-fnd', '--filenamedateformat', type=str, default='%Y%m%d%H%M%S',

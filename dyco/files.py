@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020  holukas
+    Copyright (C) 2020-2024 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
 
@@ -47,7 +47,7 @@ def read_segment_lagtimes_file(filepath):
                                 # na_values=-9999,
                                 encoding='utf-8',
                                 delimiter=',',
-                                mangle_dupe_cols=True,
+                                # mangle_dupe_cols=True,
                                 # keep_date_col=False,
                                 parse_dates=False,
                                 # date_parser=parse,
@@ -96,12 +96,12 @@ def read_raw_data(filepath, data_timestamp_format):
                               num_missing_header_cols=num_missing_header_cols)
 
     if data_timestamp_format:
-        parse = lambda x: dt.datetime.strptime(x, data_timestamp_format)
-        date_parser = parse
+        # parse = lambda x: dt.datetime.strptime(x, data_timestamp_format)  # now deprecated
+        # date_parser = parse  # now deprecated
         parse_dates = True
         index_col = 0
     else:
-        date_parser = None
+        # date_parser = None  # now deprecated
         parse_dates = False
         index_col = None
 
@@ -112,10 +112,11 @@ def read_raw_data(filepath, data_timestamp_format):
                           na_values=-9999,
                           encoding='utf-8',
                           delimiter=',',
-                          mangle_dupe_cols=True,
-                          keep_date_col=False,
+                          # mangle_dupe_cols=True,  # now deprecated
+                          # keep_date_col=False,  # now deprecated
                           parse_dates=parse_dates,
-                          date_parser=date_parser,
+                          # date_parser=date_parser,  # now deprecated
+                          date_format=data_timestamp_format,
                           index_col=index_col,
                           dtype=None,
                           engine='c',

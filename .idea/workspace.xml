@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="" />
+    <list default="true" id="1d9762cb-8480-440d-8bb7-62fb59b4c536" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/dyco.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/files.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/files.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/lag.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/lag.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/loop.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/loop.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dyco/setup_dyco.py" beforeDir="false" afterPath="$PROJECT_DIR$/dyco/setup_dyco.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example/example_kwargs.py" beforeDir="false" afterPath="$PROJECT_DIR$/example/example_kwargs.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -18,54 +30,48 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="JupyterTrust" id="49cd8a5c-a2cb-4f58-9daf-1f56bd2bd0d2" />
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8
+}</component>
   <component name="ProjectId" id="1b7PHZP5uBvwo2RD6CVq5TKkZyn" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">
-    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
-    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
-    <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
-    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
-    <property name="restartRequiresConfirmation" value="false" />
-    <property name="settings.editor.selected.configurable" value="preferences.intentionPowerPack" />
-  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.example2.executor": "Debug",
+    "Python.example_kwargs (1).executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "git-widget-placeholder": "indev",
+    "last_opened_file_path": "F:/Sync/luhk_work/20 - CODING/27 - VARIOUS/dyco/example",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="F:\Sync\luhk_work\20 - CODING\27 - VARIOUS\dyco\example" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="L:\Dropbox\luhk_work\programming\DLR_Dynamic_Lag_Remover" />
       <recent name="L:\Dropbox\luhk_work\programming\DLR_Dynamic_Lag_Remover\_archive" />
       <recent name="L:\Dropbox\luhk_work\programming\DLR_Dynamic_Lag_Remover\dlr\tests" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.pytest for test_dyco.Tests.test_lagsearch_class">
-    <configuration name="dyco" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.example_kwargs (1)">
+    <configuration name="example_kwargs (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/dyco" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/dyco/dyco.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="example" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="DYCO_Dynamic_Lag_Compensation" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -77,7 +83,30 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/example/example.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/example/example_kwargs.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="example_kwargs" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="DYCO_Dynamic_Lag_Compensation" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/example" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="F:\Sync\luhk_work\20 - CODING\27 - VARIOUS\dyco\example\example_kwargs.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -88,6 +117,7 @@
     </configuration>
     <configuration name="pytest for test_dyco.Tests.test_detect_covariance_peaks" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <option name="SDK_HOME" value="" />
@@ -105,6 +135,7 @@
     </configuration>
     <configuration name="pytest for test_dyco.Tests.test_lagsearch_class" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <option name="SDK_HOME" value="" />
@@ -122,6 +153,7 @@
     </configuration>
     <configuration name="pytest in test_dyco.py" type="tests" factoryName="py.test" temporary="true" nameIsGenerated="true">
       <module name="DYCO_Dynamic_Lag_Compensation" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <option name="SDK_HOME" value="" />
@@ -138,21 +170,28 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.dyco" />
-      <item itemvalue="Python.example" />
+      <item itemvalue="Python.example_kwargs" />
+      <item itemvalue="Python.example_kwargs (1)" />
       <item itemvalue="Python tests.pytest in test_dyco.py" />
       <item itemvalue="Python tests.pytest for test_dyco.Tests.test_detect_covariance_peaks" />
       <item itemvalue="Python tests.pytest for test_dyco.Tests.test_lagsearch_class" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.example_kwargs (1)" />
+        <item itemvalue="Python.example_kwargs" />
         <item itemvalue="Python tests.pytest for test_dyco.Tests.test_lagsearch_class" />
         <item itemvalue="Python tests.pytest in test_dyco.py" />
         <item itemvalue="Python tests.pytest for test_dyco.Tests.test_detect_covariance_peaks" />
-        <item itemvalue="Python.example" />
-        <item itemvalue="Python.dyco" />
       </list>
     </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11" />
+      </set>
+    </attachedChunks>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="SvnConfiguration">
@@ -371,6 +410,9 @@
       <workItem from="1623356369437" duration="4000" />
       <workItem from="1623614261184" duration="61000" />
       <workItem from="1623660133414" duration="9000" />
+      <workItem from="1709548186031" duration="8266000" />
+      <workItem from="1709565417990" duration="990000" />
+      <workItem from="1709721074144" duration="1656000" />
     </task>
     <servers />
   </component>
@@ -389,45 +431,47 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_dyla_py.coverage" NAME="pytest in test_dyla.py Coverage Results" MODIFIED="1594376895280" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_setup_py.coverage" NAME="pytest in test_setup.py Coverage Results" MODIFIED="1593995538853" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/LagRemover_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587171664690" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_in_test_dyco_py.coverage" NAME="pytest in test_dyco.py Coverage Results" MODIFIED="1612399635936" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests.coverage" NAME="pytest for test_dyco.Tests Coverage Results" MODIFIED="1596230641069" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_adjust_lag_search_window.coverage" NAME="pytest for test_dyco.Tests.test_adjust_lag_search_window Coverage Results" MODIFIED="1595956773400" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$dyco.coverage" NAME="dyco Coverage Results" MODIFIED="1611827693710" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyco" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_loop_TestLag.coverage" NAME="pytest for test_loop.TestLag Coverage Results" MODIFIED="1594025681954" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_dyla_Tests_test_files_detector.coverage" NAME="pytest for test_dyla.Tests.test_files_detector Coverage Results" MODIFIED="1594250714799" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1593994440418" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyla" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_analyze_TestAnalyzeLoopResults_test_analyze_loop_results.coverage" NAME="pytest for test_analyze.TestAnalyzeLoopResults.test_analyze_loop_results Coverage Results" MODIFIED="1594052076606" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO.coverage" NAME="pytest for test_io.TestIO Coverage Results" MODIFIED="1594046549751" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$example.coverage" NAME="example Coverage Results" MODIFIED="1612120881122" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_io_py.coverage" NAME="pytest in test_io.py Coverage Results" MODIFIED="1594046501765" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_read_raw_data.coverage" NAME="pytest for test_dyco.Tests.test_read_raw_data Coverage Results" MODIFIED="1595956361771" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_dyla_Tests_test_lagsearch_class.coverage" NAME="pytest for test_dyla.Tests.test_lagsearch_class Coverage Results" MODIFIED="1594250454825" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1587688045123" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_lag_TestLag_test_adjust_lag_search_window.coverage" NAME="pytest for test_lag.TestLag.test_adjust_lag_search_window Coverage Results" MODIFIED="1594046730003" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_files_detector.coverage" NAME="pytest for test_dyco.Tests.test_files_detector Coverage Results" MODIFIED="1595956370339" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587685015226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_dyla_Tests_test_read_segment_lagtimes_file.coverage" NAME="pytest for test_dyla.Tests.test_read_segment_lagtimes_file Coverage Results" MODIFIED="1594250399689" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main.coverage" NAME="main Coverage Results" MODIFIED="1587770618375" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_loop_TestLagSearch_test_lagsearch_class.coverage" NAME="pytest for test_loop.TestLagSearch.test_lagsearch_class Coverage Results" MODIFIED="1594026727064" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyla_Tests.coverage" NAME="pytest for test_dyla.Tests Coverage Results" MODIFIED="1594723851108" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO_test_read_segments_file.coverage" NAME="pytest for test_io.TestIO.test_read_segments_file Coverage Results" MODIFIED="1593987950591" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_lagsearch_class.coverage" NAME="pytest for test_dyco.Tests.test_lagsearch_class Coverage Results" MODIFIED="1619445003096" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$example.coverage" NAME="example Coverage Results" MODIFIED="1593637294299" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
-    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$example__1_.coverage" NAME="example (1) Coverage Results" MODIFIED="1593723900664" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_detect_covariance_peaks.coverage" NAME="pytest for test_dyco.Tests.test_detect_covariance_peaks Coverage Results" MODIFIED="1612399624037" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_analyze_loop_results.coverage" NAME="pytest for test_dyco.Tests.test_analyze_loop_results Coverage Results" MODIFIED="1595957286005" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO_test_read_segment_lagtimes_file.coverage" NAME="pytest for test_io.TestIO.test_read_segment_lagtimes_file Coverage Results" MODIFIED="1594046544593" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$_dash_test.coverage" NAME="_dash_test Coverage Results" MODIFIED="1590708644986" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$example__1_.coverage" NAME="example (1) Coverage Results" MODIFIED="1593815850409" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
-    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$example.coverage" NAME="example Coverage Results" MODIFIED="1594685287084" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_loop_TestLagSearch_test_lagsearch_class.coverage" NAME="pytest for test_loop.TestLagSearch.test_lagsearch_class Coverage Results" MODIFIED="1594026727064" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_read_segment_lagtimes_file.coverage" NAME="pytest for test_dyco.Tests.test_read_segment_lagtimes_file Coverage Results" MODIFIED="1595956353750" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO.coverage" NAME="pytest for test_io.TestIO Coverage Results" MODIFIED="1594046549751" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$dyco.coverage" NAME="dyco Coverage Results" MODIFIED="1611827693710" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyco" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_io_py.coverage" NAME="pytest in test_io.py Coverage Results" MODIFIED="1594046501765" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_adjust_lag_search_window.coverage" NAME="pytest for test_dyco.Tests.test_adjust_lag_search_window Coverage Results" MODIFIED="1595956773400" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_detect_covariance_peaks.coverage" NAME="pytest for test_dyco.Tests.test_detect_covariance_peaks Coverage Results" MODIFIED="1612399624037" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO_test_read_segments_file.coverage" NAME="pytest for test_io.TestIO.test_read_segments_file Coverage Results" MODIFIED="1593987950591" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_dyla_Tests.coverage" NAME="pytest for test_dyla.Tests Coverage Results" MODIFIED="1594250737767" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_read_raw_data.coverage" NAME="pytest for test_dyco.Tests.test_read_raw_data Coverage Results" MODIFIED="1595956361771" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1589273236093" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
+    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$_dash_test.coverage" NAME="_dash_test Coverage Results" MODIFIED="1590708644986" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_in_test_dyco_py.coverage" NAME="pytest in test_dyco.py Coverage Results" MODIFIED="1612399635936" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_lag_TestLag_test_adjust_lag_search_window.coverage" NAME="pytest for test_lag.TestLag.test_adjust_lag_search_window Coverage Results" MODIFIED="1594046730003" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_loop_py.coverage" NAME="pytest in test_loop.py Coverage Results" MODIFIED="1594023965726" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$cli.coverage" NAME="cli Coverage Results" MODIFIED="1611536479956" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyco" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_analyze_loop_results.coverage" NAME="pytest for test_dyco.Tests.test_analyze_loop_results Coverage Results" MODIFIED="1595957286005" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$example__1_.coverage" NAME="example (1) Coverage Results" MODIFIED="1593723900664" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_setup_py.coverage" NAME="pytest in test_setup.py Coverage Results" MODIFIED="1593995538853" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_in_test_dyla_py.coverage" NAME="pytest in test_dyla.py Coverage Results" MODIFIED="1594376895280" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$example.coverage" NAME="example Coverage Results" MODIFIED="1612120881122" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$example.coverage" NAME="example Coverage Results" MODIFIED="1593637294299" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_io_TestIO_test_read_segment_lagtimes_file.coverage" NAME="pytest for test_io.TestIO.test_read_segment_lagtimes_file Coverage Results" MODIFIED="1594046544593" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_setup_Tests.coverage" NAME="pytest for test_setup.Tests Coverage Results" MODIFIED="1594052439729" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
-    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1589273236093" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
-    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_read_segment_lagtimes_file.coverage" NAME="pytest for test_dyco.Tests.test_read_segment_lagtimes_file Coverage Results" MODIFIED="1595956353750" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_loop_TestLag.coverage" NAME="pytest for test_loop.TestLag Coverage Results" MODIFIED="1594025681954" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_analyze_TestAnalyzeLoopResults_test_analyze_loop_results.coverage" NAME="pytest for test_analyze.TestAnalyzeLoopResults.test_analyze_loop_results Coverage Results" MODIFIED="1594052076606" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_dyla_Tests_test_files_detector.coverage" NAME="pytest for test_dyla.Tests.test_files_detector Coverage Results" MODIFIED="1594250714799" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1587688045123" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$main__1_.coverage" NAME="main (1) Coverage Results" MODIFIED="1593994440418" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dyla" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyla_Tests.coverage" NAME="pytest for test_dyla.Tests Coverage Results" MODIFIED="1594723851108" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$example.coverage" NAME="example Coverage Results" MODIFIED="1594685287084" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_files_detector.coverage" NAME="pytest for test_dyco.Tests.test_files_detector Coverage Results" MODIFIED="1595956370339" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DLR_Dynamic_Lag_Remover$main.coverage" NAME="main Coverage Results" MODIFIED="1587770618375" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/dlr" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests.coverage" NAME="pytest for test_dyco.Tests Coverage Results" MODIFIED="1596230641069" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$example_kwargs__1_.coverage" NAME="example_kwargs (1) Coverage Results" MODIFIED="1709566126297" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$pytest_for_test_dyco_Tests_test_lagsearch_class.coverage" NAME="pytest for test_dyco.Tests.test_lagsearch_class Coverage Results" MODIFIED="1619445003096" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/LagRemover_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587171664690" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/DYCO_Dynamic_Lag_Compensation$example2.coverage" NAME="example2 Coverage Results" MODIFIED="1709552002857" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/example" />
+    <SUITE FILE_PATH="coverage/DynamicLagRemover_DLR_INDEV$main.coverage" NAME="main Coverage Results" MODIFIED="1587685015226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/DYLA_Dynamic_Lag_Remover$pytest_for_test_dyla_Tests_test_read_segment_lagtimes_file.coverage" NAME="pytest for test_dyla.Tests.test_read_segment_lagtimes_file Coverage Results" MODIFIED="1594250399689" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
   </component>
 </project>
