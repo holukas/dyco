@@ -10,7 +10,7 @@ https://github.com/holukas/dyco/wiki/Usage
 from dyco.dyco import DynamicLagCompensation
 
 
-def main():
+def example():
     """Main function that is called with the given args when the script
      is executed from the command line."""
     DynamicLagCompensation(var_reference='w_ms-1_rot_turb',
@@ -37,4 +37,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    example()
