@@ -86,6 +86,7 @@ class RemoveLags:
 
             if not self.phase == 3:
                 this_date = file_info_row['start'].date()
+                this_date = pd.to_datetime(this_date)
                 shift_correction = self.lut_df.loc[this_date][self.lut_col]
             else:
                 this_date = file_info_row['start']
@@ -184,7 +185,7 @@ class RemoveLags:
         """Read csv file that contains the look-up table for lag correction"""
         filepath = self.outdirs[
                        f'{self.phase}-6_{self.phase_files}_normalization_lookup_table'] / f'LUT_default_agg_time_lags.csv'
-        parse = lambda x: dt.datetime.strptime(x, '%Y-%m-%d')
+        # parse = lambda x: dt.datetime.strptime(x, '%Y-%m-%d')  # now deprecated
         df = pd.read_csv(filepath,
                          skiprows=None,
                          header=0,
@@ -192,10 +193,11 @@ class RemoveLags:
                          # na_values=-9999,
                          encoding='utf-8',
                          delimiter=',',
-                         mangle_dupe_cols=True,
+                         # mangle_dupe_cols=True,
                          # keep_date_col=False,
                          parse_dates=True,
-                         date_parser=parse,
+                         # date_parser=parse,  # now deprecated
+                         date_format='%Y-%m-%d',
                          index_col=0,
                          dtype=None,
                          engine='c')

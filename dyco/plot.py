@@ -97,19 +97,19 @@ class SummaryPlots():
     def _add_lines_cov(self, ax, df, last_iter_phase_1, last_iter_phase_2):
         props = {'y': df[f'PHASE-1_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'],
                  'label': f'Phase 1',
-                 'zorder': 100, 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': 'dotted',
+                 'zorder': 100, 'alpha': 1, 'fmt': 's', 'ms': 6, 'lw': 1, 'ls': 'dotted',
                  'markeredgecolor': '#80DEEA', 'color': '#80DEEA', 'markerfacecolor': 'white'}
         ax.plot_date(df.index, **props)
 
         props = {'y': df[f'PHASE-2_ITER-{last_iter_phase_1}_PEAK-COVABSMAX_COV'],
                  'label': f'Phase 2',
-                 'zorder': 100, 'alpha': 1, 'marker': 's', 'ms': 6, 'lw': 1, 'ls': '--',
+                 'zorder': 100, 'alpha': 1, 'fmt': 's', 'ms': 6, 'lw': 1, 'ls': '--',
                  'markeredgecolor': '#F48FB1', 'color': '#F48FB1', 'markerfacecolor': 'white'}
         ax.plot_date(df.index, **props)
 
         props = {'y': df['PHASE-3_INSTANTANEOUS_LAG_COV'],
                  'label': 'Phase 3',
-                 'zorder': 100, 'alpha': 1, 'marker': 'o', 'ms': 6, 'lw': 2, 'ls': '-',
+                 'zorder': 100, 'alpha': 1, 'fmt': 'o', 'ms': 6, 'lw': 2, 'ls': '-',
                  'markeredgecolor': '#8BC34A', 'color': '#8BC34A', 'markerfacecolor': '#8BC34A'}
         ax.plot_date(df.index, **props)
 
@@ -260,7 +260,7 @@ class SummaryPlots():
         return lut_df
 
     def _make_outdir(self):
-        outdir = self.instance_phase_1.outdir / 'SUMMARY'
+        outdir = Path(self.instance_phase_1.outdir) / 'SUMMARY'
         if not Path.is_dir(outdir):
             print(f"Creating folder {outdir} ...")
             os.makedirs(outdir)

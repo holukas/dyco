@@ -132,7 +132,7 @@ class CreateOutputDirs:
 
         # Create Path to required directories, store keys and full paths in dict
         for nd in required_dirs:
-            outdirs[nd] = self.root_dir / nd
+            outdirs[nd] = Path(self.root_dir) / nd
 
         # Delete dirs if needed
         for key, path in outdirs.items():
@@ -191,7 +191,10 @@ class FilesDetector:
         self.files_overview_df = self.add_expected()
         self.files_overview_df = self.add_unexpected()
         self.files_overview_df = self.calc_expected_values()
-        self.files_overview_df.loc[:, 'file_available'].fillna(0, inplace=True)
+        _temp = self.files_overview_df.loc[:, 'file_available'].copy()
+        _temp = _temp.fillna(0)
+        self.files_overview_df.loc[:, 'file_available'] = _temp
+        # self.files_overview_df.loc[:, 'file_available'].fillna(0, inplace=True)
         self.files_overview_df = self.limit_num_files()
         self.logger.info(f"Found {int(self.files_overview_df['file_available'].sum())} available files")
 

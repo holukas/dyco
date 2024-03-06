@@ -211,9 +211,20 @@ class Loop:
         alpha = .5
         iteration_grouped = _df.groupby('iteration')
         for idx, group_df in iteration_grouped:
-            ax.plot_date(pd.to_datetime(group_df['start']), group_df['PEAK-COVABSMAX_SHIFT'],
-                         alpha=alpha, marker='o', ms=6, color=colors[int(idx - 1)], lw=0, ls='-',
-                         label=f'found lag times in iteration {int(idx)}', markeredgecolor='None')
+            try:
+                # ax.plot_date(pd.to_datetime(group_df['start']), group_df['PEAK-COVABSMAX_SHIFT'],
+                #              alpha=alpha, fmt='o', ms=6, color=colors[int(idx - 1)], lw=0, ls='-',
+                #              label=f'found lag times in iteration {int(idx)}', markeredgecolor='None')
+
+                # Below, "format='mixed'" is used because although all dates have the same format
+                # (in this case '%Y-%m-%d %H:%M:%S.%f') pandas seems to interpret the timestamp
+                # '2016-10-24 13:00:00.000000' as '2016-10-24 13:00:00' and therefore raises a ValueError.
+                ax.plot_date(pd.to_datetime(group_df['start'], format='mixed'), group_df['PEAK-COVABSMAX_SHIFT'],
+                             alpha=alpha, fmt='o', ms=6, color=colors[int(idx - 1)], lw=0, ls='-',
+                             label=f'found lag times in iteration {int(idx)}', markeredgecolor='None')
+
+            except ValueError as e:
+                print(e)
 
         plot.default_format(ax=ax, label_color='black', fontsize=12,
                             txt_xlabel='segment date', txt_ylabel='lag', txt_ylabel_units='[records]')
@@ -431,8 +442,13 @@ class Loop:
 
         """
         # Init columns
-        for key, col in stor_cols.items():
-            stor_df.loc[stor_idx, col] = np.nan
+        # for key, col in stor_cols.items():
+        #     stor_df.loc[stor_idx, col] = np.nan
+
+        # # todo remove?
+        # stor_df['PEAK-COVABSMAX_SHIFT'] = np.nan
+        # stor_df['PEAK-COVABSMAX_COV'] = np.nan
+        # stor_df['PEAK-COVABSMAX_TIMESTAMP'] = pd.NaT
 
         # Get indices of peaks and instantaneous default lag
         flag_idx = lag.LagSearch.get_peak_idx(df=flag_df, flag_col=flag_col)
@@ -694,7 +710,10 @@ class PlotLoopResults:
         for idx, filename in enumerate(filelist):
             filepath = os.path.join(str(indir), filename)
             segment_cov_df = files.read_segment_lagtimes_file(filepath=filepath)
-            cov_collection_df = cov_collection_df.append(segment_cov_df)  # Collect for median and quantiles calc
+
+            # todo check if correct:
+            cov_collection_df = pd.concat([cov_collection_df, segment_cov_df], axis=0, ignore_index=True)  # Collect for median and quantiles calc
+            # cov_collection_df = cov_collection_df.append(segment_cov_df)  # Collect for median and quantiles calc
 
             # Plot each segment covariance file
             args = dict(alpha=0.05, c='black', lw=0.5, marker='None', zorder=98)
@@ -714,7 +733,11 @@ class PlotLoopResults:
         linestyle = ['-', '--', '--']
         colors = ['#f44336', '#2196F3', '#3F51B5']
         iter_df = cov_collection_df[cov_collection_df['segment_name'].str.contains('iter')]
-        _df = iter_df.groupby('shift').agg(f)
+
+        _df = iter_df.copy()
+        _df = _df.select_dtypes(include=['number'])  # Keep numeric columns
+        # _df = _df._get_numeric_data()
+        _df = _df.groupby('shift').agg(f)
         args = dict(alpha=1, lw=1, marker='None', zorder=98)
         for label_idx, label_name in enumerate(labels):
             ax1.plot(_df.index, _df['cov'][label_name],

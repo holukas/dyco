@@ -148,7 +148,8 @@ class LagSearch:
         df['shift'] = range(int(lgs_winsize[0]),
                             int(lgs_winsize[1]) + shift_stepsize,
                             shift_stepsize)
-        df['index'] = np.nan
+        df['index'] = pd.NaT
+        # df['index'] = np.nan
         df['segment_name'] = segment_name
         df['cov'] = np.nan
         df['cov_abs'] = np.nan
@@ -159,10 +160,9 @@ class LagSearch:
 
     @staticmethod
     def find_auto_peak(cov_df: pd.DataFrame):
-        """
-        Automatically find peaks in covariance time series
+        """Automatically find peaks in covariance time series.
 
-        The found peak is flagged TRUE in cov_df.
+        The found peak is flagged TRUE in *cov_df*.
 
         Peaks are searched automatically using scipy's .find_peaks method.
         The peak_score is calculated for each peak, the top-scoring peaks
@@ -256,7 +256,9 @@ class LagSearch:
                 shift = int(row['shift'])
                 try:
                     if shift < 0:
-                        index_shifted = str(_segment_df['index'][-shift])  # Note the negative sign
+                        index_shifted = _segment_df['index'].iloc[-shift]  # Note the negative sign
+                        # index_shifted = str(_segment_df['index'].iloc[-shift])  # Note the negative sign
+                        # index_shifted = str(_segment_df['index'][-shift])  # Note the negative sign
                     else:
                         index_shifted = pd.NaT
                     scalar_data_shifted = _segment_df[var_lagged].shift(shift)
