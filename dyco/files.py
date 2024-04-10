@@ -125,74 +125,8 @@ def read_raw_data(filepath, data_timestamp_format):
     return data_df
 
 
-def calc_true_resolution(num_records, data_nominal_res, expected_records, expected_duration):
-    """
-    Calculate the true resolution of the raw data
-
-    Parameters
-    ----------
-    num_records: int
-        Number of raw data records.
-    data_nominal_res: float
-        Nominal time resolution of the raw data, e.g. 0.05 for 20 Hz data
-        (one measurement every 0.05 seconds)
-    expected_records: int or float
-        Expected number of records in the raw data file, based on the nominal
-        time resolution of the raw data.
-    expected_duration: int
-        Expected duration of the raw data file in seconds.
-
-    Returns
-    -------
-    float that gives the true resolution in seconds, e.g. 0.05s for 20 Hz (1/20 = 0.05)
-    """
-    ratio = num_records / expected_records
-    if (ratio > 0.999) and (ratio < 1.001):
-        # file_complete = True
-        true_resolution = np.float64(expected_duration / num_records)
-    else:
-        # file_complete = False
-        true_resolution = data_nominal_res
-    return true_resolution
 
 
-def insert_timestamp(df, file_info_row, num_records, data_nominal_res, expected_records, expected_duration):
-    """
-    Calculate the timestamp for each row record if not available
-
-    Parameters
-    ----------
-    df: pd.DataFrame
-        Raw data without timestamp. In case data already have a timestamp, it
-        will be overwritten.
-    file_info_row: pandas Series
-        Contains info about the current raw data file.
-    num_records: int
-        Number or records in raw data file.
-    data_nominal_res: float
-        Nominal time resolution of the raw data, e.g. 0.05 (one measurement every
-        0.05 seconds, 20 Hz).
-    expected_records: int or float
-        Number of expected records in raw data file, e.g. a 30-minute file of
-        20 Hz data should contain 36000 records (20 * 60 * 30).
-    expected_duration, int or float
-        Expected duration of the raw data file in seconds, e.g. 1800 for a
-        30-minute file.
-
-    Returns
-    -------
-    df: pandas DataFrame with timestamp index
-    true_resolution: time resolution of raw data measurements
-    """
-    true_resolution = calc_true_resolution(num_records=num_records, data_nominal_res=data_nominal_res,
-                                           expected_records=expected_records, expected_duration=expected_duration)
-    df['sec'] = df.index * true_resolution
-    df['file_start_dt'] = file_info_row['start']
-    df['TIMESTAMP'] = pd.to_datetime(df['file_start_dt']) \
-                      + pd.to_timedelta(df['sec'], unit='s')
-    df.drop(['sec', 'file_start_dt'], axis=1, inplace=True)
-    df.set_index('TIMESTAMP', inplace=True)
-    return df, true_resolution
 
 
 def add_data_stats(df, true_resolution, filename, files_overview_df, found_records, fnm_date_format):

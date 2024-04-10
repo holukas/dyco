@@ -17,7 +17,6 @@
 
 """
 
-import datetime as dt
 import time
 from pathlib import Path
 
@@ -61,7 +60,7 @@ class RemoveLags:
     def run(self):
         """Run lag removal"""
 
-        # If no new iteration data was created, skip normalization
+        # todo act If no new iteration data was created, skip normalization
         if not self.new_iteration_data:
             self.logger.warning("")
             self.logger.warning(f"{'*' * 60}")
@@ -158,7 +157,7 @@ class RemoveLags:
         None
         """
         df.fillna(-9999, inplace=True)
-        outpath = outdir / f"{original_filename}_DYCO.csv"
+        outpath = outdir / f"{Path(original_filename).stem}_DYCO.csv"
         df.to_csv(outpath, index=export_timestamp)
 
     def shift_var_target(self, df, shift):

@@ -26,8 +26,12 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-import files, lag, plot, setup_dyco
+from diive.core.times.times import calc_true_resolution, create_timestamp
+from diive.pkgs.echires.lag import MaxCovariance
+import files
+import lag
+import plot
+import setup_dyco
 
 
 class Loop:
@@ -87,8 +91,8 @@ class Loop:
             self.new_iteration_data = True  # New iteration output will be generated
 
         self.shift_stepsize, \
-        self.hist_bin_range = self.lagsearch_settings(lgs_winsize=self.lgs_winsize,
-                                                      force_min_stepsize=False)
+            self.hist_bin_range = self.lagsearch_settings(lgs_winsize=self.lgs_winsize,
+                                                          force_min_stepsize=False)
 
         # Loop files
         for file_idx, file_info_row in self.files_overview_df.iterrows():
@@ -103,17 +107,18 @@ class Loop:
 
             # Insert timestamp if missing
             if self.dat_recs_timestamp_format:
-                true_resolution = files.calc_true_resolution(num_records=len(data_df),
-                                                             data_nominal_res=self.dat_recs_nominal_timeres,
-                                                             expected_records=file_info_row['expected_records'],
-                                                             expected_duration=file_info_row['expected_duration'])
+
+                true_resolution = calc_true_resolution(num_records=len(data_df),
+                                                       data_nominal_res=self.dat_recs_nominal_timeres,
+                                                       expected_records=file_info_row['expected_records'],
+                                                       expected_duration=file_info_row['expected_duration'])
+
             else:
-                data_df, true_resolution = files.insert_timestamp(df=data_df,
-                                                                  file_info_row=file_info_row,
-                                                                  num_records=len(data_df),
-                                                                  data_nominal_res=self.dat_recs_nominal_timeres,
-                                                                  expected_records=file_info_row['expected_records'],
-                                                                  expected_duration=file_info_row['expected_duration'])
+
+                data_df, true_resolution = create_timestamp(df=data_df,
+                                                            file_start=file_info_row['start'],
+                                                            data_nominal_res=self.dat_recs_nominal_timeres,
+                                                            expected_duration=file_info_row['expected_duration'])
 
             # Add raw data info to overview when files are first read (during iteration 1)
             if self.iteration == 1:
@@ -252,6 +257,7 @@ class Loop:
         # print(f"Saving time series of found segment lag times in {outpath} ...")
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=150)
+        plt.close(fig)
 
         return outfile
 
@@ -272,7 +278,7 @@ class Loop:
                 if make_label:
                     # Found lag times
                     ax.broken_barh([xrange], yrange, facecolors='#FDD835', alpha=1, edgecolor='None',
-                                   label='3-day median lag time (centered)\nfrom high-quality covariance peaks')
+                                   label='5-day median lag time (centered)\nfrom high-quality covariance peaks')
 
                     # Lag times after normalization
                     ax.broken_barh([xrange], yrange_target, facecolors='#8BC34A', alpha=1, edgecolor='None',
@@ -370,16 +376,51 @@ class Loop:
                              f"segment start: {segment_start}    segment end: {segment_end}")
 
             # Search lag
-            cov_df, props_peak_auto = \
-                lag.LagSearch(loop_instance=self,
-                              segment_df=segment_df,
-                              segment_name=segment_name,
-                              segment_start=segment_start,
-                              segment_end=segment_end,
-                              outdir_plots=self.outdirs[f'{self.phase}-2_{self.phase_files}_covariances_plots'],
-                              outdir_data=self.outdirs[f'{self.phase}-1_{self.phase_files}_covariances'],
-                              file_idx=file_idx,
-                              filename=filename).get()
+
+            mc = MaxCovariance(
+                df=segment_df,
+                var_reference=self.var_reference,
+                var_lagged=self.var_lagged,
+                lgs_winsize_from=self.lgs_winsize[0],
+                lgs_winsize_to=self.lgs_winsize[1],
+                shift_stepsize=self.shift_stepsize,
+                segment_name=segment_name
+            )
+            mc.run()
+
+            txt_info = \
+                f"PHASE: {self.phase}\n" \
+                f"Iteration: {self.iteration}\n" \
+                f"Time lag search window: from {self.lgs_winsize[0]} to {self.lgs_winsize[1]} records\n" \
+                f"Segment name: {segment_name}\n" \
+                f"Segment start: {segment_start}\n" \
+                f"Segment end: {segment_end}\n" \
+                f"File: {filename} - File date: {file_idx}\n" \
+                f"Lag search step size: {self.shift_stepsize} records\n"
+
+            outname = f'{segment_name}_segment_covariance_iteration-{self.iteration}.png'
+
+            mc.plot_scatter_cov(txt_info=txt_info,
+                                outpath=self.outdirs[f'{self.phase}-2_{self.phase_files}_covariances_plots'],
+                                outname=outname)
+
+            cov_df, props_peak_auto = mc.get()
+
+            outdir_data = self.outdirs[f'{self.phase}-1_{self.phase_files}_covariances']
+            outname_data = f'{segment_name}_segment_covariance_iteration-{self.iteration}.csv'
+            outpath = outdir_data / outname_data
+            cov_df.to_csv(f"{outpath}")
+
+            # todo del cov_df, props_peak_auto = \
+            #     lag.MaxCovariance(loop_instance=self,
+            #                       segment_df=segment_df,
+            #                       segment_name=segment_name,
+            #                       segment_start=segment_start,
+            #                       segment_end=segment_end,
+            #                       outdir_plots=self.outdirs[f'{self.phase}-2_{self.phase_files}_covariances_plots'],
+            #                       outdir_data=self.outdirs[f'{self.phase}-1_{self.phase_files}_covariances'],
+            #                       file_idx=file_idx,
+            #                       filename=filename).get()
 
             # Collect results
             numvals_var_reference = segment_df[self.var_reference].dropna().size
@@ -451,7 +492,7 @@ class Loop:
         # stor_df['PEAK-COVABSMAX_TIMESTAMP'] = pd.NaT
 
         # Get indices of peaks and instantaneous default lag
-        flag_idx = lag.LagSearch.get_peak_idx(df=flag_df, flag_col=flag_col)
+        flag_idx = MaxCovariance.get_peak_idx(cov_df=flag_df, flag_col=flag_col)
 
         # Get info from flag_df and store it in stor_df
         if flag_idx:
@@ -613,6 +654,7 @@ class PlotLoopResults:
     Plot results after looping through all files
 
     """
+
     def __init__(self, dyco_instance, plot_cov_collection=True,
                  plot_hist=True, plot_timeseries_segment_lagtimes=True):
         self.dyco_instance = dyco_instance
@@ -712,7 +754,8 @@ class PlotLoopResults:
             segment_cov_df = files.read_segment_lagtimes_file(filepath=filepath)
 
             # todo check if correct:
-            cov_collection_df = pd.concat([cov_collection_df, segment_cov_df], axis=0, ignore_index=True)  # Collect for median and quantiles calc
+            cov_collection_df = pd.concat([cov_collection_df, segment_cov_df], axis=0,
+                                          ignore_index=True)  # Collect for median and quantiles calc
             # cov_collection_df = cov_collection_df.append(segment_cov_df)  # Collect for median and quantiles calc
 
             # Plot each segment covariance file
@@ -774,3 +817,4 @@ class PlotLoopResults:
         outpath = outdir / outfile
         fig.savefig(f"{outpath}", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=150)
+        plt.close(fig)

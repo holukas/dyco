@@ -156,7 +156,7 @@ class SummaryPlots():
         outfile = f'summary_covariance_evolution'
         outpath = outdir / outfile
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w', transparent=True, dpi=150)
-        a = 1
+        plt.close(fig)
 
     def summary_plot_segment_lagtimes(self, phase: int, phase_files: str, outdirs,
                                       last_iteration: int, target_lag: int):

@@ -29,7 +29,8 @@ import plot
 import setup_dyco
 from analyze import AnalyzeLags
 from correction import RemoveLags
-
+from diive.core.io.filereader import search_files
+from diive.core.io.filedetector import FileDetector
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
 
@@ -113,7 +114,7 @@ def dyco(cls):
             args['var_lagged'] = f"{args['var_lagged']}_DYCO"  # Use normalized signal
             filename, file_extension = os.path.splitext(args['fnm_pattern'])
             args['fnm_pattern'] = f"{filename}_DYCO{file_extension}"  # Search normalized files
-            args['fnm_date_format'] = f"{args['fnm_date_format']}_DYCO"  # Parse file names of normalized files
+            args['fnm_date_format'] = f"{Path(args['fnm_date_format']).stem}_DYCO.csv"  # Parse file names of normalized files
             var_target = [var_target + '_DYCO' for var_target in args['var_target']]  # Use normalized target cols
             args['var_target'] = var_target
             return args
@@ -342,12 +343,7 @@ class DynamicLagCompensation:
 
         # Setup for Phases 1-3
         self.phase = phase
-        if self.phase == 1:
-            self.phase_files = '_input_files_'
-        elif self.phase == 2:
-            self.phase_files = '_normalized_files_'
-        else:
-            self.phase_files = '_refined_normalized_files_'
+        self.phase_files = self._set_phase_files()
 
         # Input and output directories
         self.indir, self.outdir = setup_dyco.set_dirs(indir=indir, outdir=outdir)
@@ -373,12 +369,7 @@ class DynamicLagCompensation:
         self.lgs_winsize_initial = self.lgs_winsize
         self.lgs_num_iter = lgs_num_iter
         self.lgs_hist_remove_fringe_bins = lgs_hist_remove_fringe_bins
-        if lgs_hist_perc_thres > 1:
-            self.lgs_hist_perc_thres = 1
-        elif lgs_hist_perc_thres < 0.1:
-            self.lgs_hist_perc_thres = 0.1  # Minimum 10% since less would not be useful
-        else:
-            self.lgs_hist_perc_thres = lgs_hist_perc_thres
+        self.lgs_hist_perc_thres = self._set_lgs_hist_perc_thres(lgs_hist_perc_thres=lgs_hist_perc_thres)
         self.target_lag = target_lag
         self.var_target = var_target
 
@@ -387,9 +378,28 @@ class DynamicLagCompensation:
         self.new_iteration_data = False
 
         # Start scripts
-        self.run()
+        self._run()
 
-    def run(self):
+    def _set_phase_files(self) -> str:
+        if self.phase == 1:
+            phase_files = '_input_files_'
+        elif self.phase == 2:
+            phase_files = '_normalized_files_'
+        else:
+            phase_files = '_refined_normalized_files_'
+        return phase_files
+
+    @staticmethod
+    def _set_lgs_hist_perc_thres(lgs_hist_perc_thres):
+        if lgs_hist_perc_thres > 1:
+            lgs_hist_perc_thres = 1
+        elif lgs_hist_perc_thres < 0.1:
+            lgs_hist_perc_thres = 0.1  # Minimum 10% since less would not be useful
+        else:
+            lgs_hist_perc_thres = lgs_hist_perc_thres
+        return lgs_hist_perc_thres
+
+    def _run(self):
         """
         Run setup, calculations, analyses and correction of files
 
@@ -427,11 +437,34 @@ class DynamicLagCompensation:
         logger.info(f"Run ID: {self.run_id}")
 
         # Search files
-        fd = setup_dyco.FilesDetector(dyco_instance=self,
-                                      outdir=self.outdirs[f'{self.phase}-0_{self.phase_files}_overview'],
-                                      logfile_path=logfile_path)
-        fd.run()
-        files_overview_df = fd.get()
+
+        # Search files with PATTERN
+        print(f"\nSearching files with pattern {self.fnm_pattern} in dir {self.indir} ...")
+        filelist = search_files(searchdirs=str(self.indir), pattern=self.fnm_pattern)
+        for filepath in filelist:
+            print(f"    --> Found file: {filepath.name} in {filepath}.")
+
+        fide = FileDetector(filelist=filelist,
+                            file_date_format=self.fnm_date_format,
+                            file_generation_res=self.file_generation_res,
+                            data_res=self.dat_recs_nominal_timeres,
+                            files_how_many=self.files_how_many)
+        fide.run()
+        files_overview_df = fide.get_results()
+
+        # Export dataframe to csv
+        outfile = '0_files_overview.csv'
+        outpath = self.outdirs[f'{self.phase}-0_{self.phase_files}_overview'] / '0_files_overview.csv'
+        files_overview_df.to_csv(outpath)
+        # self.logger.info(f"Exported file {outfile}")
+
+        # todo logger
+
+        # fd = setup_dyco.FilesDetector(dyco_instance=self,
+        #                               outdir=self.outdirs[f'{self.phase}-0_{self.phase_files}_overview'],
+        #                               logfile_path=logfile_path)
+        # fd.run()
+        # files_overview_df = fd.get()
         return logfile_path, files_overview_df
 
     def calculate_lags(self):
@@ -443,17 +476,19 @@ class DynamicLagCompensation:
             loop_iter.run()
             self.lgs_winsize, self.new_iteration_data = loop_iter.get()  # Update search window for next iteration
 
-        # Plot loop results after all iterations finished TODO ACT
-        loop_plots = loop.PlotLoopResults(dyco_instance=self,
-                                          plot_cov_collection=True,
-                                          plot_hist=True,
-                                          plot_timeseries_segment_lagtimes=True)
-        loop_plots.run()
+        # Plot loop results after all iterations finished
+        if self.new_iteration_data:
+            loop_plots = loop.PlotLoopResults(dyco_instance=self,
+                                              plot_cov_collection=True,
+                                              plot_hist=True,
+                                              plot_timeseries_segment_lagtimes=True)
+            loop_plots.run()
         return
 
     def analyze_lags(self):
         """Analyze lag search results and create look-up table for lag-time normalization"""
         analyze = AnalyzeLags(dyco_instance=self)
+        # analyze = AnalyzeLags(dyco_instance=self)
         return analyze.lut_available
 
     def remove_lags(self, lut_success):

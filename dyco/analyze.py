@@ -20,10 +20,14 @@
 import sys
 
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import files, loop, plot, setup_dyco
+import files
+import loop
+import plot
+import setup_dyco
 
 
 class AnalyzeLags:
@@ -88,7 +92,6 @@ class AnalyzeLags:
         None
         """
 
-
         # Get data
         lagsearch_start = int(df['LAGSEARCH_START'].unique()[0])
         lagsearch_end = int(df['LAGSEARCH_END'].unique()[0])
@@ -138,6 +141,7 @@ class AnalyzeLags:
         # print(f"Saving time series of found segment lag times in {outpath} ...")
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=150)
+        plt.close(fig)
 
     def plot_segment_lagtimes_with_agg_default(self):
         """
@@ -351,6 +355,16 @@ class AnalyzeLags:
                 lut_df.loc[this_date, 'from'] = from_date
                 lut_df.loc[this_date, 'to'] = to_date
 
+        # New in v1.3.0
+        # Filling missing median values with rolling median in a 5-day window, centered
+        n_missing_medians = lut_df['median'].isnull().sum()
+        if n_missing_medians > 0:
+            lut_df['median'] = lut_df['median'].fillna(
+                lut_df['median'].rolling(window=5, min_periods=1, center=True).median())
+            self.logger.info(f"(!)WARNING: Missing look-up values for {n_missing_medians} days "
+                             f"were gap-filled with the median value of the 2 preceding "
+                             f"and the 2 following days.")
+
         lut_df['target_lag'] = target_lag
         lut_df['correction'] = -1 * (lut_df['target_lag'] - lut_df['median'])
 
@@ -413,6 +427,6 @@ class AnalyzeLags:
         df.set_index('start', inplace=True)
         df.index = pd.to_datetime(df.index, format="mixed")
         peaks_hq_S = df.loc[df['PEAK-COVABSMAX_SHIFT'] == df['PEAK-AUTO_SHIFT'],
-                            'PEAK-COVABSMAX_SHIFT']
+        'PEAK-COVABSMAX_SHIFT']
         peaks_hq_S.index = peaks_hq_S.index.to_pydatetime()  # Convert to DatetimeIndex
         return peaks_hq_S

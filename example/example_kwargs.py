@@ -11,27 +11,69 @@ from dyco.dyco import DynamicLagCompensation
 
 
 def example():
-    """Main function that is called with the given args when the script
-     is executed from the command line."""
-    DynamicLagCompensation(var_reference='w_ms-1_rot_turb',
-                           var_lagged='co2_ppb_qcl_turb',
-                           var_target=['co2_ppb_qcl_turb', 'n2o_ppb_qcl', 'ch4_ppb_qcl'],
-                           indir=r'F:\TMP\das\input_data',
-                           outdir=r'F:\TMP\das',
-                           fnm_date_format='%Y%m%d%H%M%S',
-                           fnm_pattern='*.csv',
-                           files_how_many=0,
+    """Main function that is called with the given args."""
+
+    # Settings
+    OUTDIR = r'F:\TMP\das_filesplitter'
+    SEARCHDIRS = [r'L:\Sync\luhk_work\CURRENT\testdata_dyco\0-raw_data_ascii']
+    PATTERN = 'CH-DAS_*.csv.gz'
+    FILEDATEFORMAT = 'CH-DAS_%Y%m%d%H%M.csv.gz'
+    FILE_GENERATION_RES = '6h'
+    DATA_NOMINAL_RES = 0.05
+    FILES_HOW_MANY = 3
+    FILETYPE = 'ETH-SONICREAD-BICO-CSVGZ-20HZ'
+    DATA_SPLIT_DURATION = '30min'
+    DATA_SPLIT_OUTFILE_PREFIX = 'CH-DAS_'
+    DATA_SPLIT_OUTFILE_SUFFIX = '_30MIN-SPLIT'
+    ROTATION = True
+    U = 'U_[R350-B]'
+    V = 'V_[R350-B]'
+    W = 'W_[R350-B]'
+    # C = 'CO2_DRY_[IRGA72-A]'
+    C = 'CH4_DRY_[QCL-C2]'
+    W_TURB = f"{W}_TURB"
+    C_TURB = f"{C}_TURB"
+
+    # from diive.core.io.filesplitter import FileSplitterMulti
+    # fsm = FileSplitterMulti(
+    #     outdir=OUTDIR,
+    #     searchdirs=SEARCHDIRS,
+    #     pattern=PATTERN,
+    #     file_date_format=FILEDATEFORMAT,
+    #     file_generation_res=FILE_GENERATION_RES,
+    #     data_res=DATA_NOMINAL_RES,
+    #     files_how_many=FILES_HOW_MANY,
+    #     filetype=FILETYPE,
+    #     data_split_duration=DATA_SPLIT_DURATION,
+    #     data_split_outfile_prefix=DATA_SPLIT_OUTFILE_PREFIX,
+    #     data_split_outfile_suffix=DATA_SPLIT_OUTFILE_SUFFIX,
+    #     rotation=ROTATION,
+    #     u=U,
+    #     v=V,
+    #     w=W,
+    #     c=C,
+    #     compress_splits=True
+    # )
+    # fsm.run()
+
+    DynamicLagCompensation(var_reference=W_TURB,
+                           var_lagged=C_TURB,
+                           var_target=[C_TURB],
+                           # var_target=[C_TURB, 'n2o_ppb_qcl', 'ch4_ppb_qcl'],
+                           indir=r'F:\CURRENT\DAS\2-filtered_CH4_ROT_TRIM_1-4',
+                           outdir=r'F:\CURRENT\DAS\3-dyco',
+                           fnm_date_format='CH-DAS_%Y%m%d%H%M%S_30MIN-SPLIT_ROT_TRIM.csv',
+                           fnm_pattern='CH-DAS_*_30MIN-SPLIT_ROT_TRIM.csv',
+                           files_how_many=None,
                            file_generation_res='30min',
                            file_duration='30min',
                            dat_recs_timestamp_format="%Y-%m-%d %H:%M:%S.%f",
                            dat_recs_nominal_timeres=0.05,
-                           lgs_segment_dur='30min',
+                           lgs_segment_dur=DATA_SPLIT_DURATION,
                            lgs_winsize=1000,
-                           # lgs_winsize=400,
-                           # lgs_num_iter=1,
                            lgs_num_iter=3,
                            lgs_hist_remove_fringe_bins=True,
-                           lgs_hist_perc_thres=0.9,
+                           lgs_hist_perc_thres=0.7,
                            target_lag=0,
                            del_previous_results=True)
 

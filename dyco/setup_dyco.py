@@ -18,7 +18,6 @@
 """
 
 import datetime as dt
-import fnmatch
 import logging
 import os
 import shutil
@@ -27,6 +26,7 @@ import time
 from pathlib import Path
 
 import pandas as pd
+from diive.core.io.filereader import search_files
 
 
 def set_dirs(indir: None or Path,
@@ -100,6 +100,7 @@ class CreateOutputDirs:
     Setup output folder structure
 
     """
+
     def __init__(self, dyco_instance):
         self.root_dir = dyco_instance.outdir
         self.del_previous_results = dyco_instance.del_previous_results
@@ -182,8 +183,8 @@ class FilesDetector:
     def run(self):
         """Execute processing stack"""
         self.logger.info("Start file search")
-        self.found_files = self.search_files(indir=self.indir,
-                                             fnm_pattern=self.fnm_pattern)
+        self.found_files = search_files(searchdirs=self.indir,
+                                        pattern=self.fnm_pattern)
         if not self.found_files:
             self.logger.error(f"\n(!)ERROR No files found with pattern {self.fnm_pattern}. Stopping script.")
             sys.exit()
@@ -211,33 +212,6 @@ class FilesDetector:
         outpath = self.outdir / outfile
         self.files_overview_df.to_csv(outpath)
         self.logger.info(f"Exported file {outfile}")
-
-    @staticmethod
-    def search_files(indir, fnm_pattern):
-        """
-        Search files in indir
-
-        Parameters
-        ----------
-        indir: Path
-            Directory that will be searched.
-        fnm_pattern: str
-            Filename search pattern, accepts regex.
-
-        Returns
-        -------
-        List of found files
-        """
-
-        found_files = []
-        for root, dirs, files in os.walk(str(indir)):
-            root = Path(root)
-            for idx, filename in enumerate(files):
-                if fnmatch.fnmatch(filename, fnm_pattern):
-                    filepath = Path(root) / Path(filename)
-                    found_files.append(filepath)
-        found_files.sort()  # Sorts inplace
-        return found_files
 
     def add_expected(self):
         """
