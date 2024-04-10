@@ -1,9 +1,7 @@
 # CHANGELOG
 
-## v2.0.0 | X Mar 2024
+## v2.0.0 | X Apr 2024
 
-- todo setting for minimum size of lag search time window
-- todo min number of bins in histogram
 - todo limit deviation from median in lookup table?
 
 At one of our research sites both of these issues occured at the same time: very low fluxes in combination with
@@ -13,8 +11,8 @@ The main motivation for new udpates to `dyco` is the observation of drifting tim
 These lag drifts are rare, but when they occur they hinder our ability to calculate reliable ecosystem fluxes
 using the eddy covariance (EC) method.
 
-Another challenging aspect when calculating fluxes with the EC method is the occurrence of very low (close to zero)
-fluxes. These fluxes are characterized by a very low signal-to-noise ratio, which in turn makes it challenging to find
+Another challenging aspect when calculating fluxes with the EC method is the occurrence of *very low (close to zero)
+fluxes*. These fluxes are characterized by a very low signal-to-noise ratio, which in turn makes it challenging to find
 a "maximum covariance", leading to a **mirroring** effect (see Fig. 8 in Langford et al., 2005). `dyco` can assist
 in setting an adequate default time lag and a lag window as narrow as possible.
 
@@ -22,6 +20,8 @@ This update also implements [diive](https://github.com/holukas/diive) as a requi
 of this implementation is that existing (and better tested) code in `diive` does not have to be duplicated for `dyco`
 (although the copy-paste approach has its merits), the drawback is that yes there is another dependency. I will try
 not to break things.
+
+### Changes
 
 - The minimum time window for lag search is now min. 20 records, which corresponds to +/- 0.5s for 20 Hz
   data. If the automatically detected window is smaller than 20 records it is automatically expanded.
