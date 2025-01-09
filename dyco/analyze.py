@@ -24,10 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import files
-import loop
-import plot
-import setup_dyco
+from dyco import files, loop, plot, setup_dyco
 
 
 class AnalyzeLags:

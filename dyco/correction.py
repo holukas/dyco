@@ -23,8 +23,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import files
-import setup_dyco
+from dyco import files, setup_dyco
 
 
 class RemoveLags:

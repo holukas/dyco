@@ -28,10 +28,8 @@ import numpy as np
 import pandas as pd
 from diive.core.times.times import calc_true_resolution, create_timestamp
 from diive.pkgs.echires.lag import MaxCovariance
-import files
-import lag
-import plot
-import setup_dyco
+
+from dyco import files, lag, plot, setup_dyco
 
 
 class Loop:

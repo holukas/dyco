@@ -21,16 +21,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-import cli
-import files
-import loop
-import plot
-import setup_dyco
-from analyze import AnalyzeLags
-from correction import RemoveLags
-from diive.core.io.filereader import search_files
 from diive.core.io.filedetector import FileDetector
+from diive.core.io.filereader import search_files
+
+from dyco import cli, files, loop, plot, setup_dyco
+from dyco.analyze import AnalyzeLags
+from dyco.correction import RemoveLags
+
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
 
@@ -114,7 +111,8 @@ def dyco(cls):
             args['var_lagged'] = f"{args['var_lagged']}_DYCO"  # Use normalized signal
             filename, file_extension = os.path.splitext(args['fnm_pattern'])
             args['fnm_pattern'] = f"{filename}_DYCO{file_extension}"  # Search normalized files
-            args['fnm_date_format'] = f"{Path(args['fnm_date_format']).stem}_DYCO.csv"  # Parse file names of normalized files
+            args[
+                'fnm_date_format'] = f"{Path(args['fnm_date_format']).stem}_DYCO.csv"  # Parse file names of normalized files
             var_target = [var_target + '_DYCO' for var_target in args['var_target']]  # Use normalized target cols
             args['var_target'] = var_target
             return args
