@@ -197,6 +197,8 @@ class AnalyzeLags:
                                                                    df=files.read_segment_lagtimes_file(
                                                                        filepath=filepath_last_iteration))
 
+        # segment_lagtimes_last_iteration_df['PEAK-COVABSMAX_SHIFT']
+
         if self.phase != 3:
             # LUT for Phase 1 or Phase 2, aggregated daily lags
             lut_df, lut_available = self.make_lut_agg(target_lag=self.target_lag,

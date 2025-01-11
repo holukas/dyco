@@ -495,7 +495,6 @@ class DynamicLagCompensation:
     def analyze_lags(self):
         """Analyze lag search results and create look-up table for lag-time normalization"""
         analyze = AnalyzeLags(dyco_instance=self)
-        # analyze = AnalyzeLags(dyco_instance=self)
         return analyze.lut_available
 
     def remove_lags(self, lut_success):
