@@ -169,7 +169,7 @@ class DynamicLagCompensation:
                  dat_recs_timestamp_format: None or str = None,
                  dat_recs_nominal_timeres: float = 0.05,
                  lgs_segment_dur: str = '30min',
-                 lgs_winsize: int = 1000,
+                 lgs_winsize: list or int = 1000,
                  lgs_num_iter: int = 1,
                  lgs_hist_remove_fringe_bins: bool = True,
                  lgs_hist_perc_thres: float = 0.9,
@@ -363,7 +363,16 @@ class DynamicLagCompensation:
         self.var_reference = var_reference
         self.var_lagged = var_lagged
         self.lgs_segment_dur = lgs_segment_dur
-        self.lgs_winsize = [abs(lgs_winsize) * -1, abs(lgs_winsize)]
+
+        if isinstance(lgs_winsize, list):
+            self.lgs_winsize = lgs_winsize
+        elif isinstance(lgs_winsize, int):
+            self.lgs_winsize = [abs(lgs_winsize) * -1, abs(lgs_winsize)]
+        elif isinstance(lgs_winsize, float):
+            self.lgs_winsize = [abs(int(lgs_winsize)) * -1, abs(int(lgs_winsize))]
+        else:
+            raise ValueError("lgs_winsize must be a list or int")
+
         self.lgs_winsize_initial = self.lgs_winsize
         self.lgs_num_iter = lgs_num_iter
         self.lgs_hist_remove_fringe_bins = lgs_hist_remove_fringe_bins
