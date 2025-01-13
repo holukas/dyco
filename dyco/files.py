@@ -18,9 +18,11 @@
 """
 
 import datetime as dt
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from diive.core.io.files import load_parquet
 
 
 def read_segment_lagtimes_file(filepath):
@@ -72,6 +74,22 @@ def read_raw_data(filepath, data_timestamp_format):
     -------
     pandas DataFrame that contains raw data from the file in filepath
     """
+
+    file_ext = Path(filepath).suffix
+
+    if file_ext == '.csv':
+        data_df = read_raw_data_csv(filepath, data_timestamp_format)
+
+    elif file_ext == '.parquet':
+        data_df = load_parquet(filepath, output_middle_timestamp=False, sanitize_timestamp=False)
+
+    else:
+        raise Exception('File extension must be ".csv" or ".parquet"')
+
+    return data_df
+
+
+def read_raw_data_csv(filepath, data_timestamp_format):
     header_rows_list = [0]
     skip_rows_list = []
     header_section_rows = [0]
@@ -123,10 +141,6 @@ def read_raw_data(filepath, data_timestamp_format):
                           nrows=None)
 
     return data_df
-
-
-
-
 
 
 def add_data_stats(df, true_resolution, filename, files_overview_df, found_records, fnm_date_format):
@@ -222,6 +236,7 @@ def length_data_cols(filepath, header_rows_list, skip_rows_list):
                                     skiprows=skip_num_lines,
                                     header=None,
                                     nrows=1)
+
     return first_data_row_df.columns.size
 
 
