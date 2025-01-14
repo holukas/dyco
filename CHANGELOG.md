@@ -37,6 +37,8 @@ not to break things.
 - Several functions are now handled
   by `diive`: `calc_true_resolution`, `create_timestamp`, `search_files`, `FileDetector`, `MaxCovariance`
 - Plots are now explicitely closed after export to avoid memory issues
+- Parquet files can now be used for data input. If found files have the extension `.parquet`, the correct function to
+  read the file is used.
 
 ### References
 

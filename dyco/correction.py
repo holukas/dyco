@@ -36,23 +36,18 @@ class RemoveLags:
         self.dat_recs_timestamp_format = dyco_instance.dat_recs_timestamp_format
         self.outdirs = dyco_instance.outdirs
         self.var_target = dyco_instance.var_target
-        self.phase = dyco_instance.phase
-        self.phase_files = dyco_instance.phase_files
-        self.new_iteration_data = dyco_instance.new_iteration_data  # Indicates if new iteration was executed
         self.lgs_num_iter = dyco_instance.lgs_num_iter
 
         self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
-        if self.phase == 3:
-
-            dir = Path(self.outdirs[f'{self.phase}-6_{self.phase_files}_final_time_lags_lookup_table'])
-            file = Path('LUT_final_time_lags.csv')
-            self.lut_df = files.read_segment_lagtimes_file(filepath=dir / file)
-            self.lut_col = 'INSTANTANEOUS_LAG'
-        else:
-            # Read default lag times for reference gas
-            self.lut_df = self.read_lut_time_lags()
-            self.lut_col = 'correction'
+        _dir = Path(self.outdirs[f'7_time_lags_lookup_table'])
+        file = Path('LUT_final_time_lags.csv')
+        self.lut_df = files.read_segment_lagtimes_file(filepath=_dir / file)
+        self.lut_col = 'INSTANTANEOUS_LAG'
+        # else:
+        #     Read default lag times for reference gas
+            # self.lut_df = self.read_lut_time_lags()
+            # self.lut_col = 'correction'
 
         self.run()
 
@@ -113,13 +108,13 @@ class RemoveLags:
 
                 if (self.phase == 1) | (self.phase == 2):
                     # Save timestamp in file
-                    self.save_dyco_files(outdir=self.outdirs[f'{self.phase}-7_{self.phase_files}_normalized'],
+                    self.save_dyco_files(outdir=self.outdirs[f'7_normalized'],
                                          original_filename=file_info_row['filename'],
                                          df=data_df,
                                          export_timestamp=True)
                 else:
                     # No timestamp for final output files
-                    self.save_dyco_files(outdir=self.outdirs[f'{self.phase}-7_{self.phase_files}_normalized'],
+                    self.save_dyco_files(outdir=self.outdirs[f'7_normalized'],
                                          original_filename=file_info_row['filename'],
                                          df=data_df,
                                          export_timestamp=False)
@@ -182,7 +177,7 @@ class RemoveLags:
     def read_lut_time_lags(self):
         """Read csv file that contains the look-up table for lag correction"""
         filepath = self.outdirs[
-                       f'{self.phase}-6_{self.phase_files}_normalization_lookup_table'] / f'LUT_default_agg_time_lags.csv'
+                       f'6_normalization_lookup_table'] / f'LUT_default_agg_time_lags.csv'
         # parse = lambda x: dt.datetime.strptime(x, '%Y-%m-%d')  # now deprecated
         df = pd.read_csv(filepath,
                          skiprows=None,

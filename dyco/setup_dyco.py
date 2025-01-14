@@ -104,26 +104,20 @@ class CreateOutputDirs:
     def __init__(self, dyco_instance):
         self.root_dir = dyco_instance.outdir
         self.del_previous_results = dyco_instance.del_previous_results
-        self.phase = dyco_instance.phase
-        self.phase_files = dyco_instance.phase_files
 
     def required_dirs(self):
         """Define output folder names."""
         outdirs = [
-            '0-0_log',
-            f'{self.phase}-0_{self.phase_files}_overview',
-            f'{self.phase}-1_{self.phase_files}_covariances',
-            f'{self.phase}-2_{self.phase_files}_covariances_plots',
-            f'{self.phase}-3_{self.phase_files}_time_lags_overview',
-            f'{self.phase}-4_{self.phase_files}_time_lags_overview_histograms',
-            f'{self.phase}-5_{self.phase_files}_time_lags_overview_timeseries',
-            f'{self.phase}-7_{self.phase_files}_normalized',
+            '0_log',
+            '1_overview',
+            '2_covariances',
+            '3_covariances_plots',
+            '4_time_lags_overview',
+            '5_time_lags_overview_histograms',
+            '6_time_lags_overview_timeseries',
+            '7_time_lags_lookup_table',
+            '8_time_lags_corrected_files',
         ]
-
-        if self.phase != 3:
-            outdirs.append(f'{self.phase}-6_{self.phase_files}_normalization_lookup_table')
-        else:
-            outdirs.append(f'{self.phase}-6_{self.phase_files}_final_time_lags_lookup_table')
         return outdirs
 
     def setup_output_dirs(self):
@@ -138,8 +132,6 @@ class CreateOutputDirs:
         # Delete dirs if needed
         for key, path in outdirs.items():
             if Path.is_dir(path) and self.del_previous_results:
-                if path.stem == '0-0_log':
-                    continue
                 print(f"Deleting folder {path} ...")
                 shutil.rmtree(path)
 
@@ -316,7 +308,7 @@ def generate_run_id():
     return run_id, script_start_time
 
 
-def set_logfile_path(run_id: str, outdir: Path, phase: int):
+def set_logfile_path(run_id: str, outdir: Path):
     """Set full path to log file"""
     name = f'{run_id}.log'
     path = outdir / name

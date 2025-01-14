@@ -39,7 +39,8 @@ class Loop:
 
     def __init__(self,
                  dyco_instance,
-                 iteration: int = 1):
+                 iteration: int = 1
+                 ):
         """
 
         Parameters
@@ -62,35 +63,22 @@ class Loop:
         self.logfile_path = dyco_instance.logfile_path
         self.lgs_winsize = dyco_instance.lgs_winsize
         self.fnm_date_format = dyco_instance.fnm_date_format
-        self.phase = dyco_instance.phase
-        self.phase_files = dyco_instance.phase_files
-        self.new_iteration_data = dyco_instance.new_iteration_data  # Indicates if new iteration was executed
-        # # force_min_stepsize = True if self.iteration == self.lgs_num_iter else False
-        # self.shift_stepsize, \
-        # self.hist_bin_range = self.lagsearch_settings(win_lagsearch=self.lgs_winsize,
-        #                                               force_min_stepsize=False)
-
         self.iteration = iteration
 
         self.logger = setup_dyco.create_logger(logfile_path=self.logfile_path, name=__name__)
+
+        self.shift_stepsize = dyco_instance.lgs_shift_stepsize
+        self.hist_bin_range = None
+        self.segment_lagtimes_df = dyco_instance.segment_lagtimes_df
 
     def run(self):
         """Loop through all found files"""
 
         self.logger.info(f"Start FILE LOOP - ITERATION {self.iteration} {'-' * 40}")
 
-        # Use results from previous iteration, if available
-        prev_results = self.check_for_prev_results(iteration=self.iteration)
-        if not prev_results:
-            return None
-        else:
-            segment_lagtimes_df = prev_results[0]
-            self.lgs_winsize = prev_results[1]
-            self.new_iteration_data = True  # New iteration output will be generated
-
         self.shift_stepsize, \
             self.hist_bin_range = self.lagsearch_settings(lgs_winsize=self.lgs_winsize,
-                                                          force_min_stepsize=False)
+                                                          force_stepsize=self.shift_stepsize)
 
         # Loop files
         for file_idx, file_info_row in self.files_overview_df.iterrows():
@@ -128,17 +116,25 @@ class Loop:
                                                               fnm_date_format=self.fnm_date_format)
 
             # Loop through data segments in file
-            segment_lagtimes_df = self.loop_segments(data_df=data_df,
-                                                     file_idx=file_idx,
-                                                     filename=file_info_row['filename'],
-                                                     segment_lagtimes_df=segment_lagtimes_df)
+            this_file_segment_lagtimes_df = self.loop_segments(data_df=data_df,
+                                                               file_idx=file_idx,
+                                                               filename=file_info_row['filename'])
+
+            if self.segment_lagtimes_df.empty:
+                self.segment_lagtimes_df = this_file_segment_lagtimes_df.copy()
+            else:
+                self.segment_lagtimes_df = pd.concat([self.segment_lagtimes_df, this_file_segment_lagtimes_df], axis=0)
+
+        # Save found segment lag times after all segments finished
+        outfile = 'segments_found_lag_times.csv'
+        self.segment_lagtimes_df.to_csv(self.outdirs['4_time_lags_overview'] / outfile)
 
         # Set new search window
-        hist_series = self.filter_series(filter_col='iteration', filter_equal_to=self.iteration,
-                                         df=segment_lagtimes_df, series_col='PEAK-COVABSMAX_SHIFT')
+        # hist_series = self.filter_series(filter_col='iteration', filter_equal_to=self.iteration,
+        #                                  df=segment_lagtimes_df, series_col='PEAK-COVABSMAX_SHIFT')
+        hist_series = self.segment_lagtimes_df['PEAK-COVABSMAX_SHIFT'].copy()
         lgs_winsize_adj = lag.AdjustLagsearchWindow(series=hist_series,
-                                                    outdir=self.outdirs[
-                                                        f'{self.phase}-4_{self.phase_files}_time_lags_overview_histograms'],
+                                                    outdir=self.outdirs['5_time_lags_overview_histograms'],
                                                     iteration=self.iteration,
                                                     plot=True,
                                                     remove_fringe_bins=self.lgs_hist_remove_fringe_bins,
@@ -147,21 +143,18 @@ class Loop:
         self.lgs_winsize = lgs_winsize_adj  # Update lag search window to new range
 
         # Add time window start and end for next iteration lagsearch
-        self.add_lagsearch_adj_info(segment_lagtimes_df=segment_lagtimes_df,
+        self.add_lagsearch_adj_info(segment_lagtimes_df=self.segment_lagtimes_df,
                                     iteration=self.iteration,
                                     next_lgs_winsize=lgs_winsize_adj)
 
         # Plot all found segment lag times
-        self.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
-                                      outdir=self.outdirs[
-                                          f'{self.phase}-5_{self.phase_files}_time_lags_overview_timeseries'],
-                                      iteration=self.iteration,
-                                      phase=self.phase)
+        self.plot_segment_lagtimes_ts(segment_lagtimes_df=self.segment_lagtimes_df,
+                                      outdir=self.outdirs['6_time_lags_overview_timeseries'],
+                                      iteration=self.iteration)
 
     @staticmethod
     def plot_segment_lagtimes_ts(segment_lagtimes_df: pd.DataFrame,
                                  outdir,
-                                 phase: int = 1,
                                  iteration: int = 1,
                                  show_all: bool = False,
                                  overlay_default: bool = False,
@@ -201,8 +194,8 @@ class Loop:
         _df = segment_lagtimes_df.copy()
         if not show_all:
             _df = _df.loc[_df['iteration'] == iteration, :]
-            txt_info = f"PHASE {phase}, ITERATION {iteration}: found time lags"
-            outfile = f"PHASE-{phase}_ITERATION-{iteration}_TIMESERIES-PLOT_segment_lag_times_iteration"
+            txt_info = f"ITERATION {iteration}: found time lags"
+            outfile = f"ITERATION-{iteration}_TIMESERIES-PLOT_segment_lag_times_iteration"
         else:
             txt_info = f"Found lag times from ALL iterations"
             outfile = f"TIMESERIES-PLOT_segment_lag_times_FINAL"
@@ -215,10 +208,6 @@ class Loop:
         iteration_grouped = _df.groupby('iteration')
         for idx, group_df in iteration_grouped:
             try:
-                # ax.plot_date(pd.to_datetime(group_df['start']), group_df['PEAK-COVABSMAX_SHIFT'],
-                #              alpha=alpha, fmt='o', ms=6, color=colors[int(idx - 1)], lw=0, ls='-',
-                #              label=f'found lag times in iteration {int(idx)}', markeredgecolor='None')
-
                 # Below, "format='mixed'" is used because although all dates have the same format
                 # (in this case '%Y-%m-%d %H:%M:%S.%f') pandas seems to interpret the timestamp
                 # '2016-10-24 13:00:00.000000' as '2016-10-24 13:00:00' and therefore raises a ValueError.
@@ -238,7 +227,7 @@ class Loop:
         # if overlay_target_val:
         #     ax.axhline(overlay_target_val, color='black', ls='--', label='target: normalized default lag')
 
-        txt_info = f"PHASE {phase}, ITERATION {iteration}: FOUND TIME LAGS"
+        txt_info = f"ITERATION {iteration}: FOUND TIME LAGS"
         font = {'family': 'sans-serif', 'color': 'black', 'weight': 'bold', 'size': 20, 'alpha': 1, }
         ax.set_title(txt_info, fontdict=font)
 
@@ -328,13 +317,12 @@ class Loop:
         new_iteration_data: bool
                     Indicates if new iteration was executed
         """
-        return self.lgs_winsize, self.new_iteration_data
+        return self.lgs_winsize, self.segment_lagtimes_df
 
     def loop_segments(self,
                       data_df: pd.DataFrame,
                       file_idx: pd.Timestamp,
-                      filename: str,
-                      segment_lagtimes_df: pd.DataFrame):
+                      filename: str):
         """
         Loop through all data segments in each file
 
@@ -359,7 +347,8 @@ class Loop:
         pandas DataFrame with lag time for each segment.
 
         """
-        counter_segment = -1
+        segment_lagtimes_df = pd.DataFrame()
+        counter_segment = 0
         data_df['index'] = pd.to_datetime(data_df.index)
 
         # Loop segments
@@ -369,12 +358,12 @@ class Loop:
             segment_name = f"{segment_df.index[0].strftime('%Y%m%d%H%M%S')}_iter{self.iteration}"
             segment_start = segment_df.index[0]
             segment_end = segment_df.index[-1]
-            self.logger.info(f"    Working on FILE: {filename}    SEGMENT: {segment_name}    "
+            self.logger.info(f"  FILE: {filename}    "
+                             f"SEGMENT: {counter_segment} {self.lgs_segment_dur} {segment_name}    "
                              f"Lag search window: {self.lgs_winsize}    Step-size: {self.shift_stepsize}    "
                              f"segment start: {segment_start}    segment end: {segment_end}")
 
             # Search lag
-
             mc = MaxCovariance(
                 df=segment_df,
                 var_reference=self.var_reference,
@@ -387,7 +376,6 @@ class Loop:
             mc.run()
 
             txt_info = \
-                f"PHASE: {self.phase}\n" \
                 f"Iteration: {self.iteration}\n" \
                 f"Time lag search window: from {self.lgs_winsize[0]} to {self.lgs_winsize[1]} records\n" \
                 f"Segment name: {segment_name}\n" \
@@ -396,29 +384,16 @@ class Loop:
                 f"File: {filename} - File date: {file_idx}\n" \
                 f"Lag search step size: {self.shift_stepsize} records\n"
 
-            outname = f'{segment_name}_segment_covariance_iteration-{self.iteration}.png'
+            outname = f'{segment_name}_segment_{counter_segment}_covariance_iteration-{self.iteration}.png'
 
-            mc.plot_scatter_cov(txt_info=txt_info,
-                                outpath=self.outdirs[f'{self.phase}-2_{self.phase_files}_covariances_plots'],
-                                outname=outname)
+            mc.plot_scatter_cov(txt_info=txt_info, outpath=self.outdirs['3_covariances_plots'], outname=outname)
 
             cov_df, props_peak_auto = mc.get()
 
-            outdir_data = self.outdirs[f'{self.phase}-1_{self.phase_files}_covariances']
-            outname_data = f'{segment_name}_segment_covariance_iteration-{self.iteration}.csv'
+            outdir_data = self.outdirs['2_covariances']
+            outname_data = f'{segment_name}_segment_{counter_segment}_covariance_iteration-{self.iteration}.csv'
             outpath = outdir_data / outname_data
             cov_df.to_csv(f"{outpath}")
-
-            # todo del cov_df, props_peak_auto = \
-            #     lag.MaxCovariance(loop_instance=self,
-            #                       segment_df=segment_df,
-            #                       segment_name=segment_name,
-            #                       segment_start=segment_start,
-            #                       segment_end=segment_end,
-            #                       outdir_plots=self.outdirs[f'{self.phase}-2_{self.phase_files}_covariances_plots'],
-            #                       outdir_data=self.outdirs[f'{self.phase}-1_{self.phase_files}_covariances'],
-            #                       file_idx=file_idx,
-            #                       filename=filename).get()
 
             # Collect results
             numvals_var_reference = segment_df[self.var_reference].dropna().size
@@ -434,8 +409,7 @@ class Loop:
             segment_lagtimes_df.loc[segment_name, f'iteration'] = self.iteration
 
             # Store lag results in overview
-            stor_dict = {'stor_idx': segment_name,
-                         'flag_df': cov_df}
+            stor_dict = {'stor_idx': segment_name, 'flag_df': cov_df}
             segment_lagtimes_df = self.store_search_results(stor_df=segment_lagtimes_df,
                                                             stor_cols={'shift': 'PEAK-COVABSMAX_SHIFT',
                                                                        'cov': 'PEAK-COVABSMAX_COV',
@@ -451,10 +425,6 @@ class Loop:
                                                                        'cov': 'DEFAULT-LAG_COV',
                                                                        'timestamp': 'DEFAULT-LAG_TIMESTAMP'},
                                                             flag_col='flag_instantaneous_default_lag', **stor_dict)
-
-            # Save found segment lag times after each segment
-            outfile = f'{self.iteration}_segments_found_lag_times_after_iteration-{self.iteration}.csv'
-            segment_lagtimes_df.to_csv(self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview'] / outfile)
 
         return segment_lagtimes_df
 
@@ -523,43 +493,6 @@ class Loop:
         series_filtered = df.loc[filter_this_iteration, series_col]
         return series_filtered
 
-    def check_for_prev_results(self, iteration: int):
-        """
-        Check if previous results exist
-
-        Returns
-        -------
-        segment_lagtimes_df
-
-        """
-        filepath_this_iteration = self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview'] \
-                                  / f'{iteration}_segments_found_lag_times_after_iteration-{iteration}.csv'
-        filepath_prev_iteration = self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview'] \
-                                  / f'{iteration - 1}_segments_found_lag_times_after_iteration-{iteration - 1}.csv'
-        if os.path.exists(filepath_this_iteration):
-            # Check if current iteration was already done previously
-            self.logger.info(f"(!) Results for iteration {iteration} already exist in file {filepath_this_iteration}, "
-                             f"skipping to next iteration.")
-            return None
-        else:
-            if os.path.exists(filepath_prev_iteration):
-                # Get results from previous iteration
-                segment_lagtimes_df = files.read_segment_lagtimes_file(filepath=filepath_prev_iteration)
-
-                # Adjusted lagsearch window, from a previous iteration
-                lgs_winsize = \
-                    [segment_lagtimes_df['lagsearch_next_start'].unique()[0],
-                     segment_lagtimes_df['lagsearch_next_end'].unique()[0]]
-                self.logger.info(f"    Found results from previous iteration in {filepath_prev_iteration}, "
-                                 f"time window for lag search set to {lgs_winsize}")
-            else:
-                # No results from previous iteration found
-                segment_lagtimes_df = pd.DataFrame()
-                lgs_winsize = self.lgs_winsize  # Initial lagsearch window
-                self.logger.info(f"Initial time window for lag search set to {lgs_winsize}")
-
-            return segment_lagtimes_df, lgs_winsize
-
     def add_lagsearch_adj_info(self, segment_lagtimes_df, iteration, next_lgs_winsize):
         """
         Add info about adjusted lagsearch window for next iteration to CSV
@@ -581,13 +514,12 @@ class Loop:
         segment_lagtimes_df.loc[:, 'lagsearch_next_end'] = next_lgs_winsize[1]
 
         # Save found segment lag times with next lagsearch info after all files
-        filename_segments = f'{iteration}_segments_found_lag_times_after_iteration-{iteration}.csv'
-        segment_lagtimes_df.to_csv(
-            self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview'] / filename_segments)
-        return
+        filename_segments = 'segments_found_lag_times.csv'
+        segment_lagtimes_df.to_csv(self.outdirs['4_time_lags_overview'] / filename_segments)
+        return None
 
     @staticmethod
-    def lagsearch_settings(lgs_winsize: list, force_min_stepsize: bool = False):
+    def lagsearch_settings(lgs_winsize: list, force_stepsize: int = False):
         """
         Set step size of shift during lag search and calculate number of
         histogram bins.
@@ -599,9 +531,9 @@ class Loop:
             in [1], e.g. [-1000, 1000] searches between records -1000 and
             +1000.
 
-        force_min_stepsize: bool
-            If True, sets the stepsize for lag search to 1, otherwise
-            stepsize is calculated from win_lagsearch.
+        force_stepsize: int
+            If int, sets the stepsize for lag search to the given size,
+            otherwise stepsize is calculated from win_lagsearch.
 
 
         Returns
@@ -630,12 +562,12 @@ class Loop:
         # range_win_lagsearch = np.sum(np.abs(win_lagsearch))
         range_lgs_winsize = np.abs(lgs_winsize[0] - lgs_winsize[1])
 
-        if not force_min_stepsize:
+        if not force_stepsize:
             shift_stepsize = int(range_lgs_winsize / 200)
             # shift_stepsize = int(range_win_lagsearch / 100 / 2)
             shift_stepsize = 1 if shift_stepsize < 1 else shift_stepsize  # Step-size cannot be less than 1
         else:
-            shift_stepsize = 1
+            shift_stepsize = force_stepsize
 
         max_num_bins = range_lgs_winsize / shift_stepsize
         max_allowed_bins = int(max_num_bins / 3)
@@ -662,9 +594,6 @@ class PlotLoopResults:
         self.plot_cov_collection = plot_cov_collection
         self.plot_hist = plot_hist
         self.plot_timeseries_segment_lagtimes = plot_timeseries_segment_lagtimes
-        self.phase = dyco_instance.phase
-        self.phase_files = dyco_instance.phase_files
-        self.new_iteration_data = dyco_instance.new_iteration_data
 
         self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
@@ -674,26 +603,25 @@ class PlotLoopResults:
         # Covariance collection
         if self.plot_cov_collection:
             # Plot covariances from lag search for each segment in one plot
-            self.cov_collection(indir=self.outdirs[f'{self.phase}-1_{self.phase_files}_covariances'],
-                                outdir=self.outdirs[f'{self.phase}-2_{self.phase_files}_covariances_plots'],
+            self.cov_collection(indir=self.outdirs[f'2_covariances'],
+                                outdir=self.outdirs[f'3_covariances_plots'],
                                 logfile_path=self.dyco_instance.logfile_path)
 
         # Histogram
         if self.plot_hist:
-            # Read found lag time results from very last iteration
+            # Read found lag time results
             segment_lagtimes_df = files.read_segment_lagtimes_file(
-                filepath=self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview'] /
-                         f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
+                filepath=self.outdirs[f'4_time_lags_overview'] / f'segments_found_lag_times.csv')
 
             # Set search window for lag, depending on iteration
-            hist_series = Loop.filter_series(filter_col='iteration', filter_equal_to=self.lgs_num_iter,
-                                             df=segment_lagtimes_df, series_col='PEAK-COVABSMAX_SHIFT')
+            # hist_series = Loop.filter_series(filter_col='iteration', filter_equal_to=self.lgs_num_iter,
+            #                                  df=segment_lagtimes_df, series_col='PEAK-COVABSMAX_SHIFT')
+            hist_series = segment_lagtimes_df['PEAK-COVABSMAX_SHIFT'].copy()
             last_lgs_winsize = [int(segment_lagtimes_df.iloc[-1]['lagsearch_start']),
                                 int(segment_lagtimes_df.iloc[-1]['lagsearch_end'])]
             _, hist_num_bins = Loop.lagsearch_settings(lgs_winsize=last_lgs_winsize)
             _ = lag.AdjustLagsearchWindow(series=hist_series,
-                                          outdir=self.outdirs[
-                                              f'{self.phase}-4_{self.phase_files}_time_lags_overview_histograms'],
+                                          outdir=self.outdirs[f'5_time_lags_overview_histograms'],
                                           iteration=self.lgs_num_iter,
                                           plot=True,
                                           hist_num_bins=hist_num_bins,
@@ -703,16 +631,13 @@ class PlotLoopResults:
 
         # Timeseries of lag times
         if self.plot_timeseries_segment_lagtimes:
-            # Read found lag time results from very last iteration
+            # Read found lag time results
             segment_lagtimes_df = files.read_segment_lagtimes_file(
-                filepath=self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview']
-                         / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
+                filepath=self.outdirs[f'4_time_lags_overview'] / f'segments_found_lag_times.csv')
             outfile = Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
-                                                    outdir=self.outdirs[
-                                                        f'{self.phase}-5_{self.phase_files}_time_lags_overview_timeseries'],
+                                                    outdir=self.outdirs[f'6_time_lags_overview_timeseries'],
                                                     iteration=self.lgs_num_iter,
-                                                    show_all=True,
-                                                    phase=self.phase)
+                                                    show_all=True)
             self.logger.info(f"Created time series plot of {len(segment_lagtimes_df)} segments "
                              f"across {self.lgs_num_iter} iterations")
 
@@ -745,8 +670,8 @@ class PlotLoopResults:
         # Read results from last iteration
         cov_collection_df = pd.DataFrame()
         filelist = os.listdir(str(indir))
-        num_files = len(filelist)
-        logger.info(f"Plotting covariance collection from {num_files} files")
+        num_segments = len(filelist)
+        logger.info(f"Plotting covariance collection from {num_segments} segments")
         for idx, filename in enumerate(filelist):
             filepath = os.path.join(str(indir), filename)
             segment_cov_df = files.read_segment_lagtimes_file(filepath=filepath)

@@ -72,17 +72,16 @@ class AdjustLagsearchWindow:
                                                                       peak_max_count_idx=peak_max_count_idx,
                                                                       peak_most_prom_idx=peak_most_prom_idx)
 
-        # Check if most prominent peak is also the max peak
-        if peak_most_prom_idx in peak_max_count_idx:  # todo (maybe)
+        # todo (maybe) Check if most prominent peak is also the max peak
+        if peak_most_prom_idx in peak_max_count_idx:
             clear_peak_idx = np.where(peak_max_count_idx == peak_most_prom_idx)
         else:
             clear_peak_idx = False
 
         lgs_winsize_adj = [divisions[start_idx], divisions[end_idx]]
-        lgs_winsize_adj = [int(x) for x in
-                           lgs_winsize_adj]  # Convert elements in array to integers, needed for indexing
+        # Convert elements in array to integers, needed for indexing
+        lgs_winsize_adj = [int(x) for x in lgs_winsize_adj]
 
-        # New in v1.3.0
         # Expand lag search window size
         # Set minimum size of lag search time window to min. 20 records
         # Zero is also valid, or in case of two positive numbers, the values are both used, +1
