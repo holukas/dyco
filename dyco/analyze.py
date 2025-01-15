@@ -18,7 +18,7 @@
 """
 
 import sys
-
+from pathlib import Path
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,7 +26,7 @@ import pandas as pd
 from diive.pkgs.outlierdetection.hampel import Hampel
 
 from dyco import files, loop, plot, setup
-
+from diive.pkgs.outlierdetection.zscore import zScoreRolling
 
 class AnalyzeLags:
     """
@@ -38,19 +38,37 @@ class AnalyzeLags:
     """
 
     def __init__(self,
-                 dyco_instance):
+                 lgs_num_iter,
+                 outdirs,
+                 target_lag,
+                 logger,
+                 lags: pd.DataFrame):
 
-        self.lgs_num_iter = dyco_instance.lag_n_iter
-        self.outdirs = dyco_instance.outdirs
-        self.target_lag = dyco_instance.target_lag
+        self.lgs_num_iter = lgs_num_iter
+        self.outdirs = outdirs
+        self.target_lag = target_lag
+        self.logger = logger
+        self.lags = lags.copy()
 
-        self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
+        self.lut_lag_times_df = pd.DataFrame()
+        self.lut_available = False
 
         self.run()
 
     def run(self):
         """Run the lag analysis"""
-        self.lut_lag_times_df, self.lut_available = self.generate_lut_time_lags()
+
+        # segment_lagtimes_last_iteration_df['PEAK-COVABSMAX_SHIFT']
+
+        # Make lookup table from aggregated daily lags
+        self.lut_lag_times_df, self.lut_available = self.make_lut_agg()
+
+        if self.lut_available:
+            self.logger.info(f"Finished creating look-up table for default lag times and normalization correction")
+        else:
+            self.logger.critical(f"(!) Look-up Table for default lag times and normalization correction is empty, "
+                                 f"stopping script.")
+            sys.exit()
 
         if self.outdirs:
             self.save_lut(lut=self.lut_lag_times_df,
@@ -132,12 +150,8 @@ class AnalyzeLags:
         Read and plot found time lags from all or only very last iteration(s),
         used in Phase 1 and Phase 2.
         """
-        segment_lagtimes_df = files.read_segment_lagtimes_file(
-            filepath=self.outdirs[f'4_time_lags_overview']
-                     / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
-        loop.Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
+        loop.Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=self.lags,
                                            outdir=self.outdirs[f'7_time_lags_lookup_table'],
-                                           iteration=self.lgs_num_iter,
                                            show_all=False,
                                            overlay_default=True,
                                            overlay_default_df=self.lut_lag_times_df,
@@ -164,57 +178,11 @@ class AnalyzeLags:
         lut.to_csv(f"{outpath}.csv")
 
     def generate_lut_time_lags(self):
-        """
-        Generate LUT based on found time lags from last iteration
-        """
 
-        # Load results from last iteration
-        last_iteration = self.lgs_num_iter
-        filepath_last_iteration = \
-            self.outdirs[
-                '4_time_lags_overview'] / f'{last_iteration}_segments_found_lag_times_after_iteration-{last_iteration}.csv'
-
-        segment_lagtimes_last_iteration_df = self.filter_dataframe(filter_col='iteration',
-                                                                   filter_equal_to=last_iteration,
-                                                                   df=files.read_segment_lagtimes_file(
-                                                                       filepath=filepath_last_iteration))
-
-        # segment_lagtimes_last_iteration_df['PEAK-COVABSMAX_SHIFT']
-
-        # Aggregated daily lags
-        lut_df, lut_available = self.make_lut_agg(target_lag=self.target_lag,
-                                                  segment_lagtimes_df=segment_lagtimes_last_iteration_df)
-
-        if lut_available:
-            self.logger.info(f"Finished creating look-up table for default lag times and normalization correction")
-        else:
-            self.logger.critical(f"(!) Look-up Table for default lag times and normalization correction is empty, "
-                                 f"stopping script.")
-            sys.exit()
 
         return lut_df, lut_available
 
-    @staticmethod
-    def filter_dataframe(filter_col, filter_equal_to, df):
-        """
-        Keep only rows of df where the value in filter_col matches filter_equal_to
 
-        Parameters
-        ----------
-        filter_col: str
-            Column name in df.
-        filter_equal_to: value
-            Filtering condition, only rows where filter_col == filter_equal_to is True
-            are kept, other rows are removed.
-        df: pandas Dataframe
-
-        Returns
-        -------
-        Filtered pandas DataFrame where filter_col == filter_equal_to
-        """
-        filter_this_iteration = df[filter_col] == filter_equal_to
-        df_filtered = df.loc[filter_this_iteration, :]
-        return df_filtered
 
     def make_lut_instantaneous(self, segment_lagtimes_df: pd.DataFrame, default_lag: int):
         """
@@ -279,18 +247,20 @@ class AnalyzeLags:
         return lut_df, lut_available
 
     def _remove_outliers(self, peaks_hq_S):
-        window_length = int(len(peaks_hq_S) / 100) if len(peaks_hq_S) > 300 else len(peaks_hq_S)
-        ham = Hampel(series=peaks_hq_S,
-                     n_sigma=1.5,
-                     window_length=window_length,
-                     showplot=True,
-                     verbose=True)
-        ham.calc(repeat=True)
-        flag = ham.get_flag()
-        peaks_hq_S_hampel = peaks_hq_S.loc[flag == 0].copy()
-        return peaks_hq_S_hampel
+        window_length = int(len(peaks_hq_S) / 20)
+        zsr = zScoreRolling(
+            series=peaks_hq_S,
+            thres_zscore=2,
+            winsize=window_length,
+            showplot=True,
+            plottitle="z-score in a rolling window",
+            verbose=True)
+        zsr.calc(repeat=True)
+        flag = zsr.get_flag()
+        peaks_hq_S_cleaned = peaks_hq_S.loc[flag == 0].copy()
+        return peaks_hq_S_cleaned
 
-    def make_lut_agg(self, target_lag: int, segment_lagtimes_df: pd.DataFrame):
+    def make_lut_agg(self):
         """
         Generate aggregated look-up table that contains the default lag time for each day
 
@@ -314,23 +284,24 @@ class AnalyzeLags:
 
         """
         lut_df = pd.DataFrame()
-        peaks_hq_S = self.get_hq_peaks(df=segment_lagtimes_df)  # High-quality covariance peaks
-        peaks_hq_S_hampel = self._remove_outliers(peaks_hq_S)
+        peaks_hq_S = self.get_hq_peaks(df=self.lags)  # High-quality covariance peaks
+        peaks_hq_S = peaks_hq_S.sort_index(inplace=False)
+        peaks_hq_S_cleaned = self._remove_outliers(peaks_hq_S)
 
-        if peaks_hq_S_hampel.empty:
+        if peaks_hq_S_cleaned.empty:
             lut_available = False
             return lut_df, lut_available
 
-        unique_dates = np.unique(peaks_hq_S_hampel.index.date)
+        unique_dates = np.unique(peaks_hq_S_cleaned.index.date)
         for this_date in unique_dates:
             from_date = this_date - pd.Timedelta('1D')
             to_date = this_date + pd.Timedelta('1D')
-            filter_around_this_day = (peaks_hq_S_hampel.index.date > from_date) & \
-                                     (peaks_hq_S_hampel.index.date <= to_date)
-            subset = peaks_hq_S_hampel[filter_around_this_day]
+            filter_around_this_day = (peaks_hq_S_cleaned.index.date > from_date) & \
+                                     (peaks_hq_S_cleaned.index.date <= to_date)
+            subset = peaks_hq_S_cleaned[filter_around_this_day]
             num_vals = len(subset)
 
-            if num_vals >= 5:
+            if num_vals >= 10:
                 # print(f"{this_date}    {num_vals}    {subset.median()}")
                 lut_df.loc[this_date, 'median'] = subset.median()
             else:
@@ -349,7 +320,7 @@ class AnalyzeLags:
                              f"were gap-filled with the median value of the 2 preceding "
                              f"and the 2 following days.")
 
-        lut_df['target_lag'] = target_lag
+        lut_df['target_lag'] = self.target_lag
         lut_df['correction'] = -1 * (lut_df['target_lag'] - lut_df['median'])
 
         self.logger.info(f"Created look-up table for {len(lut_df.index)} dates")
@@ -363,12 +334,6 @@ class AnalyzeLags:
         lut_df['correction'] = lut_df['correction'].ffill(limit=1)
         lut_df['correction'] = lut_df['correction'].bfill(limit=1)
         # lut_df['correction'] = lut_df['correction'].fillna(method='ffill', inplace=False, limit=1)  # deprecated
-
-        try:
-            lut_df['recommended_default_winsize'] = \
-                int((np.abs(lut_df['correction'].min() - lut_df['correction'].max())) / 2) * 1.2
-        except ValueError:
-            lut_df['recommended_default_winsize'] = np.nan
 
         lut_available = True
         return lut_df, lut_available
@@ -410,7 +375,6 @@ class AnalyzeLags:
         """
         df.set_index('start', inplace=True)
         df.index = pd.to_datetime(df.index, format="mixed")
-        peaks_hq_S = df.loc[df['PEAK-COVABSMAX_SHIFT'] == df['PEAK-AUTO_SHIFT'],
-        'PEAK-COVABSMAX_SHIFT']
+        peaks_hq_S = df.loc[df['PEAK-COVABSMAX_SHIFT'] == df['PEAK-AUTO_SHIFT'], 'PEAK-COVABSMAX_SHIFT']
         peaks_hq_S.index = peaks_hq_S.index.to_pydatetime()  # Convert to DatetimeIndex
         return peaks_hq_S

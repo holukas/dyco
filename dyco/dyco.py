@@ -26,6 +26,7 @@ import dyco.setup as setup
 from dyco import cli, loop
 from dyco.analyze import AnalyzeLags
 from dyco.correction import RemoveLags
+from dyco.files import read_segment_lagtimes_file
 
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
@@ -305,7 +306,8 @@ class Dyco:
                                           plot_cov_collection=True,
                                           plot_hist=True,
                                           plot_timeseries_segment_lagtimes=True,
-                                          logger=self.logger)
+                                          logger=self.logger,
+                                          segment_lagtimes_df=self.segment_lagtimes_df)
         loop_plots.run()
         return
 
@@ -379,9 +381,19 @@ class Dyco:
         logger.info(f"Run ID: {self.run_id}")
         return outdirs, logfile_path, logger
 
-    def analyze_lags(self):
+    def analyze_lags(self, filepath_found_lag_times: str = None):
         """Analyze lag search results and create look-up table for lag-time normalization"""
-        analyze = AnalyzeLags(dyco_instance=self)
+
+        if filepath_found_lag_times:
+            segment_lagtimes_df = read_segment_lagtimes_file(filepath=filepath_found_lag_times)
+        else:
+            segment_lagtimes_df = self.segment_lagtimes_df
+
+        analyze = AnalyzeLags(lgs_num_iter=self.lag_n_iter,
+                              outdirs=self.outdirs,
+                              target_lag=self.target_lag,
+                              logger=self.logger,
+                              lags=segment_lagtimes_df)
         return analyze.lut_available
 
     def remove_lags(self, lut_success):
