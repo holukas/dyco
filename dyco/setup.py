@@ -163,10 +163,10 @@ class FilesDetector:
         """
 
         self.indir = dyco_instance.indir
-        self.fnm_pattern = dyco_instance.fnm_pattern
-        self.fnm_date_format = dyco_instance.fnm_date_format
+        self.fnm_pattern = dyco_instance.filename_pattern
+        self.fnm_date_format = dyco_instance.filename_date_format
         self.file_generation_res = dyco_instance.file_generation_res
-        self.dat_recs_nominal_timeres = dyco_instance.dat_recs_nominal_timeres
+        self.dat_recs_nominal_timeres = dyco_instance.data_nominal_timeres
         self.files_how_many = dyco_instance.files_how_many
         self.outdir = outdir
 

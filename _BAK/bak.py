@@ -42,7 +42,7 @@ def dyco(cls):
                                      prev_phase=self.run_phase_1_input_files.phase,
                                      prev_phase_files=self.run_phase_1_input_files.phase_files,
                                      prev_outdir_files=self.run_phase_1_input_files.outdir,
-                                     prev_last_iteration=self.run_phase_1_input_files.lgs_num_iter,
+                                     prev_last_iteration=self.run_phase_1_input_files.lag_n_iter,
                                      prev_outdirs=self.run_phase_1_input_files.outdirs)
             self.run_phase_2_normalized_files = cls(**args)
 
@@ -53,7 +53,7 @@ def dyco(cls):
                                      prev_phase=self.run_phase_2_normalized_files.phase,
                                      prev_phase_files=self.run_phase_2_normalized_files.phase_files,
                                      prev_outdir_files=self.run_phase_2_normalized_files.outdir,
-                                     prev_last_iteration=self.run_phase_2_normalized_files.lgs_num_iter,
+                                     prev_last_iteration=self.run_phase_2_normalized_files.lag_n_iter,
                                      prev_outdirs=self.run_phase_2_normalized_files.outdirs)
             self.run_phase_3_finalize = cls(**args)
 

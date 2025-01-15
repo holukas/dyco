@@ -40,7 +40,7 @@ class AnalyzeLags:
     def __init__(self,
                  dyco_instance):
 
-        self.lgs_num_iter = dyco_instance.lgs_num_iter
+        self.lgs_num_iter = dyco_instance.lag_n_iter
         self.outdirs = dyco_instance.outdirs
         self.target_lag = dyco_instance.target_lag
 

@@ -59,12 +59,12 @@ class SummaryPlots():
             self.summary_plot_segment_lagtimes(phase=phase_instance.phase,
                                                phase_files=phase_instance.phase_files,
                                                outdirs=phase_instance.outdirs,
-                                               last_iteration=phase_instance.lgs_num_iter,
+                                               last_iteration=phase_instance.lag_n_iter,
                                                target_lag=phase_instance.target_lag)
             collection_df = self._collect_peak_covariances(phase=phase_instance.phase,
                                                            phase_files=phase_instance.phase_files,
                                                            outdirs=phase_instance.outdirs,
-                                                           last_iteration=phase_instance.lgs_num_iter,
+                                                           last_iteration=phase_instance.lag_n_iter,
                                                            collection_df=collection_df)
 
         # Phase 3
@@ -85,8 +85,8 @@ class SummaryPlots():
 
         self.summary_plot_covariances(collection_df=collection_df,
                                       outdir=self.outdir_summary,
-                                      last_iter_phase_1=self.instance_phase_1.lgs_num_iter,
-                                      last_iter_phase_2=self.instance_phase_2.lgs_num_iter)
+                                      last_iter_phase_1=self.instance_phase_1.lag_n_iter,
+                                      last_iter_phase_2=self.instance_phase_2.lag_n_iter)
 
         self.logger.info("CREATING SUMMARY ... Done.")
         self.logger.info("Finished DYCO processing.")

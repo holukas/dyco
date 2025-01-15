@@ -79,8 +79,8 @@ class Loop:
         self.lgs_winsize = lgs_winsize
         self.fnm_date_format = fnm_date_format
         self.iteration = iteration
-        self.logger = setup_dyco.create_logger(logfile_path=self.logfile_path, name=__name__)
-        self.shift_stepsize = lgs_shift_stepsize
+        self.logger = logger
+        self.shift_stepsize = shift_stepsize
         self.segment_lagtimes_df = segment_lagtimes_df
 
         self.hist_bin_range = None
@@ -599,17 +599,21 @@ class PlotLoopResults:
 
     """
 
-    def __init__(self, dyco_instance, plot_cov_collection=True,
-                 plot_hist=True, plot_timeseries_segment_lagtimes=True):
-        self.dyco_instance = dyco_instance
-        self.outdirs = dyco_instance.outdirs
-        self.lgs_num_iter = dyco_instance.lgs_num_iter
-        self.lgs_hist_perc_thres = dyco_instance.lgs_hist_perc_thres
+    def __init__(self,
+                 outdirs,
+                 lag_n_iter,
+                 histogram_percentage_threshold,
+                 logger,
+                 plot_cov_collection=True,
+                 plot_hist=True,
+                 plot_timeseries_segment_lagtimes=True):
+        self.outdirs = outdirs
+        self.lgs_num_iter = lag_n_iter
+        self.lgs_hist_perc_thres = histogram_percentage_threshold
+        self.logger = logger
         self.plot_cov_collection = plot_cov_collection
         self.plot_hist = plot_hist
         self.plot_timeseries_segment_lagtimes = plot_timeseries_segment_lagtimes
-
-        self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
     def run(self):
         """Generate plots"""

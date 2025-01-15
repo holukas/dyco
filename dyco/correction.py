@@ -33,10 +33,10 @@ class RemoveLags:
 
     def __init__(self, dyco_instance):
         self.files_overview_df = dyco_instance.files_overview_df
-        self.dat_recs_timestamp_format = dyco_instance.dat_recs_timestamp_format
+        self.dat_recs_timestamp_format = dyco_instance.data_timestamp_format
         self.outdirs = dyco_instance.outdirs
         self.var_target = dyco_instance.var_target
-        self.lgs_num_iter = dyco_instance.lgs_num_iter
+        self.lgs_num_iter = dyco_instance.lag_n_iter
 
         self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
 
