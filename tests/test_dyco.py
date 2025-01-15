@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from dyco import setup_dyco, analyze, files, loop, lag
+from dyco import setup, analyze, files, loop, lag
 
 
 class Tests(unittest.TestCase):

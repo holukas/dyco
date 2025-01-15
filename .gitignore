@@ -8,6 +8,7 @@ _wiki/
 _comparison_N2Oflux_before_after_DYCO/
 _local_runs/
 _testdata/
+_BAK/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

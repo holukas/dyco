@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 from diive.pkgs.outlierdetection.hampel import Hampel
 
-from dyco import files, loop, plot, setup_dyco
+from dyco import files, loop, plot, setup
 
 
 class AnalyzeLags:

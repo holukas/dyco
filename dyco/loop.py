@@ -29,7 +29,7 @@ import pandas as pd
 from diive.core.times.times import calc_true_resolution, create_timestamp
 from diive.pkgs.echires.lag import MaxCovariance
 
-from dyco import files, lag, plot, setup_dyco
+from dyco import files, lag, plot
 
 
 class Loop:
@@ -38,8 +38,23 @@ class Loop:
     """
 
     def __init__(self,
-                 dyco_instance,
-                 iteration: int = 1
+                 dat_recs_timestamp_format,
+                 dat_recs_nominal_timeres,
+                 lgs_hist_remove_fringe_bins,
+                 lgs_hist_perc_thres,
+                 outdirs,
+                 lgs_segment_dur,
+                 var_reference,
+                 var_lagged,
+                 lgs_num_iter,
+                 files_overview_df,
+                 logfile_path,
+                 lgs_winsize,
+                 fnm_date_format,
+                 iteration,
+                 logger,
+                 shift_stepsize,
+                 segment_lagtimes_df
                  ):
         """
 
@@ -50,26 +65,25 @@ class Loop:
         iteration: int
             Number of current iteration.
         """
-        self.dat_recs_timestamp_format = dyco_instance.dat_recs_timestamp_format
-        self.dat_recs_nominal_timeres = dyco_instance.dat_recs_nominal_timeres
-        self.lgs_hist_remove_fringe_bins = dyco_instance.lgs_hist_remove_fringe_bins
-        self.lgs_hist_perc_thres = dyco_instance.lgs_hist_perc_thres
-        self.outdirs = dyco_instance.outdirs
-        self.lgs_segment_dur = dyco_instance.lgs_segment_dur
-        self.var_reference = dyco_instance.var_reference
-        self.var_lagged = dyco_instance.var_lagged
-        self.lgs_num_iter = dyco_instance.lgs_num_iter
-        self.files_overview_df = dyco_instance.files_overview_df
-        self.logfile_path = dyco_instance.logfile_path
-        self.lgs_winsize = dyco_instance.lgs_winsize
-        self.fnm_date_format = dyco_instance.fnm_date_format
+        self.dat_recs_timestamp_format = dat_recs_timestamp_format
+        self.dat_recs_nominal_timeres = dat_recs_nominal_timeres
+        self.lgs_hist_remove_fringe_bins = lgs_hist_remove_fringe_bins
+        self.lgs_hist_perc_thres = lgs_hist_perc_thres
+        self.outdirs = outdirs
+        self.lgs_segment_dur = lgs_segment_dur
+        self.var_reference = var_reference
+        self.var_lagged = var_lagged
+        self.lgs_num_iter = lgs_num_iter
+        self.files_overview_df = files_overview_df
+        self.logfile_path = logfile_path
+        self.lgs_winsize = lgs_winsize
+        self.fnm_date_format = fnm_date_format
         self.iteration = iteration
-
         self.logger = setup_dyco.create_logger(logfile_path=self.logfile_path, name=__name__)
+        self.shift_stepsize = lgs_shift_stepsize
+        self.segment_lagtimes_df = segment_lagtimes_df
 
-        self.shift_stepsize = dyco_instance.lgs_shift_stepsize
         self.hist_bin_range = None
-        self.segment_lagtimes_df = dyco_instance.segment_lagtimes_df
 
     def run(self):
         """Loop through all found files"""
