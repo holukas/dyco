@@ -163,8 +163,7 @@ class Loop:
 
         # Plot all found segment lag times
         self.plot_segment_lagtimes_ts(segment_lagtimes_df=self.segment_lagtimes_df,
-                                      outdir=self.outdirs['6_time_lags_overview_timeseries'],
-                                      iteration=self.iteration)
+                                      outdir=self.outdirs['6_time_lags_overview_timeseries'])
 
     @staticmethod
     def plot_segment_lagtimes_ts(segment_lagtimes_df: pd.DataFrame,
@@ -220,7 +219,7 @@ class Loop:
                 # Below, "format='mixed'" is used because although all dates have the same format
                 # (in this case '%Y-%m-%d %H:%M:%S.%f') pandas seems to interpret the timestamp
                 # '2016-10-24 13:00:00.000000' as '2016-10-24 13:00:00' and therefore raises a ValueError.
-                ax.plot_date(pd.to_datetime(group_df.index, format='mixed'), group_df['PEAK-COVABSMAX_SHIFT'],
+                ax.plot_date(pd.to_datetime(group_df['start'], format='mixed'), group_df['PEAK-COVABSMAX_SHIFT'],
                              alpha=alpha, fmt='o', ms=6, color=colors[int(idx - 1)], lw=0, ls='-',
                              label=f'found lag times in iteration {int(idx)}', markeredgecolor='None')
 
@@ -364,7 +363,7 @@ class Loop:
         segment_grouped = data_df.groupby(pd.Grouper(key='index', freq=self.lgs_segment_dur))
         for segment_key, segment_df in segment_grouped:
             counter_segment += 1
-            segment_name = f"{segment_df.index[0].strftime('%Y%m%d%H%M%S')}_iter{self.iteration}"
+            segment_name = f"{segment_df.index[0].strftime('%Y%m%d%H%M%S')}_segment{counter_segment}_iter{self.iteration}"
             segment_start = segment_df.index[0]
             segment_end = segment_df.index[-1]
             self.logger.info(f"  FILE: {filename}    "
@@ -646,7 +645,6 @@ class PlotLoopResults:
                 filepath=self.outdirs[f'4_time_lags_overview'] / f'segments_found_lag_times.csv')
             outfile = Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
                                                     outdir=self.outdirs[f'6_time_lags_overview_timeseries'],
-                                                    iteration=self.lgs_num_iter,
                                                     show_all=True)
             self.logger.info(f"Created time series plot of {len(segment_lagtimes_df)} segments "
                              f"across {self.lgs_num_iter} iterations")

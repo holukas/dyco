@@ -19,14 +19,15 @@
 
 import sys
 from pathlib import Path
+
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from diive.pkgs.outlierdetection.hampel import Hampel
-
-from dyco import files, loop, plot, setup
 from diive.pkgs.outlierdetection.zscore import zScoreRolling
+
+from dyco import loop, plot
+
 
 class AnalyzeLags:
     """
@@ -54,6 +55,9 @@ class AnalyzeLags:
         self.lut_available = False
 
         self.run()
+
+    def get_lut(self):
+        return self.lut_lag_times_df
 
     def run(self):
         """Run the lag analysis"""
@@ -179,10 +183,7 @@ class AnalyzeLags:
 
     def generate_lut_time_lags(self):
 
-
         return lut_df, lut_available
-
-
 
     def make_lut_instantaneous(self, segment_lagtimes_df: pd.DataFrame, default_lag: int):
         """
@@ -247,10 +248,10 @@ class AnalyzeLags:
         return lut_df, lut_available
 
     def _remove_outliers(self, peaks_hq_S):
-        window_length = int(len(peaks_hq_S) / 20)
+        window_length = int(len(peaks_hq_S) / 70)
         zsr = zScoreRolling(
             series=peaks_hq_S,
-            thres_zscore=2,
+            thres_zscore=1.4,
             winsize=window_length,
             showplot=True,
             plottitle="z-score in a rolling window",
@@ -283,8 +284,12 @@ class AnalyzeLags:
         pandas DataFrame with default lag times for each day
 
         """
+
+        # Initiate empty LUT
         lut_df = pd.DataFrame()
-        peaks_hq_S = self.get_hq_peaks(df=self.lags)  # High-quality covariance peaks
+
+        # Find high-quality covariance peaks
+        peaks_hq_S = self.get_hq_peaks()
         peaks_hq_S = peaks_hq_S.sort_index(inplace=False)
         peaks_hq_S_cleaned = self._remove_outliers(peaks_hq_S)
 
@@ -294,8 +299,8 @@ class AnalyzeLags:
 
         unique_dates = np.unique(peaks_hq_S_cleaned.index.date)
         for this_date in unique_dates:
-            from_date = this_date - pd.Timedelta('1D')
-            to_date = this_date + pd.Timedelta('1D')
+            from_date = this_date - pd.Timedelta('2D')
+            to_date = this_date + pd.Timedelta('2D')
             filter_around_this_day = (peaks_hq_S_cleaned.index.date > from_date) & \
                                      (peaks_hq_S_cleaned.index.date <= to_date)
             subset = peaks_hq_S_cleaned[filter_around_this_day]
@@ -310,6 +315,10 @@ class AnalyzeLags:
             lut_df.loc[this_date, 'counts'] = subset.count()
             lut_df.loc[this_date, 'from'] = from_date
             lut_df.loc[this_date, 'to'] = to_date
+
+        # Make sure LUT has all dates between start and end dates
+        fullrange = pd.date_range(lut_df.index.min(), lut_df.index.max(), freq='d')
+        lut_df = lut_df.reindex(fullrange)
 
         # Filling missing median values with rolling median in a 5-day window, centered
         n_missing_medians = lut_df['median'].isnull().sum()
@@ -356,7 +365,7 @@ class AnalyzeLags:
         missing_df = df[filter_missing]
         return missing_df
 
-    def get_hq_peaks(self, df):
+    def get_hq_peaks(self):
         """
         Detect high-quality covariance peaks in results from last lag search iteration
 
@@ -373,6 +382,7 @@ class AnalyzeLags:
         pandas Series of high-quality lag times, given as number of records
 
         """
+        df = self.lags.copy()
         df.set_index('start', inplace=True)
         df.index = pd.to_datetime(df.index, format="mixed")
         peaks_hq_S = df.loc[df['PEAK-COVABSMAX_SHIFT'] == df['PEAK-AUTO_SHIFT'], 'PEAK-COVABSMAX_SHIFT']

@@ -259,6 +259,7 @@ class Dyco:
         self.logfile_path = None
         self.files_overview_df = pd.DataFrame()
         self.segment_lagtimes_df = pd.DataFrame()
+        self.lut_lag_times_df = pd.DataFrame()
 
         # Start scripts
         self._setup()
@@ -331,8 +332,8 @@ class Dyco:
         # # Step 2: Search files
         # self.files_overview_df = self._search_files()
 
-        # Step 3: Calculation of lag times for each file segment in input files
-        self.detect_lags()
+        # # Step 3: Calculation of lag times for each file segment in input files
+        # self.detect_lags()
         #
         # # Step 4: Analyses of results, create LUT
         # lut_success = self.analyze_lags()
@@ -394,23 +395,38 @@ class Dyco:
                               target_lag=self.target_lag,
                               logger=self.logger,
                               lags=segment_lagtimes_df)
-        return analyze.lut_available
 
-    def remove_lags(self, lut_success):
+        self.lut_lag_times_df = analyze.get_lut()
+
+        return
+
+    def remove_lags(self, filepath_lut: str = None):
         """
         Apply look-up table to normalize lag for each file
 
         Parameters
         ----------
-        lut_success: bool
-            If True, a look-up table was previously successfully generated.
+        filepath_lut:
 
         Returns
         -------
         None
         """
-        if lut_success:
-            RemoveLags(dyco_instance=self)
+        if filepath_lut:
+            lut_df = read_segment_lagtimes_file(filepath=filepath_lut)
+        else:
+            lut_df = self.segment_lagtimes_df  # TODO needs lut df
+
+        lut_df.index = pd.to_datetime(lut_df.index)
+
+        RemoveLags(lut=lut_df,
+                   files_overview_df=self.files_overview_df,
+                   data_timestamp_format=self.data_timestamp_format,
+                   outdirs=self.outdirs,
+                   var_target=self.var_target,
+                   lag_n_iter=self.lag_n_iter,
+                   logger=self.logger)
+
         return
 
 

@@ -31,38 +31,21 @@ class RemoveLags:
     Remove time lags: use look-up table to normalize time lags across files
     """
 
-    def __init__(self, dyco_instance):
-        self.files_overview_df = dyco_instance.files_overview_df
-        self.dat_recs_timestamp_format = dyco_instance.data_timestamp_format
-        self.outdirs = dyco_instance.outdirs
-        self.var_target = dyco_instance.var_target
-        self.lgs_num_iter = dyco_instance.lag_n_iter
+    def __init__(self, files_overview_df, data_timestamp_format, outdirs, var_target, lag_n_iter, logger, lut):
+        self.files_overview_df = files_overview_df
+        self.dat_recs_timestamp_format = data_timestamp_format
+        self.outdirs = outdirs
+        self.var_target = var_target
+        self.lgs_num_iter = lag_n_iter
+        self.logger=logger
+        self.lut_df = lut
 
-        self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
-
-        _dir = Path(self.outdirs[f'7_time_lags_lookup_table'])
-        file = Path('LUT_final_time_lags.csv')
-        self.lut_df = files.read_segment_lagtimes_file(filepath=_dir / file)
-        self.lut_col = 'INSTANTANEOUS_LAG'
-        # else:
-        #     Read default lag times for reference gas
-            # self.lut_df = self.read_lut_time_lags()
-            # self.lut_col = 'correction'
+        self.lut_col = 'correction'
 
         self.run()
 
     def run(self):
         """Run lag removal"""
-
-        # todo act If no new iteration data was created, skip normalization
-        if not self.new_iteration_data:
-            self.logger.warning("")
-            self.logger.warning(f"{'*' * 60}")
-            self.logger.warning(f"(!) No new iteration data was created in PHASE {self.phase} for {self.phase_files}.")
-            self.logger.warning(f"(!) Skipping PHASE {self.phase}, Step 4: no normalized files will be generated.")
-            self.logger.warning(f"{'*' * 60}")
-            self.logger.warning("")
-            return None
 
         # Loop files
         num_files = self.files_overview_df['file_available'].sum()
@@ -77,47 +60,23 @@ class RemoveLags:
             if file_info_row['file_available'] == 0:
                 continue
 
-            if not self.phase == 3:
-                this_date = file_info_row['start'].date()
-                this_date = pd.to_datetime(this_date)
-                shift_correction = self.lut_df.loc[this_date][self.lut_col]
-            else:
-                this_date = file_info_row['start']
-                # self.lut_df['file_date'] = pd.to_datetime(self.lut_df['file_date'])
+            this_date = file_info_row['start'].date()
+            this_date = pd.to_datetime(this_date)
+            shift_correction = self.lut_df.loc[this_date][self.lut_col]
 
-                # If time lags are calculated for segments shorter than the file they
-                # are part of, then there are more than one found lag times per file.
-                # Therefore, make list of all found time lags and calculate the median.
-                # In case segment length is the same as file length and there is only
-                # one lag time for this file, then the median has no effect.
-                self.lut_df.index = pd.to_datetime(self.lut_df.index)
-                shift_correction = self.lut_df.loc[self.lut_df.index == this_date, self.lut_col].to_list()
-                shift_correction = np.median(shift_correction)
+            # Read and prepare data file
+            data_df = files.read_raw_data(filepath=file_info_row['filepath'],
+                                          data_timestamp_format=self.dat_recs_timestamp_format)  # nrows for testing
 
-            if pd.isnull(shift_correction):
-                shift_correction = np.nan
-                txt_info += f"(!)No lag found in LUT for "
-            else:
-                # Read and prepare data file
-                data_df = files.read_raw_data(filepath=file_info_row['filepath'],
-                                              data_timestamp_format=self.dat_recs_timestamp_format)  # nrows for testing
+            shift_correction = int(shift_correction)
+            data_df = self.shift_var_target(df=data_df, shift=shift_correction)
+            data_df = data_df.fillna(-9999)
 
-                shift_correction = int(shift_correction)
-                data_df = self.shift_var_target(df=data_df,
-                                                shift=shift_correction)
-
-                if (self.phase == 1) | (self.phase == 2):
-                    # Save timestamp in file
-                    self.save_dyco_files(outdir=self.outdirs[f'7_normalized'],
-                                         original_filename=file_info_row['filename'],
-                                         df=data_df,
-                                         export_timestamp=True)
-                else:
-                    # No timestamp for final output files
-                    self.save_dyco_files(outdir=self.outdirs[f'7_normalized'],
-                                         original_filename=file_info_row['filename'],
-                                         df=data_df,
-                                         export_timestamp=False)
+            # No timestamp for final output files
+            self.save_dyco_files(outdir=self.outdirs[f'8_time_lags_corrected_files'],
+                                 original_filename=file_info_row['filename'],
+                                 df=data_df,
+                                 export_timestamp=False)
 
             time_needed = time.time() - start
             times_needed.append(time_needed)
