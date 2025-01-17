@@ -181,9 +181,6 @@ class AnalyzeLags:
         outpath = outdir / outfile
         lut.to_csv(f"{outpath}.csv")
 
-    def generate_lut_time_lags(self):
-
-        return lut_df, lut_available
 
     def make_lut_instantaneous(self, segment_lagtimes_df: pd.DataFrame, default_lag: int):
         """
