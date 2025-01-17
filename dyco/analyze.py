@@ -257,6 +257,18 @@ class AnalyzeLags:
             plottitle="z-score in a rolling window",
             verbose=True)
         zsr.calc(repeat=True)
+
+        fig = zsr.fig
+
+        # Save
+        outdir = self.outdirs[f'7_time_lags_lookup_table']
+        outfile = f"TIMESERIES-PLOT_segment_lag_times_FINAL_outlierRemoved"
+        outpath = outdir / outfile
+        # print(f"Saving time series of found segment lag times in {outpath} ...")
+        fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
+                    transparent=True, dpi=150)
+        plt.close(fig)
+
         flag = zsr.get_flag()
         peaks_hq_S_cleaned = peaks_hq_S.loc[flag == 0].copy()
         return peaks_hq_S_cleaned

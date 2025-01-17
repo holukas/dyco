@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from dyco import files, setup
+from dyco import files
 
 
 class RemoveLags:
@@ -37,7 +37,7 @@ class RemoveLags:
         self.outdirs = outdirs
         self.var_target = var_target
         self.lgs_num_iter = lag_n_iter
-        self.logger=logger
+        self.logger = logger
         self.lut_df = lut
 
         self.lut_col = 'correction'
@@ -70,7 +70,6 @@ class RemoveLags:
 
             shift_correction = int(shift_correction)
             data_df = self.shift_var_target(df=data_df, shift=shift_correction)
-            data_df = data_df.fillna(-9999)
 
             # No timestamp for final output files
             self.save_dyco_files(outdir=self.outdirs[f'8_time_lags_corrected_files'],
@@ -130,7 +129,7 @@ class RemoveLags:
         for col in self.var_target:
             outcol = f"{col}_DYCO"
             df[outcol] = df[col].shift(shift)  # Shift col by found lag
-            df.drop([col], axis=1, inplace=True)  # Remove col that was not shifted
+            # df.drop([col], axis=1, inplace=True)  # Remove col that was not shifted
         return df
 
     def read_lut_time_lags(self):
