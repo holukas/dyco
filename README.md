@@ -4,64 +4,97 @@
 
 [![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
 
-# DYCO - Dynamic Lag Compensation
+# dyco v2 - dynamic lag compensation
+
+`dyco` assists in removing time lags from time series data. Version `2.0.0` changes the previous workflow.
+
+`dyco` identifies and corrects time lags between variables. It iteratively searches for lags between two variables (
+e.g., `W` and `R`), starting with a broad time window and progressively narrowing it based on the distribution of found
+lags. This iterative refinement helps pinpoint consistent lags, suggesting strong covariance. Lag searches can be
+performed on short segments of a long file. After collecting all identified lags, `dyco` filters outliers and creates a
+look-up table of daily time lags. This table is then used to shift variables in the input files, correcting for the
+identified lags. While `R` is typically used for lag detection, the correction can be applied to other variables as
+needed. Lags are expressed in "number of records"; the corresponding time depends on the data's recording frequency.
+
+## Workflow in `v2`
+
+`dyco` detects the time lag between two variables, e.g. `W` and `R`. It begins by searching for this lag within a broad
+time window, for example, between -1000 and +1000 data points ([-1000, 1000]). This initial search is considered
+iteration 1.
+
+Next, DYCO analyzes the distribution of the identified time lags. It identifies the most frequent lag (the peak of the
+histogram, e.g., `-220`) and creates a smaller search window around it. For example, a new window like [-758, +196]
+might be defined. This narrowing process expands outward from the peak lag until a certain percentage of the data (e.g.,
+95%) is encompassed within the new window.
+
+The second iteration repeats the lag search process, but now using the refined, narrower time window. This process can
+be repeated multiple times, there is no limit for the number of iterations. However, it's important to monitor the size
+of the time window in each iteration to ensure it remains sufficiently large for accurate results.
+
+Across all iterations, all time lags found for `R` are collected. Time lags found for a specific file can appear
+multiple times in the collected results, depending on the number of iterations. This helps in identifying time lags that
+remain constant despite the continuously narrower time windows for lag search, indicating potentially high covariance
+between `W` and `R`.
+
+**Lag search can be done in segments per file**. For example, for a file with 30 minutes of data, the lag can be
+detected in three 10-minute segments, yielding three detected time lags for the respective file. Another example, for a
+file with 24 hours of data, the lag can be detected for 30-minute segments, yielding 48 time lags.
+
+After collecting all time lags across all iterations, `dyco` analyzes these results. It uses a Hampel filter to remove
+outliers, ensuring that only consistent and similar lags are retained. These filtered lags are then used to create a
+look-up table, providing time lag information for each day.
+
+The generated look-up table is then used to adjust the input data files. For each file, the corresponding time lag from
+the table is applied to shift one or more variables. While `R` is used for lag detection, the lag correction can be
+applied to `R` itself or to other variables of interest. This flexibility allows `dyco` to leverage a strong `R` signal
+for lag detection even if `R` itself is not the primary target for lag correction.
+
+Lag is always expressed as "number of records". If the underlying data were recorded at 20Hz, then 1000 records
+correspond to 50 seconds of measurements.
+
+### Processing steps in `v2`
+
+- **Step 1**: Prepare parameters and setup folder structure
+- **Step 2**: Detect lags between two variables across all files (optional: iteratively over multiple iterations)
+- **Step 3**: Analyze lags, create daily look-up table based on time lags found in Step 2
+- **Step 4**: Remove time lags from one or more variables in input files
+
+Results from all steps are stored to output folders in a specified output directory.
+
+## Motivation
 
 The lag detection between the turbulent departures of measured wind and the scalar of interest is a central step in the
 calculation of eddy covariance (EC) ecosystem fluxes. In case the covariance maximization fails to detect a clear peak
 in the covariance function between the wind and the scalar, current flux calculation software can apply a constant
 default (nominal) time lag to the respective scalar. However, both the detection of clear covariance peaks in a
 pre-defined time window and the definition of a reliable default time lag is challenging for compounds which are often
-characterized by low SNR, such as N<sub>2</sub>O. In addition, the application of one static default time lag may
-produce inaccurate results in case systematic time shifts are present in the raw data.
+characterized by low SNR (signal-to-noise ratio), such as N<sub>2</sub>O. In addition, the application of one static
+default time lag may produce inaccurate results in case systematic time shifts are present in the raw data.
 
-`DYCO` is meant to assist current flux processing software in the calculation of fluxes for compounds with low SNR. In
-the context of current flux processing schemes, the unique features offered as part of the `DYCO` package include:
+`dyco` is meant to assist current flux processing software in the calculation of fluxes for compounds with low SNR. In
+the context of current flux processing schemes, the unique features offered as part of the `dyco` package include:
 
 - (i) the dynamic application of progressively smaller time windows during lag search for a *reference* compound (e.g.
-  CO<sub>2</sub>),
+  turbulent departures of CO<sub>2</sub>, which often show a clear covariance peak with turbulent vertical wind),
 - (ii) the calculation of default time lags on a daily scale for the *reference* compound,
-- (iii) the application of daily default *reference* time lags to one or more *target* compounds (e.g. N<sub>2</sub>O)
-- (iv) the dynamic normalization of time lags across raw data files,
-- (v) the automatic correction of systematic time shifts in *target* raw data time series, e.g. due to failed
-  synchronization of instrument clocks, and
-- (vi) the application of instantaneous *reference* time lags, calculated from lag-normalized files, to one or more
-  *target* compounds.
+- (iii) the application of daily default *reference* time lags to one or more *target* compounds (e.g., the lag found
+  for CO<sub>2</sub> is removed from the N<sub>2</sub>O and CH<sub>4</sub> signals)
+- (iv) the dynamic compensation of time lags across raw data files, and
+- (v) the automatic correction of systematic time shifts/drifts in *target* raw data time series, e.g. due to failed
+  synchronization of instrument clocks.
 
-As `DYCO` aims to complement current flux processing schemes, final lag-removed files are produced that can be directly
+As `dyco` aims to complement current flux processing schemes, final lag-removed files are produced that can be directly
 used in current flux calculation software.
 
-## Scientific background
+## Processing chain in `dyco v2`
 
-In ecosystem research, the EC method is widely used to quantify the biosphere-atmosphere exchange of greenhouse gases (
-GHGs) and energy (Aubinet et al., 2012; Baldocchi et al., 1988). The raw ecosystem flux (i.e. net exchange) is
-calculated by the covariance between the turbulent vertical wind component measured by a sonic anemometer and the entity
-of interest, e.g. CO<sub>2</sub>, measured by a gas analyzer. Due to the application of two different instruments, wind
-and gas are not recorded at exactly the same time, resulting in a time lag between the two time series. For the
-calculation of ecosystem fluxes this time delay has to be quantified and corrected for, otherwise fluxes are
-systematically biased. Time lags for each averaging interval can be estimated by finding the maximum absolute covariance
-between the two turbulent time series at different time steps in a pre-defined time window of physically possible
-time-lags  (e.g., McMillen, 1988; Moncrieff et al., 1997). Lag detection works well when processing fluxes for compounds
-with high signal-to-noise ratio (SNR), which is typically the case for e.g. CO<sub>2</sub>. In contrast, for compounds
-with low SNR (e.g., N<sub>2</sub>O, CH<sub>4</sub>) the cross-covariance function with the turbulent wind component
-yields noisier results and calculated fluxes are biased towards larger absolute flux values (Langford et al., 2015),
-which in turn renders the accurate calculation of yearly ecosystem GHG budgets more difficult and results may be
-inaccurate.
+![dyco processing chain](images/dyco_processing_chain.png)
 
-One suggestion to adequately calculate fluxes for compounds with low SNR is to first calculate the time lag for a
-*reference* compound with high SNR (e.g. CO<sub>2</sub>) and then apply the same time lag to the *target* compound of
-interest (e.g. N<sub>2</sub>O), with both compounds being recorded by the same analyzer (Nemitz et al., 2018). `DYCO`
-follows up on this suggestion by facilitating the dynamic lag-detection between the turbulent wind data and a
-*reference* compound and the subsequent application of found *reference* time lags to one or more *target* compounds.
+**Figure 1.** *The processing chain in `dyco v2`.*
 
-## Processing chain
+`dyco` uses eddy covariance raw data files as input and produces lag-compensated raw data files as output.
 
-![DYCO processing chain](images/dyco_processing_chain.png)
-
-**Figure 1.** *The DYCO processing chain.*
-
-`DYCO` uses eddy covariance raw data files as input and produces lag-compensated raw data files as output.
-
-The full `DYCO` processing chain comprises four phases and several iterations during which *reference* lags are refined
+The full `dyco` processing chain comprises four phases and several iterations during which *reference* lags are refined
 iteratively in progressively smaller search windows (Figure 1). Generally, the *reference* lag search is facilitated by
 prior normalization of default (nominal) time lags across files. This is achieved by compensating *reference* and
 *target* time series data for daily default *reference* lags, calculated from high-quality *reference* lags available
@@ -88,15 +121,38 @@ selection of high-quality time lags, i.e. when cross-covariance analyses yielded
 normalization correction is applied dynamically to shift the CO<sub>2</sub> data so that the default time lag is found
 close to zero across files. Note the systematic shift in time lags starting after 27 Oct 2016.*
 
+## Scientific background
+
+In ecosystem research, the EC method is widely used to quantify the biosphere-atmosphere exchange of greenhouse gases (
+GHGs) and energy (Aubinet et al., 2012; Baldocchi et al., 1988). The raw ecosystem flux (i.e. net exchange) is
+calculated by the covariance between the turbulent vertical wind component measured by a sonic anemometer and the entity
+of interest, e.g. CO<sub>2</sub>, measured by a gas analyzer. Due to the application of two different instruments, wind
+and gas are not recorded at exactly the same time, resulting in a time lag between the two time series. For the
+calculation of ecosystem fluxes this time delay has to be quantified and corrected for, otherwise fluxes are
+systematically biased. Time lags for each averaging interval can be estimated by finding the maximum absolute covariance
+between the two turbulent time series at different time steps in a pre-defined time window of physically possible
+time-lags  (e.g., McMillen, 1988; Moncrieff et al., 1997). Lag detection works well when processing fluxes for compounds
+with high signal-to-noise ratio (SNR), which is typically the case for e.g. CO<sub>2</sub>. In contrast, for compounds
+with low SNR (e.g., N<sub>2</sub>O, CH<sub>4</sub>) the cross-covariance function with the turbulent wind component
+yields noisier results and calculated fluxes are biased towards larger absolute flux values (Langford et al., 2015),
+which in turn renders the accurate calculation of yearly ecosystem GHG budgets more difficult and results may be
+inaccurate.
+
+One suggestion to adequately calculate fluxes for compounds with low SNR is to first calculate the time lag for a
+*reference* compound with high SNR (e.g. CO<sub>2</sub>) and then apply the same time lag to the *target* compound of
+interest (e.g. N<sub>2</sub>O), with both compounds being recorded by the same analyzer (Nemitz et al., 2018). `dyco`
+follows up on this suggestion by facilitating the dynamic lag-detection between the turbulent wind data and a
+*reference* compound and the subsequent application of found *reference* time lags to one or more *target* compounds.
+
 ## Installation
 
-`DYCO` can be installed via pip:
+`dyco` can be installed via pip:
 
 `pip install dyco`
 
 ## Usage
 
-`DYCO` is run from the command line interface (CLI).
+`dyco` is run from the command line interface (CLI).
 
 `usage: dyco.py [-h] [-i INDIR] [-o OUTDIR] [-fnd FILENAMEDATEFORMAT]`
 `[-fnp FILENAMEPATTERN] [-flim LIMITNUMFILES] [-fgr FILEGENRES]`
@@ -108,7 +164,7 @@ close to zero across files. Note the systematic shift in time lags starting afte
 
 - Example usage with full arguments can be found here: [Example](https://github.com/holukas/dyco/wiki/Example)
 - For an overview of arguments see here: [Usage](https://github.com/holukas/dyco/wiki/Usage)
-- `DYCO` creates a range of output folders which are described
+- `dyco` creates a range of output folders which are described
   here: [Results Output Folders](https://github.com/holukas/dyco/wiki/Results-Output-Folders)
 
 ## Documentation
@@ -131,10 +187,10 @@ maximum absolute value. This works generally well when using CO<sub>2</sub> (hig
 accurately detect time lags between the two variables (noisy cross-correlation function), resulting in relatively noisy
 fluxes. However, since N<sub>2</sub>O has similar adsorption / desorption characteristics as CO<sub>2</sub> it is valid
 to assume that both compounds need approx. the same time to travel through the tube to the analyzer, i.e. the time lag
-for both compounds in relation to the wind is similar. Therefore, `DYCO` can be applied (i) to calculate time lags
+for both compounds in relation to the wind is similar. Therefore, `dyco` can be applied (i) to calculate time lags
 across files for CO<sub>2</sub> (*reference* compound), and then (ii) to remove found CO<sub>2</sub> time delays from
-the N<sub>2</sub>O signal (*target* compound). The lag-compensated files produced by `DYCO` can then be used to
-calculate N<sub>2</sub>O fluxes. Since `DYCO` normalizes time lags across files and compensated the N<sub>2</sub>O
+the N<sub>2</sub>O signal (*target* compound). The lag-compensated files produced by `dyco` can then be used to
+calculate N<sub>2</sub>O fluxes. Since `dyco` normalizes time lags across files and compensated the N<sub>2</sub>O
 signal for instantaneous CO<sub>2</sub> lags, the *true* lag between wind and N<sub>2</sub>O can be found close to zero,
 which in turn facilitates the application of a small time window for the final lag search during flux calculations.
 
@@ -143,7 +199,7 @@ characterized by sporadic high-emission events (e.g., Hörtnagl et al., 2018; Me
 2</sub>O quantities can be emitted during and after management events such as fertilizer application and ploughing,
 fluxes in between those events typically remain low and often below the limit-of-detection of the applied analyzer. In
 this case, calculating N<sub>2</sub>O fluxes works well during the high-emission periods (high SNR) but is challenging
-during the rest of the year (low SNR). Here, `DYCO` can be used to first calculate time lags for a *reference* gas
+during the rest of the year (low SNR). Here, `dyco` can be used to first calculate time lags for a *reference* gas
 measured in the same analyzer (e.g. CO<sub>2</sub>, CO, CH<sub>4</sub>)  and then remove *reference* time lags from the
 N<sub>2</sub>O data.
 
@@ -152,7 +208,7 @@ N<sub>2</sub>O data.
 All contributions in the form of code, bug reports, comments or general feedback are always welcome and greatly
 appreciated! Credit will always be given.
 
-- **Pull requests**: If you added new functionality or made the `DYCO` code run faster (always welcome), please create a
+- **Pull requests**: If you added new functionality or made the `dyco` code run faster (always welcome), please create a
   fork in GitHub, make the contribution public in your repo and then issue
   a [pull request](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork).
   Please include tests in your pull requests.
@@ -162,7 +218,7 @@ appreciated! Credit will always be given.
   the [issue tracker](https://github.com/holukas/dyco/issues) to submit it as an issue ticket with the label 'feature
   request'.
 - **Contact details**: For direct questions or enquiries the maintainer of this repository can be contacted directly by
-  writing an email with the title "DYCO" to: holukas@ethz.ch
+  writing an email with the title "dyco" to: holukas@ethz.ch
 
 ## Acknowledgements
 
