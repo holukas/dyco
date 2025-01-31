@@ -1,6 +1,14 @@
 # CHANGELOG
 
-## v2.0.0 | X Apr 2024
+## v2.0.0 | XX XXX 2025
+
+`dyco` assists in removing time lags from time series data. Version `2.0.0` changes the previous workflow.
+
+`dyco` identifies time delays between two time series and applies these findings to other related variables.
+
+
+
+
 
 - todo limit deviation from median in lookup table?
 
@@ -20,6 +28,8 @@ This update also implements [diive](https://github.com/holukas/diive) as a requi
 of this implementation is that existing (and better tested) code in `diive` does not have to be duplicated for `dyco`
 (although the copy-paste approach has its merits), the drawback is that yes there is another dependency. I will try
 not to break things.
+
+### Usage example
 
 ### Changes
 
