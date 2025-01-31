@@ -4,9 +4,9 @@
 
 [![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
 
-# dyco v2 - dynamic lag compensation
+# **dyco v2** - dynamic lag compensation
 
-`dyco` assists in removing time lags from time series data. Version `2.0.0` changes the previous workflow.
+Version `2.0.0` changes the previous workflow.
 
 `dyco` identifies and corrects time lags between variables. It iteratively searches for lags between two variables (
 e.g., `W` and `R`), starting with a broad time window and progressively narrowing it based on the distribution of found
