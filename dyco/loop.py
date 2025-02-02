@@ -221,7 +221,7 @@ class Loop:
                 # '2016-10-24 13:00:00.000000' as '2016-10-24 13:00:00' and therefore raises a ValueError.
                 ax.plot_date(pd.to_datetime(group_df['start'], format='mixed'), group_df['PEAK-COVABSMAX_SHIFT'],
                              alpha=alpha, fmt='o', ms=6, color=colors[int(idx - 1)], lw=0, ls='-',
-                             label=f'found lag times in iteration {int(idx)}', markeredgecolor='None')
+                             label=f'found lag times in iteration {int(idx)}', markeredgecolor='None', zorder=1)
 
             except ValueError as e:
                 print(e)
@@ -272,11 +272,11 @@ class Loop:
                 yrange_target = (row_data['target_lag'] - yrange_offset, yrange_offset * 2)
                 if make_label:
                     # Found lag times
-                    ax.broken_barh([xrange], yrange, facecolors='#FDD835', alpha=1, edgecolor='None',
+                    ax.broken_barh([xrange], yrange, facecolors='#FDD835', alpha=.8, edgecolor='None',
                                    label='5-day median lag time (centered)\nfrom high-quality covariance peaks')
 
                     # Lag times after normalization
-                    ax.broken_barh([xrange], yrange_target, facecolors='#8BC34A', alpha=1, edgecolor='None',
+                    ax.broken_barh([xrange], yrange_target, facecolors='#8BC34A', alpha=.8, edgecolor='None',
                                    label='daily default lag after normalization')
 
                     # Correction arrow
@@ -285,7 +285,8 @@ class Loop:
                         arrow = mpatches.FancyArrowPatch(
                             (current_date + pd.Timedelta(hours=12), row_data['median']),
                             (current_date + pd.Timedelta(hours=12), row_data['target_lag']),
-                            mutation_scale=20, edgecolor='None', label='normalization correction')
+                            mutation_scale=10, edgecolor='None', label='normalization correction',
+                            alpha=.9)
                         ax.add_patch(arrow)
                         make_label = False
                     except:
@@ -293,13 +294,13 @@ class Loop:
 
                 else:
                     try:
-                        ax.broken_barh([xrange], yrange, facecolors='#FDD835', alpha=1, edgecolor='None')
-                        ax.broken_barh([xrange], yrange_target, facecolors='#8BC34A', alpha=1, edgecolor='None')
+                        ax.broken_barh([xrange], yrange, facecolors='#FDD835', alpha=.8, edgecolor='None')
+                        ax.broken_barh([xrange], yrange_target, facecolors='#8BC34A', alpha=.8, edgecolor='None')
                         try:
                             arrow = mpatches.FancyArrowPatch(
                                 (current_date + pd.Timedelta(hours=12), row_data['median']),
                                 (current_date + pd.Timedelta(hours=12), row_data['target_lag']),
-                                mutation_scale=20, edgecolor='None')
+                                mutation_scale=10, edgecolor='None', alpha=.9)
                             ax.add_patch(arrow)
                         except:
                             pass
