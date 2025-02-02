@@ -43,6 +43,8 @@ class AnalyzeLags:
                  outdirs,
                  target_lag,
                  logger,
+                 outlier_winsize,
+                 outlier_thres_zscore,
                  lags: pd.DataFrame):
 
         self.lgs_num_iter = lgs_num_iter
@@ -50,6 +52,9 @@ class AnalyzeLags:
         self.target_lag = target_lag
         self.logger = logger
         self.lags = lags.copy()
+
+        self.outlier_winsize = outlier_winsize
+        self.outlier_thres_zscore = outlier_thres_zscore
 
         self.lut_lag_times_df = pd.DataFrame()
         self.lut_available = False
@@ -245,11 +250,11 @@ class AnalyzeLags:
         return lut_df, lut_available
 
     def _remove_outliers(self, peaks_hq_S):
-        window_length = int(len(peaks_hq_S) / 70)
+        self.outlier_winsize = int(len(peaks_hq_S) / 70) if not self.outlier_winsize else self.outlier_winsize
         zsr = zScoreRolling(
             series=peaks_hq_S,
-            thres_zscore=1.4,
-            winsize=window_length,
+            thres_zscore=self.outlier_thres_zscore,
+            winsize=self.outlier_winsize,
             showplot=True,
             plottitle="z-score in a rolling window",
             verbose=True)

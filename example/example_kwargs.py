@@ -72,8 +72,8 @@ def example():
          lag_segment_dur=DATA_SPLIT_DURATION,
          lag_winsize=1000,
          lag_n_iter=3,
-         remove_histogram_fringe_bins=True,
-         histogram_percentage_threshold=0.7,
+         lag_hist_remove_fringe_bins=True,
+         lag_hist_perc_thres=0.7,
          target_lag=0,
          del_previous_results=True)
 

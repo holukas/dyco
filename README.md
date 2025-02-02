@@ -1,8 +1,4 @@
-![Normalization example](images/logo_dyco1_256px.png)
-
-[![DOI](status.svg)](https://doi.org/10.21105/joss.02575)
-
-[![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
+![Logo](images/logo_dyco1_256px.png)
 
 # **dyco v2** - dynamic lag compensation
 
@@ -22,7 +18,7 @@ needed. Lags are expressed in "number of records"; the corresponding time depend
 time window, for example, between -1000 and +1000 data points ([-1000, 1000]). This initial search is considered
 iteration 1.
 
-Next, DYCO analyzes the distribution of the identified time lags. It identifies the most frequent lag (the peak of the
+Next, `dyco` analyzes the distribution of the identified time lags. It identifies the most frequent lag (the peak of the
 histogram, e.g., `-220`) and creates a smaller search window around it. For example, a new window like [-758, +196]
 might be defined. This narrowing process expands outward from the peak lag until a certain percentage of the data (e.g.,
 95%) is encompassed within the new window.
@@ -51,6 +47,10 @@ for lag detection even if `R` itself is not the primary target for lag correctio
 
 Lag is always expressed as "number of records". If the underlying data were recorded at 20Hz, then 1000 records
 correspond to 50 seconds of measurements.
+
+todo drifting lag
+todo what means negative lag
+
 
 ### Processing steps in `v2`
 
@@ -224,6 +224,10 @@ appreciated! Credit will always be given.
 
 This work was supported by the Swiss National Science Foundation SNF (ICOS CH, grant nos. 20FI21_148992, 20FI20_173691)
 and the EU project Readiness of ICOS for Necessities of integrated Global Observations RINGO (grant no. 730944).
+
+## Notes
+A previous version of `dyco` was used in a publication in JOSS.
+[![DOI](status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
 
 ## References
 
