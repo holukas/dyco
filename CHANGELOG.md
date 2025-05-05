@@ -41,11 +41,6 @@ For a more detailed explanation of the `dyco` processing chain please see the [R
 - Parquet files can now be used for data input. If found files have the extension `.parquet`, the correct function to
   read the file is used.
 
-### References
-
-- Langford, B., Acton, W., Ammann, C., Valach, A. & Nemitz, E. Eddy-covariance data with low signal-to-noise ratio:
-  time-lag determination, uncertainties and limit of detection. Atmos. Meas. Tech. 8, 4197–4213 (2015).
-
 ## v1.2.0 | 6 Mar 2024
 
 - Refactored code to work with newest package versions
