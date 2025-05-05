@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v2.0.2 | 5 May 2025
+## v2.0.3 | 5 May 2025
 
 `dyco` uses eddy covariance raw data files as input and produces lag-compensated raw data files as output.
 
