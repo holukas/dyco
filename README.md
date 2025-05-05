@@ -176,6 +176,11 @@ follows up on this suggestion by facilitating the dynamic lag-detection between 
 
 ## Usage
 
+Currently `dyco` needs input files where the vertical wind component and the scalars of interest were already rotated (
+2D wind rotation to obtain turbulent departures for wind and scalars). In the example below this rotation was done using
+the class `FileSplitterMulti` from the Python library [diive](https://github.com/holukas/diive). This class can split
+longer files into shorter files and rotate variables in the same step.
+
 ### Code
 
 The class `Dyco` can be used in code. See class docstring for more details.
@@ -183,8 +188,8 @@ The class `Dyco` can be used in code. See class docstring for more details.
 ```python
 from dyco.dyco import Dyco
 
-Dyco(var_reference="W_[R350-B]_TURB",
-     var_lagged="CH4_DRY_[QCL-C2]_TURB",
+Dyco(var_reference="W_[R350-B]_TURB",  # Turbulent departures of the vertical wind component from the sonic anemometer
+     var_lagged="CH4_DRY_[QCL-C2]_TURB",  # Turbulent departures of the CH4 mixing ratio
      var_target=["CH4_DRY_[QCL-C2]_TURB", "N2O_DRY_[QCL-C2]_TURB"],
      indir=r"F:\example\input_files",
      outdir=r"F:\example\output",
