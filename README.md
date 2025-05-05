@@ -208,6 +208,80 @@ Dyco(var_reference="W_[R350-B]_TURB",
 
 `dyco` can be run from the command line interface (CLI).
 
+#### General CLI usage:
+
+```
+usage: dyco.py [-h] 
+
+var_reference     
+    Column name of the unlagged reference variable in the data files (one-row header). 
+    Lags are determined in relation to this signal. 
+
+var_lagged
+    Column name of the lagged variable in the data files (one-row header).
+    The time lag of this signal is determined in relation to the reference signal var_reference. 
+
+var_target [var_target2, var_target3 ...]
+    Column name(s) of the target variable(s). Column names of the variables the lag that was 
+    found between var_reference and var_lagged should be applied to. Example: var1 var2 var3
+
+[-i INDIR]
+    Path to the source folder that contains the data files, e.g. C:/dyco/input
+
+[-o OUTDIR]
+    Path to output folder, e.g. C:/bico/output
+
+[-fnd FILENAMEDATEFORMAT]
+    Filename date format as datetime format strings. Is used to parse the date and time info from
+    the filename of found files. The filename(s) of the files found in INDIR must contain 
+    datetime information. Example for data files named like 20161015123000.csv: %%Y%%m%%d%%H%%M%%S
+
+[-fnp FILENAMEPATTERN]
+    Filename pattern for raw data file search, e.g. *.csv
+
+[-flim LIMITNUMFILES]
+    Defines how many of the found files should be used. Must be 0 or a positive integer. 
+    If set to 0, all found files will be used.
+    
+[-fgr FILEGENRES]
+    File generation resolution. Example for data files that were generated every 30 minutes: 30min
+    
+[-fdur FILEDURATION]
+    Duration of one data file. Example for data files containing 30 minutes of data: 30min
+  
+[-dtf DATATIMESTAMPFORMAT]
+    Timestamp format for each row record in the data files. 
+    Example for high-resolution timestamps like 2016-10-24 10:00:00.024999: %%Y-%%m-%%d %%H:%%M:%%S.%%f
+    
+[-dres DATANOMINALTIMERES]
+    Nominal (expected) time resolution of data records in the files, given as one record
+    every x seconds. Example for files recorded at 20Hz: 0.05
+
+[-lss LSSEGMENTDURATION]
+    Segment duration for lag determination. Can be the same as or shorter than FILEDURATION.
+    
+[-lsw LSWINSIZE]
+    Initial size of the time window in which the lag is searched given as number of records.
+
+[-lsi LSNUMITER]
+    Number of lag search iterations in Phase 1 and Phase 2. Must be larger than 0.
+
+[-lsf {0,1}]
+    Remove fringe bins in histogram of found lag times. Set to 1 if fringe bins should be removed.
+
+[-lsp LSPERCTHRES]
+    Cumulative percentage threshold in histogram of found lag times.
+
+[-lt TARGETLAG]
+    The target lag given in records to which lag times of all variables in var_target are normalized.
+
+[-del {0,1}]
+    If set to 1, delete all previous results in INDIR.
+ 
+```
+
+#### Example:
+
 ```bash
 python dyco.py W_[R350-B]_TURB CH4_DRY_[QCL-C2]_TURB CH4_DRY_[QCL-C2]_TURB N2O_DRY_[QCL-C2]_TURB 
 -i F:\example\input_files 
@@ -226,42 +300,6 @@ python dyco.py W_[R350-B]_TURB CH4_DRY_[QCL-C2]_TURB CH4_DRY_[QCL-C2]_TURB N2O_D
 -lsp 0.7
 -lt 0
 -del 0
-```
-
-General CLI usage:
-
-```
-usage: dyco.py [-h] 
-var_reference     Column name of the unlagged reference variable in the data files (one-row
-                  header). Lags are determined in relation to this signal. 
-var_lagged        Column name of the lagged variable in the data files (one-row header). The
-                  time lag of this signal is determined in relation to the reference 
-                  signal var_reference. 
-var_target [var_target2, var_target3 ...] ... Column name(s) of the target variable(s). Column
-                  names of the variables the lag that was found between var_reference and 
-                  var_lagged should be applied to. Example: var1 var2 var3
-[-i INDIR]        Path to the source folder that contains the data files, e.g. C:/dyco/input
-[-o OUTDIR]       Path to output folder, e.g. C:/bico/output
-[-fnd FILENAMEDATEFORMAT]     Filename date format as datetime format strings. Is used to parse
-                  the date and time info from the filename of found files. The filename(s) of the
-                  files found in INDIR must contain datetime information.
-                  Example for data files named like 20161015123000.csv: %%Y%%m%%d%%H%%M%%S
-[-fnp FILENAMEPATTERN]        Filename pattern for raw data file search, e.g. *.csv
-[-flim LIMITNUMFILES]         Defines how many of the found files should be used. Must be 0 or a
-                  positive integer. If set to 0, all found files will be used.
-[-fgr FILEGENRES]             File generation resolution. Example for data files that were 
-                  generated every 30 minutes: 30min
-[-fdur FILEDURATION]
-[-dtf DATATIMESTAMPFORMAT]
-[-dres DATANOMINALTIMERES]
-[-lss LSSEGMENTDURATION]
-[-lsw LSWINSIZE]
-[-lsi LSNUMITER]
-[-lsf {0,1}]
-[-lsp LSPERCTHRES]
-[-lt TARGETLAG]
-[-del {0,1}]`
- 
 ```
 
 ## Real-world examples
