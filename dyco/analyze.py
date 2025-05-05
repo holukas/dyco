@@ -186,7 +186,6 @@ class AnalyzeLags:
         outpath = outdir / outfile
         lut.to_csv(f"{outpath}.csv")
 
-
     def make_lut_instantaneous(self, segment_lagtimes_df: pd.DataFrame, default_lag: int):
         """
         Generate instantaneous lag look-up table that contains the found lag time
@@ -330,8 +329,12 @@ class AnalyzeLags:
             lut_df.loc[this_date, 'from'] = from_date
             lut_df.loc[this_date, 'to'] = to_date
 
+        # Detect first and last dates for look-up table
+        firstdate = pd.to_datetime(self.lags['start'].iloc[0]).date()
+        lastdate = pd.to_datetime(self.lags['end'].iloc[-1]).date()
+
         # Make sure LUT has all dates between start and end dates
-        fullrange = pd.date_range(lut_df.index.min(), lut_df.index.max(), freq='d')
+        fullrange = pd.date_range(firstdate, lastdate, freq='d')
         lut_df = lut_df.reindex(fullrange)
 
         # Filling missing median values with rolling median in a 5-day window, centered
@@ -349,13 +352,20 @@ class AnalyzeLags:
         self.logger.info(f"Created look-up table for {len(lut_df.index)} dates")
         self.logger.info(f"    First date: {lut_df.index[0]}    Last date: {lut_df.index[-1]}")
 
+        # Fill small gaps for correction
+        missing_df = self.check_missing(df=lut_df, col='correction')
+        if not missing_df.empty:
+            lut_df['correction'] = lut_df['correction'].ffill(limit=1)
+            lut_df['correction'] = lut_df['correction'].bfill(limit=1)
+            self.logger.warning(f"(!) Missing corrections for days: {missing_df.index.to_list()}\n"
+                                f"(!) Using correction values from directly adjacent day.")
+
         # Fill gaps in 'correction'
-        missing_df = self.check_missing(df=lut_df,
-                                        col='correction')
-        self.logger.warning(f"No correction could be generated from data for dates: {missing_df.index.to_list()}")
-        self.logger.warning(f"Filling missing corrections for dates: {missing_df.index.to_list()}")
-        lut_df['correction'] = lut_df['correction'].ffill(limit=1)
-        lut_df['correction'] = lut_df['correction'].bfill(limit=1)
+        missing_df = self.check_missing(df=lut_df, col='correction')
+        if not missing_df.empty:
+            self.logger.warning(
+                f"(!) No correction could be generated from data for dates: {missing_df.index.to_list()}")
+
         # lut_df['correction'] = lut_df['correction'].fillna(method='ffill', inplace=False, limit=1)  # deprecated
 
         lut_available = True

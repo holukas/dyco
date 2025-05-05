@@ -45,8 +45,10 @@ the table is applied to shift one or more variables. While `R` is used for lag d
 applied to `R` itself or to other variables of interest. This flexibility allows `dyco` to leverage a strong `R` signal
 for lag detection even if `R` itself is not the primary target for lag correction.
 
-Lag is always expressed as "number of records". If the underlying data were recorded at 20Hz, then 1000 records
+**Lag is always expressed as "number of records".** If the underlying data were recorded at 20Hz, then 1000 records
 correspond to 50 seconds of measurements.
+
+
 
 todo drifting lag
 todo what means negative lag
