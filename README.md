@@ -61,17 +61,20 @@ narrower time window from the previous step. This process can be repeated multip
 number of iterations. However, it's important to monitor the size of the time window in each iteration to ensure it
 remains sufficiently large for accurate results.
 
-![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
-**Figure 3**. _Histogram displaying the distribution of identified time lags after the third iteration within a narrowed
-time window of [-482, -26] records. Minimal window shortening was needed in previous iterations as the initial range
-of [-500, 0] was well-suited._
-
 ### Step 4: Collect results across all iterations
 
 Across all iterations, all time lags found for `R` are collected. Time lags found for a specific file can appear
 multiple times in the collected results, depending on the number of iterations. This helps in identifying time lags that
 remain constant despite the continuously narrower time windows for lag search, indicating potentially high covariance
 between `W` and `R`.
+
+![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
+**Figure 3**. _Histogram displaying the distribution of identified time lags after the third iteration within a narrowed
+time window of [-482, -26] records. Minimal window shortening was needed in previous iterations as the initial range
+of [-500, 0] was well-suited. Note the number of found lag times: this number also includes lags from all previous
+iterations._
+
+![Logo](images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL.png)
 
 After collecting all time lags across all iterations, `dyco` analyzes these results. It uses a Hampel filter to remove
 outliers, ensuring that only consistent and similar lags are retained. These filtered lags are then used to create a
