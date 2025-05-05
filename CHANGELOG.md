@@ -1,10 +1,10 @@
 # CHANGELOG
 
-## v2.0.0 | 5 May 2025
+## v2.0.1 | 5 May 2025
 
 `dyco` uses eddy covariance raw data files as input and produces lag-compensated raw data files as output.
 
-Version `2.0.0` changes the previous workflow.
+Version `2` changes the previous workflow.
 
 `dyco` identifies and corrects time lags between variables. It iteratively searches for lags between two variables,
 e.g., `W` (turbulent vertical wind) and `S` (scalar used for time lag detection, e.g. CO<sub>2</sub> or CH<sub>4</sub>),
