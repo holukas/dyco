@@ -56,7 +56,7 @@ correspond to 50 seconds of measurements.
 
 
 
-### Processing steps in `v2`
+## Processing steps in `v2`
 
 - **Step 1**: Prepare parameters and setup folder structure
 - **Step 2**: Detect lags between two variables across all files (optional: iteratively over multiple iterations)
@@ -64,6 +64,14 @@ correspond to 50 seconds of measurements.
 - **Step 4**: Remove time lags from one or more variables in input files
 
 Results from all steps are stored to output folders in a specified output directory.
+
+![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-1.png)
+
+![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-2.png)
+
+![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
+
+![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_FINAL.png)
 
 ## Motivation
 
