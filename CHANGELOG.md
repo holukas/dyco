@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v2.0.1 | 5 May 2025
+## v2.0.2 | 5 May 2025
 
 `dyco` uses eddy covariance raw data files as input and produces lag-compensated raw data files as output.
 
@@ -20,7 +20,7 @@ implementation is that existing (and better tested) code in `diive` does not hav
 (although the copy-paste approach has its merits), the drawback is that yes there is another dependency. I will try
 not to break things.
 
-For a more detailed explanation of the `dyco` processing chain please see the [README](README.md).
+For a more detailed explanation of the `dyco` processing chain please see the [README](https://github.com/holukas/dyco/blob/main/README.md).
 
 ### Changes
 

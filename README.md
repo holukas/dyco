@@ -1,4 +1,4 @@
-![Logo](https://github.com/holukas/dyco/blob/main/images/logo_dyco1_256px.png)
+![Logo](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/logo_dyco1_256px.png)
 
 # **dyco v2** - dynamic lag compensation
 
@@ -41,7 +41,7 @@ records.
 detected in three 10-minute segments, yielding three detected time lags for the respective file. Another example, for a
 file with 24 hours of data, the lag can be detected for 30-minute segments, yielding 48 time lags.
 
-![Logo](https://github.com/holukas/dyco/blob/main/images/dyco_v2_fig_covariance_20230517102000_segment3_iter1_segment_3_iteration-1.png)
+![Covariance](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_fig_covariance_20230517102000_segment3_iter1_segment_3_iteration-1.png)
 **Figure 1**. _Results from the covariance calculation (iteration 1) between turbulent vertical wind and turbulent CH4
 mixing ratios from the subcanopy station [CH-DAS](https://www.swissfluxnet.ethz.ch/index.php/sites/site-info-ch-das/) on
 17 May 2023. Time lag was searched between `-500` and `0` records in a 10MIN segment between 10:20 and 10:30, extracted
@@ -55,7 +55,7 @@ histogram, e.g., `-220`) and creates a smaller search window around it. For exam
 might be defined. This narrowing process expands outward from the peak lag until a certain percentage of the data (e.g.,
 95%) is encompassed within the new window.
 
-![Logo](https://github.com/holukas/dyco/blob/main/images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-1.png)
+![Histogram](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-1.png)
 **Figure 2**. _Histogram of found time lags (iteration 1) between turbulent vertical wind and turbulent CH4 mixing
 ratios using a search window of [-500, 0] records. This example used 6919 data files between 12 May 2023 and 31 Dec
 2023, recorded at 30MIN time resolution. The lag was detected in 10MIN segments for each file, i.e., covariance
@@ -79,13 +79,13 @@ multiple times in the collected results, depending on the number of iterations. 
 remain constant despite the continuously narrower time windows for lag search, indicating potentially high covariance
 between `W` and `S`.
 
-![Logo](https://github.com/holukas/dyco/blob/main/images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
+![Histogram](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
 **Figure 3**. _Histogram displaying the distribution of identified time lags after the third iteration within a narrowed
 time window of [-482, -26] records. Minimal window shortening was needed in previous iterations as the initial range
 of [-500, 0] was well-suited. Note the number of found lag times: this number also includes lags from all previous
 iterations._
 
-![Logo](https://github.com/holukas/dyco/blob/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL.png)
+![Time series plot](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL.png)
 **Figure 4**. _Time series plot of all found time lags across all files and iterations. An accumulation of found time
 lags around lag -200 is clearly visible. The time lags are not constant but show a clear drift._
 
@@ -94,7 +94,7 @@ lags around lag -200 is clearly visible. The time lags are not constant but show
 After collecting all time lags across all iterations, `dyco` analyzes these results. It uses a Hampel filter to remove
 outliers, ensuring that only consistent and similar lags are retained.
 
-![Logo](https://github.com/holukas/dyco/blob/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL_outlierRemoved.png)
+![Outlier removal](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL_outlierRemoved.png)
 **Figure 5**. _Application of a Hampel filter for outlier removal to retain consistent and similar lags. The lower left
 panel shows found time lags after outlier removal. These lags are used to create a look-up table._
 
@@ -107,7 +107,7 @@ the table is applied to shift one or more variables. While `S` is used for lag d
 applied to `S` itself or to other variables of interest. This flexibility allows `dyco` to leverage a strong `S` signal
 for lag detection even if `S` itself is not the primary target for lag correction.
 
-![Logo](https://github.com/holukas/dyco/blob/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times2_FINAL.png)
+![Time series](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times2_FINAL.png)
 **Figure 6**. _Time series of found time lags across all iterations and files. The 5-day median was calculated from
 found high-quality time lags (when cross-covariance analyses yielded a clear covariance peak) after outlier removal and
 is used to shift each scalar of interest (e.g., CH4) in each data file by the respective number of records. The 5-day
