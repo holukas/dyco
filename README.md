@@ -1,5 +1,8 @@
 ![Logo](images/logo_dyco1_256px.png)
 
+todo drifting lag
+todo what means negative lag
+
 # **dyco v2** - dynamic lag compensation
 
 Version `2.0.0` changes the previous workflow.
@@ -50,8 +53,7 @@ correspond to 50 seconds of measurements.
 
 
 
-todo drifting lag
-todo what means negative lag
+
 
 
 ### Processing steps in `v2`
