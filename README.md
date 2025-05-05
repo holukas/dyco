@@ -232,24 +232,25 @@ General CLI usage:
 
 ```
 usage: dyco.py [-h] 
-var_reference     Column name of the unlagged reference variable in the data files (one-row header). 
-                  Lags are determined in relation to this signal. 
-var_lagged        Column name of the lagged variable in the data files (one-row header). The time lag of this
-                  signal is determined in relation to the reference signal var_reference. 
-var_target [var_target2, var_target3 ...] ... Column name(s) of the target variable(s). Column names of
-                  the variables the lag that was found between var_reference and var_lagged should be applied to. 
-                  Example: var1 var2 var3
+var_reference     Column name of the unlagged reference variable in the data files (one-row
+                  header). Lags are determined in relation to this signal. 
+var_lagged        Column name of the lagged variable in the data files (one-row header). The
+                  time lag of this signal is determined in relation to the reference 
+                  signal var_reference. 
+var_target [var_target2, var_target3 ...] ... Column name(s) of the target variable(s). Column
+                  names of the variables the lag that was found between var_reference and 
+                  var_lagged should be applied to. Example: var1 var2 var3
 [-i INDIR]        Path to the source folder that contains the data files, e.g. C:/dyco/input
 [-o OUTDIR]       Path to output folder, e.g. C:/bico/output
-[-fnd FILENAMEDATEFORMAT]     Filename date format as datetime format strings. Is used to parse the date and 
-                              time info from the filename of found files. The filename(s) of the files found 
-                              in INDIR must contain datetime information. 
-                              Example for data files named like 20161015123000.csv: %%Y%%m%%d%%H%%M%%S
+[-fnd FILENAMEDATEFORMAT]     Filename date format as datetime format strings. Is used to parse
+                  the date and time info from the filename of found files. The filename(s) of the
+                  files found in INDIR must contain datetime information.
+                  Example for data files named like 20161015123000.csv: %%Y%%m%%d%%H%%M%%S
 [-fnp FILENAMEPATTERN]        Filename pattern for raw data file search, e.g. *.csv
-[-flim LIMITNUMFILES]         Defines how many of the found files should be used. Must be 0 or a positive integer.
-                              If set to 0, all found files will be used.
-[-fgr FILEGENRES]             File generation resolution. Example for data files that were generated 
-                              every 30 minutes: 30min
+[-flim LIMITNUMFILES]         Defines how many of the found files should be used. Must be 0 or a
+                  positive integer. If set to 0, all found files will be used.
+[-fgr FILEGENRES]             File generation resolution. Example for data files that were 
+                  generated every 30 minutes: 30min
 [-fdur FILEDURATION]
 [-dtf DATATIMESTAMPFORMAT]
 [-dres DATANOMINALTIMERES]
