@@ -1,35 +1,28 @@
 # CHANGELOG
 
-## v2.0.0 | XX XXX 2025
+## v2.0.0 | 5 May 2025
 
 `dyco` assists in removing time lags from time series data. Version `2.0.0` changes the previous workflow.
 
-`dyco` identifies time delays between two time series and applies these findings to other related variables.
+`dyco` uses eddy covariance raw data files as input and produces lag-compensated raw data files as output.
 
+Version `2` changes the previous workflow.
 
+`dyco` identifies and corrects time lags between variables. It iteratively searches for lags between two variables,
+e.g., `W` (turbulent vertical wind) and `S` (scalar used for time lag detection, e.g. CO<sub>2</sub> or CH<sub>4</sub>),
+starting with a broad time window and progressively narrowing it based on the distribution of found lags. This iterative
+refinement helps pinpoint consistent lags, suggesting strong covariance. Lag searches can be performed on short segments
+of a long file. After collecting all identified lags, `dyco` filters outliers and creates a look-up table of daily time
+lags. This table is then used to shift variables in the input files, correcting for the identified lags. While `S` is
+typically used for lag detection, the correction can be applied to other variables as needed. Lags are expressed in "
+number of records"; the corresponding time depends on the data's recording frequency.
 
-
-
-- todo limit deviation from median in lookup table?
-
-At one of our research sites both of these issues occured at the same time: very low fluxes in combination with
-drifting/inconsistent time lags.
-
-The main motivation for new udpates to `dyco` is the observation of drifting time lags at some of our stations.
-These lag drifts are rare, but when they occur they hinder our ability to calculate reliable ecosystem fluxes
-using the eddy covariance (EC) method.
-
-Another challenging aspect when calculating fluxes with the EC method is the occurrence of *very low (close to zero)
-fluxes*. These fluxes are characterized by a very low signal-to-noise ratio, which in turn makes it challenging to find
-a "maximum covariance", leading to a **mirroring** effect (see Fig. 8 in Langford et al., 2005). `dyco` can assist
-in setting an adequate default time lag and a lag window as narrow as possible.
-
-This update also implements [diive](https://github.com/holukas/diive) as a required dependency. The advantage
-of this implementation is that existing (and better tested) code in `diive` does not have to be duplicated for `dyco`
+This update also implements [diive](https://github.com/holukas/diive) as a required dependency. The advantage of this
+implementation is that existing (and better tested) code in `diive` does not have to be duplicated for `dyco`
 (although the copy-paste approach has its merits), the drawback is that yes there is another dependency. I will try
 not to break things.
 
-### Usage example
+For a more detailed explanation of the `dyco` processing chain please see the [README](README.md).
 
 ### Changes
 
