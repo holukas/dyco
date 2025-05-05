@@ -3,7 +3,7 @@ name = "dyco"
 version = "2.0.0"
 description = "Dynamic lag compensation"
 authors = [
-    {name = "Lukas Hörtnagl",email = "lukas.hoertnagl@usys.ethz.ch"}
+    { name = "Lukas Hörtnagl", email = "lukas.hoertnagl@usys.ethz.ch" }
 ]
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
@@ -11,8 +11,8 @@ dependencies = [
     "pandas (>=2.2.3,<3.0.0)",
     "matplotlib (>=3.8.3)",
     "scipy (>=1.12.0)",
-	# deactivate next line during dev, activate only for production
-	#diive = ">=0.86.0"	
+    # deactivate next line during dev, activate only for production
+    "diive (>=0.86.0)"
 ]
 
 
@@ -21,4 +21,4 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
-diive = { path = "../../21 - DIIVE/diive", develop = true }
+#diive = { path = "../../21 - DIIVE/diive", develop = true }
