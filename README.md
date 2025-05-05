@@ -17,6 +17,8 @@ needed. Lags are expressed in "number of records"; the corresponding time depend
 
 ## Workflow in `v2`
 
+### Step 1: Detect time lags across all files
+
 `dyco` detects the time lag between two variables, e.g. `W` and `R`. It begins by searching for this lag within a broad
 time window, for example, between -1000 and +1000 data points ([-1000, 1000]). This initial search is considered
 iteration 1.
@@ -29,20 +31,42 @@ detected in three 10-minute segments, yielding three detected time lags for the 
 file with 24 hours of data, the lag can be detected for 30-minute segments, yielding 48 time lags.
 
 ![Logo](images/dyco_v2_fig_covariance_20230517102000_segment3_iter1_segment_3_iteration-1.png)
-**Figure 1**. _Results from the covariance calculation between turbulent vertical wind and turbulent CH4 mixing ratios
-from the subcanopy station [CH-DAS](https://www.swissfluxnet.ethz.ch/index.php/sites/site-info-ch-das/) on 17 May 2023.
-Time lag was searched between `-500` and `0` records in a 10MIN segment extracted from a 30MIN data file. Peak absolute
-covariance was found at lag `-246`, which means that `R` (CH4) arrived 246 records after `W` (vertical wind) at the
-sensor._
+**Figure 1**. _Results from the covariance calculation (iteration 1) between turbulent vertical wind and turbulent CH4
+mixing ratios from the subcanopy station [CH-DAS](https://www.swissfluxnet.ethz.ch/index.php/sites/site-info-ch-das/) on
+17 May 2023. Time lag was searched between `-500` and `0` records in a 10MIN segment extracted from a 30MIN data file.
+Peak absolute covariance was found at lag `-246`, which means that `R` (CH4) arrived 246 records after `W` (vertical
+wind) at the sensor._
+
+### Step 2: Analyze found time lags
 
 Next, `dyco` analyzes the distribution of the identified time lags. It identifies the most frequent lag (the peak of the
 histogram, e.g., `-220`) and creates a smaller search window around it. For example, a new window like [-758, +196]
 might be defined. This narrowing process expands outward from the peak lag until a certain percentage of the data (e.g.,
 95%) is encompassed within the new window.
 
-The second iteration repeats the lag search process, but now using the refined, narrower time window. This process can
-be repeated multiple times, there is no limit for the number of iterations. However, it's important to monitor the size
-of the time window in each iteration to ensure it remains sufficiently large for accurate results.
+![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-1.png)
+**Figure 2**. _Histogram of found time lags (iteration 1) between turbulent vertical wind and turbulent CH4 mixing
+ratios using a search window of [-500, 0] records. This example used 6919 data files between 12 May 2023 and 31 Dec
+2023, recorded at 30MIN time resolution. The lag was detected in 10MIN segments for each file, i.e., covariance
+calculations for each 30MIN file yielded 3 time lags (6919 * 3 = 20757 time lags, the figure shows only 20373 because
+for some files no time lag could be calculated, e.g. due to few records). A clear peak distribution just below `-200`
+indicates a range where lags were found consistently. Based on these results, the window size for the next iteration is
+set. Here, the window size for the next iteration was set to -485 (blue dashed line) and -5 (not visible because close
+to the lag zero line)._
+
+### Step 3: Repeat
+
+The second iteration repeats the lag search process in Step 1 and the lag analysis in Step 2, but now using the refined,
+narrower time window from the previous step. This process can be repeated multiple times, there is no limit for the
+number of iterations. However, it's important to monitor the size of the time window in each iteration to ensure it
+remains sufficiently large for accurate results.
+
+![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
+**Figure 3**. _Histogram displaying the distribution of identified time lags after the third iteration within a narrowed
+time window of [-482, -26] records. Minimal window shortening was needed in previous iterations as the initial range
+of [-500, 0] was well-suited._
+
+### Step 4: Collect results across all iterations
 
 Across all iterations, all time lags found for `R` are collected. Time lags found for a specific file can appear
 multiple times in the collected results, depending on the number of iterations. This helps in identifying time lags that
@@ -67,11 +91,7 @@ for lag detection even if `R` itself is not the primary target for lag correctio
 
 Results from all steps are stored to output folders in a specified output directory.
 
-![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-1.png)
-
 ![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-2.png)
-
-![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
 
 ![Logo](images/dyco_v2_fig_HISTOGRAM_segment_lag_times_FINAL.png)
 
