@@ -21,6 +21,20 @@ needed. Lags are expressed in "number of records"; the corresponding time depend
 time window, for example, between -1000 and +1000 data points ([-1000, 1000]). This initial search is considered
 iteration 1.
 
+**Lag is always expressed as "number of records".** If the underlying data were recorded at 20Hz, then 1000 records
+correspond to 50 seconds of measurements.
+
+**Lag search can be done in segments per file**. For example, for a file with 30 minutes of data, the lag can be
+detected in three 10-minute segments, yielding three detected time lags for the respective file. Another example, for a
+file with 24 hours of data, the lag can be detected for 30-minute segments, yielding 48 time lags.
+
+![Logo](images/dyco_v2_fig_covariance_20230517102000_segment3_iter1_segment_3_iteration-1.png)
+**Figure 1**. _Results from the covariance calculation between turbulent vertical wind and turbulent CH4 mixing ratios
+from the subcanopy station [CH-DAS](https://www.swissfluxnet.ethz.ch/index.php/sites/site-info-ch-das/) on 17 May 2023.
+Time lag was searched between `-500` and `0` records in a 10MIN segment extracted from a 30MIN data file. Peak absolute
+covariance was found at lag `-246`, which means that `R` (CH4) arrived 246 records after `W` (vertical wind) at the
+sensor._
+
 Next, `dyco` analyzes the distribution of the identified time lags. It identifies the most frequent lag (the peak of the
 histogram, e.g., `-220`) and creates a smaller search window around it. For example, a new window like [-758, +196]
 might be defined. This narrowing process expands outward from the peak lag until a certain percentage of the data (e.g.,
@@ -35,10 +49,6 @@ multiple times in the collected results, depending on the number of iterations. 
 remain constant despite the continuously narrower time windows for lag search, indicating potentially high covariance
 between `W` and `R`.
 
-**Lag search can be done in segments per file**. For example, for a file with 30 minutes of data, the lag can be
-detected in three 10-minute segments, yielding three detected time lags for the respective file. Another example, for a
-file with 24 hours of data, the lag can be detected for 30-minute segments, yielding 48 time lags.
-
 After collecting all time lags across all iterations, `dyco` analyzes these results. It uses a Hampel filter to remove
 outliers, ensuring that only consistent and similar lags are retained. These filtered lags are then used to create a
 look-up table, providing time lag information for each day.
@@ -47,14 +57,6 @@ The generated look-up table is then used to adjust the input data files. For eac
 the table is applied to shift one or more variables. While `R` is used for lag detection, the lag correction can be
 applied to `R` itself or to other variables of interest. This flexibility allows `dyco` to leverage a strong `R` signal
 for lag detection even if `R` itself is not the primary target for lag correction.
-
-**Lag is always expressed as "number of records".** If the underlying data were recorded at 20Hz, then 1000 records
-correspond to 50 seconds of measurements.
-
-
-
-
-
 
 ## Processing steps in `v2`
 
@@ -238,6 +240,7 @@ This work was supported by the Swiss National Science Foundation SNF (ICOS CH, g
 and the EU project Readiness of ICOS for Necessities of integrated Global Observations RINGO (grant no. 730944).
 
 ## Notes
+
 A previous version of `dyco` was used in a publication in JOSS.
 [![DOI](status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
 
