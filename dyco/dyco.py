@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020-2024 Lukas Hörtnagl
+    Copyright (C) 2020-2025 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,145 +16,28 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-import os
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
+from diive.core.io.filedetector import FileDetector
+from diive.core.io.filereader import search_files
 
-import cli
-import files
-import loop
-import plot
-import setup_dyco
-from analyze import AnalyzeLags
-from correction import RemoveLags
+import dyco.setup as setup
+from dyco import cli, loop
+from dyco.analyze import AnalyzeLags
+from dyco.correction import RemoveLags
+from dyco.files import read_segment_lagtimes_file
 
 pd.set_option('display.max_columns', 15)
 pd.set_option('display.width', 1000)
 
 
-def dyco(cls):
-    """
-    Wrapper function for DYCO processing chain
-
-    Parameters
-    ----------
-    cls: class
-        The class that is wrapped.
-
-    Returns
-    -------
-    Wrapper
-
-    """
-
-    class ProcessingChain:
-        """
-
-        Wrapper class for executing the main script multiple times, each
-        time with different settings
-
-        The processing chain comprises 3 Phases and one finalization step:
-            * Phase 1: First normalization to default lag
-            * Phase 2: Second normalization to default lag
-            * Phase 3: Correction for instantaneous lag
-            * Finalize: Plots that summarize Phases 1-3
-
-        """
-
-        def __init__(self, **args):
-            # PHASE 1 - First normalization to default lag
-            # ============================================
-            args['phase'] = 1
-            self.run_phase_1_input_files = cls(**args)
-
-            # PHASE 2 - Second normalization to default lag
-            # =============================================
-            args['phase'] = 2
-            args = self._update_args(args=args,
-                                     prev_phase=self.run_phase_1_input_files.phase,
-                                     prev_phase_files=self.run_phase_1_input_files.phase_files,
-                                     prev_outdir_files=self.run_phase_1_input_files.outdir,
-                                     prev_last_iteration=self.run_phase_1_input_files.lgs_num_iter,
-                                     prev_outdirs=self.run_phase_1_input_files.outdirs)
-            self.run_phase_2_normalized_files = cls(**args)
-
-            # PHASE 3 - Correction for instantaneous lag
-            # ==========================================
-            args['phase'] = 3
-            args = self._update_args(args=args,
-                                     prev_phase=self.run_phase_2_normalized_files.phase,
-                                     prev_phase_files=self.run_phase_2_normalized_files.phase_files,
-                                     prev_outdir_files=self.run_phase_2_normalized_files.outdir,
-                                     prev_last_iteration=self.run_phase_2_normalized_files.lgs_num_iter,
-                                     prev_outdirs=self.run_phase_2_normalized_files.outdirs)
-            self.run_phase_3_finalize = cls(**args)
-
-            # FINALIZE - Make some more plots summarizing Phases 1-3
-            # ======================================================
-            plot.SummaryPlots(instance_phase_1=self.run_phase_1_input_files,
-                              instance_phase_2=self.run_phase_2_normalized_files,
-                              instance_phase_3=self.run_phase_3_finalize)
-
-        def _update_args(self, args, prev_phase, prev_phase_files, prev_outdir_files, prev_last_iteration,
-                         prev_outdirs):
-            """Update args for running Phases 2 and 3: use results from Phase 1 and 2, respectively"""
-            if args['phase'] == 2:
-                args['lgs_winsize'] = self._update_winsize(prev_phase=prev_phase,
-                                                           prev_phase_files=prev_phase_files,
-                                                           prev_last_iteration=prev_last_iteration,
-                                                           prev_outdirs=prev_outdirs)
-            else:
-                args['lgs_winsize'] = 100  # Small window for instantaneous search in Phase 3
-                args['lgs_num_iter'] = 1
-
-            args['indir'] = Path(prev_outdir_files) / f"{prev_phase}-7_{prev_phase_files}_normalized"
-            args['var_lagged'] = f"{args['var_lagged']}_DYCO"  # Use normalized signal
-            filename, file_extension = os.path.splitext(args['fnm_pattern'])
-            args['fnm_pattern'] = f"{filename}_DYCO{file_extension}"  # Search normalized files
-            args['fnm_date_format'] = f"{args['fnm_date_format']}_DYCO"  # Parse file names of normalized files
-            var_target = [var_target + '_DYCO' for var_target in args['var_target']]  # Use normalized target cols
-            args['var_target'] = var_target
-            return args
-
-        def _update_winsize(self, prev_phase, prev_phase_files, prev_last_iteration, prev_outdirs):
-            """
-            Calculate the range of the lag search window from the last iteration and use
-            it for lag search in normalized files
-
-            During the last iteration, this window was detected as the *next* window for
-            the *next* iteration, i.e. it was not yet used for lag detection.
-
-            Returns
-            -------
-            Time window for lag search in Phase 2 iteration 1 and in Phase 3
-            """
-            filepath_last_iteration = \
-                prev_outdirs[
-                    f"{prev_phase}-3_{prev_phase_files}_time_lags_overview"] \
-                / f'{prev_last_iteration}_segments_found_lag_times_after_iteration-{prev_last_iteration}.csv'
-
-            segment_lagtimes_last_iteration_df = \
-                files.read_segment_lagtimes_file(filepath=filepath_last_iteration)
-            lgs_winsize = \
-                [segment_lagtimes_last_iteration_df['lagsearch_next_start'].unique()[0],
-                 segment_lagtimes_last_iteration_df['lagsearch_next_end'].unique()[0]]
-
-            lgs_winsize_normalized = np.abs(lgs_winsize[0] - lgs_winsize[1])  # Range
-            lgs_winsize_normalized = lgs_winsize_normalized / 2  # Normalized search window +/- around zero
-            return lgs_winsize_normalized
-
-    return ProcessingChain
-
-
-@dyco
-class DynamicLagCompensation:
+class Dyco:
     """
     DYCO - Dynamic lag compensation
     """
 
-    files_overview_df = pd.DataFrame()
+
 
     def __init__(self,
                  var_reference: str,
@@ -162,22 +45,22 @@ class DynamicLagCompensation:
                  var_target: list,
                  indir: str = None,
                  outdir: str = None,
-                 fnm_date_format: str = '%Y%m%d%H%M%S',
-                 fnm_pattern: str = '*.csv',
+                 filename_date_format: str = '%Y%m%d%H%M%S',
+                 filename_pattern: str = '*.csv',
                  files_how_many: None or int = None,
                  file_generation_res: str = '30min',
                  file_duration: str = '30min',
-                 dat_recs_timestamp_format: None or str = None,
-                 dat_recs_nominal_timeres: float = 0.05,
-                 lgs_segment_dur: str = '30min',
-                 lgs_winsize: int = 1000,
-                 lgs_num_iter: int = 1,
-                 lgs_hist_remove_fringe_bins: bool = True,
-                 lgs_hist_perc_thres: float = 0.9,
+                 data_timestamp_format: None or str = None,
+                 data_nominal_timeres: float = 0.05,
+                 lag_segment_dur: str = '30min',
+                 lag_winsize: list or int = 1000,
+                 lag_n_iter: int = 1,
+                 lag_hist_remove_fringe_bins: bool = True,
+                 lag_hist_perc_thres: float = 0.9,
+                 lag_shift_stepsize: int = None,
                  target_lag: int = 0,
-                 del_previous_results: bool = False,
-                 phase: int = 1,
-                 phase_files: str = 'input_files'):
+                 del_previous_results: bool = False
+                 ):
         """
 
         Parameters
@@ -195,13 +78,13 @@ class DynamicLagCompensation:
             Column name of the lagged signal  for which the lag time in
             relation to the reference signal is determined.
 
-        fnm_pattern: str, accepts regex
+        filename_pattern: str, accepts regex
             Filename pattern for data file search.
             Example:
                 - With data files following the naming structure '20161015123000.csv'
                 the corresponding setting is: fnm_pattern='2016*.csv'
 
-        fnm_date_format: str
+        filename_date_format: str
             Date format in data filenames. Is used to parse the date and
             time info from the filename of found files. Only files found
             with *fnm_pattern* will be parsed.
@@ -216,7 +99,7 @@ class DynamicLagCompensation:
             If *True*, delete all previous results in *indir*. If *False*,
             search for previously calculated results and continue.
 
-        dat_recs_timestamp_format: str
+        data_timestamp_format: str
             Timestamp format for each row record.
 
         files_how_many: int
@@ -239,24 +122,24 @@ class DynamicLagCompensation:
             For pandas DateOffset options see:
                 https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
-        lgs_segment_dur: str (pandas DateOffset)
+        lag_segment_dur: str (pandas DateOffset)
             Segment duration for lag determination. If it is the same
             as *file_duration*, the lag time for the complete file is
             calculated from all file data. If it is shorter than
             *file_duration*, then the file data is split into segments
             and the lag time is calculated for each segment separately.
             Examples:
-                * '10m': calculates lag times for 10-minute segments.
+                * '10min': calculates lag times for 10-minute segments.
                 * With the settings
                     file_duration = '30min' and
-                    lgs_segments_dur = '10m'
+                    lgs_segments_dur = '10min'
                     the 30-minute data file is split into three 10-minute
                     segments and the lag time is determined in each of the
                     segments, yielding three lag times.
             For pandas DateOffset options see:
                 https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
-        lgs_hist_perc_thres: float between 0.1 and 1 (percentage)
+        lag_hist_perc_thres: float between 0.1 and 1 (percentage)
             Cumulative percentage threshold in histogram of found lag times.
             The time window for lag search during each iteration (i) is
             narrowed down based on the histogram of all found lag times
@@ -279,7 +162,7 @@ class DynamicLagCompensation:
                     included bin and the right side (end) of the last included
                     bin.
 
-        lgs_hist_remove_fringe_bins: bool
+        lag_hist_remove_fringe_bins: bool
             Remove fringe bins in histogram of found lag times. In case of low
             signal-to-noise ratios the lag search yields less clear results and
             found lag times tend to accumulate in the fringe bins of the histogram,
@@ -287,19 +170,19 @@ class DynamicLagCompensation:
             peak bins. In other words, if True the first and last bins of the
             histogram are removed before the time window for lag search is adjusted.
 
-        dat_recs_nominal_timeres: float
+        data_nominal_timeres: float
             Nominal (expected) time resolution of data records.
             Example:
                 * 0.05: one record every 0.05 seconds (20Hz)
 
-        lgs_winsize: int
+        lag_winsize: int
             Starting time window size for lag search +/-, given as number of records.
             If negative, the absolute value will be used.
             Example:
                 * 1000: Lag search during the first iteration is done in a time window
                     from -1000 records to +1000 records.
 
-        lgs_num_iter: int
+        lag_n_iter: int
             Number of lag search interations. Before each iteration, the time window
             for the lag search is narrowed down, taking into account results from the
             previous iteration. Exception is the first iteration for which the time
@@ -338,58 +221,108 @@ class DynamicLagCompensation:
             https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
         """
 
-        self.run_id, self.script_start_time = setup_dyco.generate_run_id()
-
-        # Setup for Phases 1-3
-        self.phase = phase
-        if self.phase == 1:
-            self.phase_files = '_input_files_'
-        elif self.phase == 2:
-            self.phase_files = '_normalized_files_'
-        else:
-            self.phase_files = '_refined_normalized_files_'
-
-        # Input and output directories
-        self.indir, self.outdir = setup_dyco.set_dirs(indir=indir, outdir=outdir)
-
-        # File settings
-        self.fnm_date_format = fnm_date_format
-        self.file_generation_res = file_generation_res
-        self.fnm_pattern = fnm_pattern
-        self.files_how_many = files_how_many
-        self.file_duration = file_duration
-        self.del_previous_results = del_previous_results
-
-        # Data records
-        self.dat_recs_nominal_timeres = dat_recs_nominal_timeres
-        self.dat_recs_timestamp_format = dat_recs_timestamp_format
-        # self.data_segment_overhang = data_segment_overhang
-
-        # Lag search and normalization
+        # Variable settings (parameters)
         self.var_reference = var_reference
         self.var_lagged = var_lagged
-        self.lgs_segment_dur = lgs_segment_dur
-        self.lgs_winsize = [abs(lgs_winsize) * -1, abs(lgs_winsize)]
-        self.lgs_winsize_initial = self.lgs_winsize
-        self.lgs_num_iter = lgs_num_iter
-        self.lgs_hist_remove_fringe_bins = lgs_hist_remove_fringe_bins
-        if lgs_hist_perc_thres > 1:
-            self.lgs_hist_perc_thres = 1
-        elif lgs_hist_perc_thres < 0.1:
-            self.lgs_hist_perc_thres = 0.1  # Minimum 10% since less would not be useful
-        else:
-            self.lgs_hist_perc_thres = lgs_hist_perc_thres
-        self.target_lag = target_lag
         self.var_target = var_target
 
-        # Indicate if any new iteration data was created, by default *False*.
-        # Will be set to *True* automatically when a new iteration is run.
-        self.new_iteration_data = False
+        # Folder settings (parameters)
+        self.indir = indir
+        self.outdir = outdir
 
-        # Start scripts
-        self.run()
+        # File settings (parameters)
+        self.filename_date_format = filename_date_format
+        self.filename_pattern = filename_pattern
+        self.file_generation_res = file_generation_res
+        self.file_duration = file_duration
+        self.files_how_many = files_how_many
 
-    def run(self):
+        # Data settings (parameters)
+        self.data_timestamp_format = data_timestamp_format
+        self.data_nominal_timeres = data_nominal_timeres
+        self.del_previous_results = del_previous_results
+
+        # Lag settings (parameters)
+        self.lag_segment_dur = lag_segment_dur
+        if isinstance(lag_winsize, list):
+            self.lag_winsize = lag_winsize
+        elif isinstance(lag_winsize, int):
+            self.lag_winsize = [abs(lag_winsize) * -1, abs(lag_winsize)]
+        elif isinstance(lag_winsize, float):
+            self.lag_winsize = [abs(int(lag_winsize)) * -1, abs(int(lag_winsize))]
+        else:
+            raise ValueError("lgs_winsize must be a list or int")
+        self.lag_n_iter = lag_n_iter
+        self.lag_hist_remove_fringe_bins = lag_hist_remove_fringe_bins
+        self.lag_hist_perc_thres = \
+            self._set_lgs_hist_perc_thres(lgs_hist_perc_thres=lag_hist_perc_thres)
+        self.lag_shift_stepsize = lag_shift_stepsize
+        self.target_lag = target_lag
+
+        # Setup
+        self.run_id, self.script_start_time = setup.generate_run_id()
+        self.lag_winsize_initial = self.lag_winsize
+
+        # Newly generated
+        self.outdirs = None
+        self.logfile_path = None
+        self.files_overview_df = pd.DataFrame()
+        self.files_overview_df = pd.DataFrame()
+        self.segment_lagtimes_df = pd.DataFrame()
+        self.lut_lag_times_df = pd.DataFrame()
+
+        # Run setup
+        self._setup()
+
+    def _setup(self):
+        # Input and output directories
+        self.indir, self.outdir = setup.set_dirs(indir=self.indir, outdir=self.outdir)
+
+        # Setup
+        self.outdirs, self.logfile_path, self.logger = self._setup_dirs()
+
+        # Search files
+        self.files_overview_df = self._search_files()
+
+    def detect_lags(self):
+        """Calculate covariances and detect covariance peaks to determine lags
+        for each file segment."""
+
+        for iteration in range(1, 1 + self.lag_n_iter):
+            loop_iter = loop.Loop(
+                dat_recs_timestamp_format=self.data_timestamp_format,
+                dat_recs_nominal_timeres=self.data_nominal_timeres,
+                lgs_hist_remove_fringe_bins=self.lag_hist_remove_fringe_bins,
+                lgs_hist_perc_thres=self.lag_hist_perc_thres,
+                outdirs=self.outdirs,
+                lgs_segment_dur=self.lag_segment_dur,
+                var_reference=self.var_reference,
+                var_lagged=self.var_lagged,
+                lgs_num_iter=self.lag_n_iter,
+                files_overview_df=self.files_overview_df,
+                logfile_path=self.logfile_path,
+                lgs_winsize=self.lag_winsize,
+                fnm_date_format=self.filename_date_format,
+                iteration=iteration,
+                logger=self.logger,
+                shift_stepsize=self.lag_shift_stepsize,
+                segment_lagtimes_df=self.segment_lagtimes_df)
+            loop_iter.run()
+            self.lag_winsize, self.segment_lagtimes_df = loop_iter.get()  # Update search window for next iteration
+
+        # Plot loop results after all iterations finished
+        loop_plots = loop.PlotLoopResults(outdirs=self.outdirs,
+                                          lag_n_iter=self.lag_n_iter,
+                                          histogram_percentage_threshold=self.lag_hist_perc_thres,
+                                          plot_cov_collection=True,
+                                          plot_hist=True,
+                                          plot_timeseries_segment_lagtimes=True,
+                                          logger=self.logger,
+                                          segment_lagtimes_df=self.segment_lagtimes_df)
+        loop_plots.run()
+        return
+
+    def _run(self):
         """
         Run setup, calculations, analyses and correction of files
 
@@ -402,100 +335,139 @@ class DynamicLagCompensation:
         Each step uses results from the previous step.
 
         """
-        # Step 1: Setup
-        self.logfile_path, self.files_overview_df = self.setup()
 
-        # Step 2: Calculation of lag times for each file segment in input files
-        self.calculate_lags()
+        # # Step 1: Setup
+        # self.outdirs, self.logfile_path = self._setup_dirs()
+        #
+        # # Step 2: Search files
+        # self.files_overview_df = self._search_files()
 
-        # Step 3: Analyses of results, create LUT
-        lut_success = self.analyze_lags()
+        # # Step 3: Calculation of lag times for each file segment in input files
+        # self.detect_lags()
+        #
+        # # Step 4: Analyses of results, create LUT
+        # lut_success = self.analyze_lags()
+        #
+        # # Step 5: Lag-time normalization for each file
+        # self.remove_lags(lut_success=lut_success)
 
-        # Step 4: Lag-time normalization for each file
-        self.remove_lags(lut_success=lut_success)
+    @staticmethod
+    def _set_lgs_hist_perc_thres(lgs_hist_perc_thres):
+        if lgs_hist_perc_thres > 1:
+            lgs_hist_perc_thres = 1
+        elif lgs_hist_perc_thres < 0.1:
+            lgs_hist_perc_thres = 0.1  # Minimum 10% since less would not be useful
+        else:
+            lgs_hist_perc_thres = lgs_hist_perc_thres
+        return lgs_hist_perc_thres
 
-    def setup(self):
+    def _search_files(self):
+        # Search files with PATTERN
+        print(f"\nSearching files with pattern {self.filename_pattern} in dir {self.indir} ...")
+        filelist = search_files(searchdirs=str(self.indir), pattern=self.filename_pattern)
+        for filepath in filelist:
+            print(f"    --> Found file: {filepath.name} in {filepath}.")
+
+        fide = FileDetector(filelist=filelist,
+                            file_date_format=self.filename_date_format,
+                            file_generation_res=self.file_generation_res,
+                            data_res=self.data_nominal_timeres,
+                            files_how_many=self.files_how_many)
+        fide.run()
+        files_overview_df = fide.get_results()
+
+        # Export dataframe to csv
+        outpath = self.outdirs['1_overview'] / '1_files_overview.csv'
+        files_overview_df.to_csv(outpath)
+        return files_overview_df
+
+    def _setup_dirs(self):
         """Create output folders, start logger and search for files"""
         # Create folders
-        self.outdirs = setup_dyco.CreateOutputDirs(dyco_instance=self).setup_output_dirs()
+        outdirs = setup.CreateOutputDirs(dyco_instance=self).setup_output_dirs()
 
         # Start logging
-        logfile_path = setup_dyco.set_logfile_path(run_id=self.run_id,
-                                                   outdir=self.outdirs['0-0_log'],
-                                                   phase=self.phase)
-        logger = setup_dyco.create_logger(logfile_path=logfile_path, name=__name__)
+        logfile_path = setup.set_logfile_path(run_id=self.run_id, outdir=outdirs['0_log'])
+        logger = setup.create_logger(logfile_path=logfile_path, name=__name__)
         logger.info(f"Run ID: {self.run_id}")
+        return outdirs, logfile_path, logger
 
-        # Search files
-        fd = setup_dyco.FilesDetector(dyco_instance=self,
-                                      outdir=self.outdirs[f'{self.phase}-0_{self.phase_files}_overview'],
-                                      logfile_path=logfile_path)
-        fd.run()
-        files_overview_df = fd.get()
-        return logfile_path, files_overview_df
+    def analyze_lags(self,
+                     filepath_found_lag_times: str = None,
+                     outlier_thres_zscore: float = 1.4,
+                     outlier_winsize: int = None):
+        """Analyze lag search results and create look-up table for lag-time normalization"""
 
-    def calculate_lags(self):
-        """Calculate covariances and detect covariance peaks to determine lags
-        for each file segment."""
-        for iteration in range(1, 1 + self.lgs_num_iter):
-            loop_iter = loop.Loop(dyco_instance=self,
-                                  iteration=iteration)
-            loop_iter.run()
-            self.lgs_winsize, self.new_iteration_data = loop_iter.get()  # Update search window for next iteration
+        if filepath_found_lag_times:
+            segment_lagtimes_df = read_segment_lagtimes_file(filepath=filepath_found_lag_times)
+        else:
+            segment_lagtimes_df = self.segment_lagtimes_df
 
-        # Plot loop results after all iterations finished TODO ACT
-        loop_plots = loop.PlotLoopResults(dyco_instance=self,
-                                          plot_cov_collection=True,
-                                          plot_hist=True,
-                                          plot_timeseries_segment_lagtimes=True)
-        loop_plots.run()
+        analyze = AnalyzeLags(lgs_num_iter=self.lag_n_iter,
+                              outdirs=self.outdirs,
+                              target_lag=self.target_lag,
+                              logger=self.logger,
+                              lags=segment_lagtimes_df,
+                              outlier_winsize=outlier_winsize,
+                              outlier_thres_zscore=outlier_thres_zscore)
+
+        self.lut_lag_times_df = analyze.get_lut()
+
         return
 
-    def analyze_lags(self):
-        """Analyze lag search results and create look-up table for lag-time normalization"""
-        analyze = AnalyzeLags(dyco_instance=self)
-        return analyze.lut_available
-
-    def remove_lags(self, lut_success):
+    def remove_lags(self, filepath_lut: str = None):
         """
         Apply look-up table to normalize lag for each file
 
         Parameters
         ----------
-        lut_success: bool
-            If True, a look-up table was previously successfully generated.
+        filepath_lut:
 
         Returns
         -------
         None
         """
-        if lut_success:
-            RemoveLags(dyco_instance=self)
+        if filepath_lut:
+            lut_df = read_segment_lagtimes_file(filepath=filepath_lut)
+        else:
+            lut_df = self.segment_lagtimes_df
+
+        lut_df.index = pd.to_datetime(lut_df.index)
+
+        RemoveLags(lut=lut_df,
+                   files_overview_df=self.files_overview_df,
+                   data_timestamp_format=self.data_timestamp_format,
+                   outdirs=self.outdirs,
+                   var_target=self.var_target,
+                   lag_n_iter=self.lag_n_iter,
+                   logger=self.logger)
+
         return
 
 
 def main(args):
     """Main function that is called with the given args when the script
      is executed from the command line."""
-    DynamicLagCompensation(var_reference=args.var_reference,
-                           var_lagged=args.var_lagged,
-                           var_target=args.var_target,
-                           indir=args.indir,
-                           outdir=args.outdir,
-                           fnm_date_format=args.filenamedateformat,
-                           fnm_pattern=args.filenamepattern,
-                           files_how_many=args.limitnumfiles,
-                           file_generation_res=args.filegenres,
-                           file_duration=args.fileduration,
-                           dat_recs_timestamp_format=args.datatimestampformat,
-                           dat_recs_nominal_timeres=args.datanominaltimeres,
-                           lgs_segment_dur=args.lssegmentduration,
-                           lgs_winsize=args.lswinsize,
-                           lgs_num_iter=args.lsnumiter,
-                           lgs_hist_remove_fringe_bins=args.lsremovefringebins,
-                           lgs_hist_perc_thres=args.lspercthres,
-                           target_lag=args.targetlag,
-                           del_previous_results=args.delprevresults)
+
+    Dyco(var_reference=args.var_reference,
+         var_lagged=args.var_lagged,
+         var_target=args.var_target,
+         indir=args.indir,
+         outdir=args.outdir,
+         filename_date_format=args.filenamedateformat,
+         filename_pattern=args.filenamepattern,
+         files_how_many=args.limitnumfiles,
+         file_generation_res=args.filegenres,
+         file_duration=args.fileduration,
+         data_timestamp_format=args.datatimestampformat,
+         data_nominal_timeres=args.datanominaltimeres,
+         lag_segment_dur=args.lssegmentduration,
+         lag_winsize=args.lswinsize,
+         lag_n_iter=args.lsnumiter,
+         lag_hist_remove_fringe_bins=args.lsremovefringebins,
+         lag_hist_perc_thres=args.lspercthres,
+         target_lag=args.targetlag,
+         del_previous_results=args.delprevresults)
 
 
 if __name__ == '__main__':

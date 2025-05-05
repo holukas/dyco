@@ -1,12 +1,14 @@
 # Custom
 .idea/
-dist/
 _archive/
 _raw_photoshop/
 _raw_drawio/
 _pip_test/
 _wiki/
 _comparison_N2Oflux_before_after_DYCO/
+_local_runs/
+_testdata/
+_BAK/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -126,3 +128,4 @@ dmypy.json
 /dyco/_dash_test.py
 /first_figure.html
 example/_example.py
+

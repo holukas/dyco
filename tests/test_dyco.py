@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from dyco import setup_dyco, analyze, files, loop, lag
+from dyco import setup, analyze, files, loop, lag
 
 
 class Tests(unittest.TestCase):
@@ -76,13 +76,13 @@ class Tests(unittest.TestCase):
 
         test_class_instance = TestClass()
 
-        lagsearch_df, props_peak_auto = lag.LagSearch(loop_instance=test_class_instance,
-                                                      segment_df=segment_df,
-                                                      segment_name='20161020113000_iter1',
-                                                      file_idx=dt.datetime(2016, 10, 20, 11, 30, 00),
-                                                      segment_start=dt.datetime(2016, 10, 20, 11, 30, 00, 24999),
-                                                      segment_end=dt.datetime(2016, 10, 20, 11, 59, 59, 966666),
-                                                      filename='20161020113000').get()
+        lagsearch_df, props_peak_auto = lag.MaxCovariance(loop_instance=test_class_instance,
+                                                          segment_df=segment_df,
+                                                          segment_name='20161020113000_iter1',
+                                                          file_idx=dt.datetime(2016, 10, 20, 11, 30, 00),
+                                                          segment_start=dt.datetime(2016, 10, 20, 11, 30, 00, 24999),
+                                                          segment_end=dt.datetime(2016, 10, 20, 11, 59, 59, 966666),
+                                                          filename='20161020113000').get()
 
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'shift'].values[0], -290)
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)
@@ -140,15 +140,15 @@ class Tests(unittest.TestCase):
         """Test peak detection only"""
         filepath = 'test_data/test_raw_data/20161020113000.csv'
         segment_df = files.read_raw_data(filepath=filepath, data_timestamp_format='%Y-%m-%d %H:%M:%S.%f')
-        lagsearch_df = lag.LagSearch.setup_lagsearch_df(lgs_winsize=[-1000, 1000],
-                                                        shift_stepsize=10,
-                                                        segment_name='20161031230000_iter1')
+        lagsearch_df = lag.MaxCovariance.setup_lagsearch_df(lgs_winsize=[-1000, 1000],
+                                                            shift_stepsize=10,
+                                                            segment_name='20161031230000_iter1')
         lagsearch_df = \
-            lag.LagSearch.find_max_cov_peak(segment_df=segment_df,
-                                            cov_df=lagsearch_df,
-                                            var_reference='w_ms-1_rot_turb',
-                                            var_lagged='co2_ppb_qcl_turb')
-        lagsearch_df, props_peak_auto = lag.LagSearch.find_auto_peak(cov_df=lagsearch_df)
+            lag.MaxCovariance.find_max_cov_peak(segment_df=segment_df,
+                                                cov_df=lagsearch_df,
+                                                var_reference='w_ms-1_rot_turb',
+                                                var_lagged='co2_ppb_qcl_turb')
+        lagsearch_df, props_peak_auto = lag.MaxCovariance.find_auto_peak(cov_df=lagsearch_df)
 
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_max_cov_abs'] == 1, 'shift'].values[0], -290)
         self.assertEqual(lagsearch_df.loc[lagsearch_df['flag_peak_auto'] == 1, 'shift'].values[0], -290)

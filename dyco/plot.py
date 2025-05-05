@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020-2024 Lukas Hörtnagl
+    Copyright (C) 2020-2025 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,10 +26,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import analyze
-import files
-import loop
-import setup_dyco
+from dyco import analyze, files, loop, setup
 
 
 class SummaryPlots():
@@ -62,12 +59,12 @@ class SummaryPlots():
             self.summary_plot_segment_lagtimes(phase=phase_instance.phase,
                                                phase_files=phase_instance.phase_files,
                                                outdirs=phase_instance.outdirs,
-                                               last_iteration=phase_instance.lgs_num_iter,
+                                               last_iteration=phase_instance.lag_n_iter,
                                                target_lag=phase_instance.target_lag)
             collection_df = self._collect_peak_covariances(phase=phase_instance.phase,
                                                            phase_files=phase_instance.phase_files,
                                                            outdirs=phase_instance.outdirs,
-                                                           last_iteration=phase_instance.lgs_num_iter,
+                                                           last_iteration=phase_instance.lag_n_iter,
                                                            collection_df=collection_df)
 
         # Phase 3
@@ -88,8 +85,8 @@ class SummaryPlots():
 
         self.summary_plot_covariances(collection_df=collection_df,
                                       outdir=self.outdir_summary,
-                                      last_iter_phase_1=self.instance_phase_1.lgs_num_iter,
-                                      last_iter_phase_2=self.instance_phase_2.lgs_num_iter)
+                                      last_iter_phase_1=self.instance_phase_1.lag_n_iter,
+                                      last_iter_phase_2=self.instance_phase_2.lag_n_iter)
 
         self.logger.info("CREATING SUMMARY ... Done.")
         self.logger.info("Finished DYCO processing.")
@@ -156,7 +153,7 @@ class SummaryPlots():
         outfile = f'summary_covariance_evolution'
         outpath = outdir / outfile
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w', transparent=True, dpi=150)
-        a = 1
+        plt.close(fig)
 
     def summary_plot_segment_lagtimes(self, phase: int, phase_files: str, outdirs,
                                       last_iteration: int, target_lag: int):

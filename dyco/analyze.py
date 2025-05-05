@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020-2024 Lukas Hörtnagl
+    Copyright (C) 2020-2025 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,12 +18,15 @@
 """
 
 import sys
+from pathlib import Path
 
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from diive.pkgs.outlierdetection.zscore import zScoreRolling
 
-import files, loop, plot, setup_dyco
+from dyco import loop, plot
 
 
 class AnalyzeLags:
@@ -36,39 +39,51 @@ class AnalyzeLags:
     """
 
     def __init__(self,
-                 dyco_instance,
-                 direct_path_to_segment_lagtimes_file=None):
+                 lgs_num_iter,
+                 outdirs,
+                 target_lag,
+                 logger,
+                 outlier_winsize,
+                 outlier_thres_zscore,
+                 lags: pd.DataFrame):
 
-        self.lgs_num_iter = dyco_instance.lgs_num_iter
-        self.outdirs = dyco_instance.outdirs
-        self.target_lag = dyco_instance.target_lag
-        self.direct_path_to_segment_lagtimes_file = direct_path_to_segment_lagtimes_file
-        self.phase = dyco_instance.phase
-        self.phase_files = dyco_instance.phase_files
+        self.lgs_num_iter = lgs_num_iter
+        self.outdirs = outdirs
+        self.target_lag = target_lag
+        self.logger = logger
+        self.lags = lags.copy()
 
-        self.logger = setup_dyco.create_logger(logfile_path=dyco_instance.logfile_path, name=__name__)
+        self.outlier_winsize = outlier_winsize
+        self.outlier_thres_zscore = outlier_thres_zscore
+
+        self.lut_lag_times_df = pd.DataFrame()
+        self.lut_available = False
 
         self.run()
 
+    def get_lut(self):
+        return self.lut_lag_times_df
+
     def run(self):
         """Run the lag analysis"""
-        self.lut_lag_times_df, self.lut_available = self.generate_lut_time_lags()
+
+        # segment_lagtimes_last_iteration_df['PEAK-COVABSMAX_SHIFT']
+
+        # Make lookup table from aggregated daily lags
+        self.lut_lag_times_df, self.lut_available = self.make_lut_agg()
+
+        if self.lut_available:
+            self.logger.info(f"Finished creating look-up table for default lag times and normalization correction")
+        else:
+            self.logger.critical(f"(!) Look-up Table for default lag times and normalization correction is empty, "
+                                 f"stopping script.")
+            sys.exit()
 
         if self.outdirs:
-            if self.phase != 3:
-                self.save_lut(lut=self.lut_lag_times_df,
-                              outdir=self.outdirs[f'{self.phase}-6_{self.phase_files}_normalization_lookup_table'],
-                              outfile='LUT_default_agg_time_lags')
-                self.plot_segment_lagtimes_with_agg_default()
-            if self.phase == 3:
-                self.save_lut(lut=self.lut_lag_times_df,
-                              outdir=self.outdirs[f'{self.phase}-6_{self.phase_files}_final_time_lags_lookup_table'],
-                              outfile='LUT_final_time_lags')
-                outdir = self.outdirs[f'{self.phase}-6_{self.phase_files}_final_time_lags_lookup_table']
-                AnalyzeLags.plot_final_instantaneous_lagtimes(
-                    outdir=outdir,
-                    phase=self.phase,
-                    df=files.read_segment_lagtimes_file(filepath=outdir / 'LUT_final_time_lags.csv'))
+            self.save_lut(lut=self.lut_lag_times_df,
+                          outdir=self.outdirs['7_time_lags_lookup_table'],
+                          outfile='LUT_default_agg_time_lags')
+            self.plot_segment_lagtimes_with_agg_default()
 
     @staticmethod
     def plot_final_instantaneous_lagtimes(outdir, phase, df):
@@ -87,7 +102,6 @@ class AnalyzeLags:
         -------
         None
         """
-
 
         # Get data
         lagsearch_start = int(df['LAGSEARCH_START'].unique()[0])
@@ -138,24 +152,19 @@ class AnalyzeLags:
         # print(f"Saving time series of found segment lag times in {outpath} ...")
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=150)
+        plt.close(fig)
 
     def plot_segment_lagtimes_with_agg_default(self):
         """
         Read and plot found time lags from all or only very last iteration(s),
         used in Phase 1 and Phase 2.
         """
-        segment_lagtimes_df = files.read_segment_lagtimes_file(
-            filepath=self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview']
-                     / f'{self.lgs_num_iter}_segments_found_lag_times_after_iteration-{self.lgs_num_iter}.csv')
-        loop.Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=segment_lagtimes_df,
-                                           outdir=self.outdirs[
-                                               f'{self.phase}-6_{self.phase_files}_normalization_lookup_table'],
-                                           iteration=self.lgs_num_iter,
+        loop.Loop.plot_segment_lagtimes_ts(segment_lagtimes_df=self.lags,
+                                           outdir=self.outdirs[f'7_time_lags_lookup_table'],
                                            show_all=False,
                                            overlay_default=True,
                                            overlay_default_df=self.lut_lag_times_df,
-                                           overlay_target_val=self.target_lag,
-                                           phase=self.phase)
+                                           overlay_target_val=self.target_lag)
 
     def save_lut(self, lut, outdir, outfile):
         """
@@ -176,65 +185,6 @@ class AnalyzeLags:
         """
         outpath = outdir / outfile
         lut.to_csv(f"{outpath}.csv")
-
-    def generate_lut_time_lags(self):
-        """
-        Generate LUT based on found time lags from last iteration
-        """
-
-        # Load results from last iteration
-        last_iteration = self.lgs_num_iter
-        if self.outdirs:
-            filepath_last_iteration = self.outdirs[f'{self.phase}-3_{self.phase_files}_time_lags_overview'] \
-                                      / f'{last_iteration}_segments_found_lag_times_after_iteration-{last_iteration}.csv'
-
-        else:
-            filepath_last_iteration = self.direct_path_to_segment_lagtimes_file  # Implemented for unittest
-
-        segment_lagtimes_last_iteration_df = self.filter_dataframe(filter_col='iteration',
-                                                                   filter_equal_to=last_iteration,
-                                                                   df=files.read_segment_lagtimes_file(
-                                                                       filepath=filepath_last_iteration))
-
-        if self.phase != 3:
-            # LUT for Phase 1 or Phase 2, aggregated daily lags
-            lut_df, lut_available = self.make_lut_agg(target_lag=self.target_lag,
-                                                      segment_lagtimes_df=segment_lagtimes_last_iteration_df)
-        else:
-            # LUT for Phase 3, instantaneous lags
-            lut_df, lut_available = self.make_lut_instantaneous(segment_lagtimes_df=segment_lagtimes_last_iteration_df,
-                                                                default_lag=self.target_lag)
-
-        if lut_available:
-            self.logger.info(f"Finished creating look-up table for default lag times and normalization correction")
-        else:
-            self.logger.critical(f"(!) Look-up Table for default lag times and normalization correction is empty, "
-                                 f"stopping script.")
-            sys.exit()
-
-        return lut_df, lut_available
-
-    @staticmethod
-    def filter_dataframe(filter_col, filter_equal_to, df):
-        """
-        Keep only rows of df where the value in filter_col matches filter_equal_to
-
-        Parameters
-        ----------
-        filter_col: str
-            Column name in df.
-        filter_equal_to: value
-            Filtering condition, only rows where filter_col == filter_equal_to is True
-            are kept, other rows are removed.
-        df: pandas Dataframe
-
-        Returns
-        -------
-        Filtered pandas DataFrame where filter_col == filter_equal_to
-        """
-        filter_this_iteration = df[filter_col] == filter_equal_to
-        df_filtered = df.loc[filter_this_iteration, :]
-        return df_filtered
 
     def make_lut_instantaneous(self, segment_lagtimes_df: pd.DataFrame, default_lag: int):
         """
@@ -298,7 +248,33 @@ class AnalyzeLags:
         lut_available = True
         return lut_df, lut_available
 
-    def make_lut_agg(self, target_lag: int, segment_lagtimes_df: pd.DataFrame):
+    def _remove_outliers(self, peaks_hq_S):
+        self.outlier_winsize = int(len(peaks_hq_S) / 70) if not self.outlier_winsize else self.outlier_winsize
+        zsr = zScoreRolling(
+            series=peaks_hq_S,
+            thres_zscore=self.outlier_thres_zscore,
+            winsize=self.outlier_winsize,
+            showplot=True,
+            plottitle="z-score in a rolling window",
+            verbose=True)
+        zsr.calc(repeat=True)
+
+        fig = zsr.fig
+
+        # Save
+        outdir = self.outdirs[f'7_time_lags_lookup_table']
+        outfile = f"TIMESERIES-PLOT_segment_lag_times_FINAL_outlierRemoved"
+        outpath = outdir / outfile
+        # print(f"Saving time series of found segment lag times in {outpath} ...")
+        fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
+                    transparent=True, dpi=150)
+        plt.close(fig)
+
+        flag = zsr.get_flag()
+        peaks_hq_S_cleaned = peaks_hq_S.loc[flag == 0].copy()
+        return peaks_hq_S_cleaned
+
+    def make_lut_agg(self):
         """
         Generate aggregated look-up table that contains the default lag time for each day
 
@@ -321,56 +297,76 @@ class AnalyzeLags:
         pandas DataFrame with default lag times for each day
 
         """
-        lut_df = pd.DataFrame()
-        peaks_hq_S = self.get_hq_peaks(df=segment_lagtimes_df)  # High-quality covariance peaks
 
-        if peaks_hq_S.empty:
+        # Initiate empty LUT
+        lut_df = pd.DataFrame()
+
+        # Find high-quality covariance peaks
+        peaks_hq_S = self.get_hq_peaks()
+        peaks_hq_S = peaks_hq_S.sort_index(inplace=False)
+        peaks_hq_S_cleaned = self._remove_outliers(peaks_hq_S)
+
+        if peaks_hq_S_cleaned.empty:
             lut_available = False
             return lut_df, lut_available
 
-        unique_dates = np.unique(peaks_hq_S.index.date)
+        unique_dates = np.unique(peaks_hq_S_cleaned.index.date)
         for this_date in unique_dates:
-            from_date = this_date - pd.Timedelta('1D')
-            to_date = this_date + pd.Timedelta('1D')
-            filter_around_this_day = (peaks_hq_S.index.date > from_date) & \
-                                     (peaks_hq_S.index.date <= to_date)
-            subset = peaks_hq_S[filter_around_this_day]
+            from_date = this_date - pd.Timedelta('2D')
+            to_date = this_date + pd.Timedelta('2D')
+            filter_around_this_day = (peaks_hq_S_cleaned.index.date > from_date) & \
+                                     (peaks_hq_S_cleaned.index.date <= to_date)
+            subset = peaks_hq_S_cleaned[filter_around_this_day]
             num_vals = len(subset)
 
-            # lut_df.loc[this_date, 'median'] = 9
-
-            if num_vals >= 5:
+            if num_vals >= 10:
                 # print(f"{this_date}    {num_vals}    {subset.median()}")
                 lut_df.loc[this_date, 'median'] = subset.median()
-                lut_df.loc[this_date, 'counts'] = subset.count()
-                lut_df.loc[this_date, 'from'] = from_date
-                lut_df.loc[this_date, 'to'] = to_date
             else:
                 lut_df.loc[this_date, 'median'] = np.nan
-                lut_df.loc[this_date, 'counts'] = subset.count()
-                lut_df.loc[this_date, 'from'] = from_date
-                lut_df.loc[this_date, 'to'] = to_date
 
-        lut_df['target_lag'] = target_lag
+            lut_df.loc[this_date, 'counts'] = subset.count()
+            lut_df.loc[this_date, 'from'] = from_date
+            lut_df.loc[this_date, 'to'] = to_date
+
+        # Detect first and last dates for look-up table
+        firstdate = pd.to_datetime(self.lags['start'].iloc[0]).date()
+        lastdate = pd.to_datetime(self.lags['end'].iloc[-1]).date()
+
+        # Make sure LUT has all dates between start and end dates
+        fullrange = pd.date_range(firstdate, lastdate, freq='d')
+        lut_df = lut_df.reindex(fullrange)
+
+        # Filling missing median values with rolling median in a 5-day window, centered
+        n_missing_medians = lut_df['median'].isnull().sum()
+        if n_missing_medians > 0:
+            lut_df['median'] = lut_df['median'].fillna(
+                lut_df['median'].rolling(window=5, min_periods=1, center=True).median())
+            self.logger.info(f"(!)WARNING: Missing look-up values for {n_missing_medians} days "
+                             f"were gap-filled with the median value of the 2 preceding "
+                             f"and the 2 following days.")
+
+        lut_df['target_lag'] = self.target_lag
         lut_df['correction'] = -1 * (lut_df['target_lag'] - lut_df['median'])
 
         self.logger.info(f"Created look-up table for {len(lut_df.index)} dates")
         self.logger.info(f"    First date: {lut_df.index[0]}    Last date: {lut_df.index[-1]}")
 
-        # Fill gaps in 'correction'
-        missing_df = self.check_missing(df=lut_df,
-                                        col='correction')
-        self.logger.warning(f"No correction could be generated from data for dates: {missing_df.index.to_list()}")
-        self.logger.warning(f"Filling missing corrections for dates: {missing_df.index.to_list()}")
-        lut_df['correction'] = lut_df['correction'].ffill(limit=1)
-        lut_df['correction'] = lut_df['correction'].bfill(limit=1)
-        # lut_df['correction'] = lut_df['correction'].fillna(method='ffill', inplace=False, limit=1)  # deprecated
+        # Fill small gaps for correction
+        missing_df = self.check_missing(df=lut_df, col='correction')
+        if not missing_df.empty:
+            lut_df['correction'] = lut_df['correction'].ffill(limit=1)
+            lut_df['correction'] = lut_df['correction'].bfill(limit=1)
+            self.logger.warning(f"(!) Missing corrections for days: {missing_df.index.to_list()}\n"
+                                f"(!) Using correction values from directly adjacent day.")
 
-        try:
-            lut_df['recommended_default_winsize'] = \
-                int((np.abs(lut_df['correction'].min() - lut_df['correction'].max())) / 2) * 1.2
-        except ValueError:
-            lut_df['recommended_default_winsize'] = np.nan
+        # Fill gaps in 'correction'
+        missing_df = self.check_missing(df=lut_df, col='correction')
+        if not missing_df.empty:
+            self.logger.warning(
+                f"(!) No correction could be generated from data for dates: {missing_df.index.to_list()}")
+
+        # lut_df['correction'] = lut_df['correction'].fillna(method='ffill', inplace=False, limit=1)  # deprecated
 
         lut_available = True
         return lut_df, lut_available
@@ -393,7 +389,7 @@ class AnalyzeLags:
         missing_df = df[filter_missing]
         return missing_df
 
-    def get_hq_peaks(self, df):
+    def get_hq_peaks(self):
         """
         Detect high-quality covariance peaks in results from last lag search iteration
 
@@ -410,9 +406,9 @@ class AnalyzeLags:
         pandas Series of high-quality lag times, given as number of records
 
         """
+        df = self.lags.copy()
         df.set_index('start', inplace=True)
         df.index = pd.to_datetime(df.index, format="mixed")
-        peaks_hq_S = df.loc[df['PEAK-COVABSMAX_SHIFT'] == df['PEAK-AUTO_SHIFT'],
-                            'PEAK-COVABSMAX_SHIFT']
+        peaks_hq_S = df.loc[df['PEAK-COVABSMAX_SHIFT'] == df['PEAK-AUTO_SHIFT'], 'PEAK-COVABSMAX_SHIFT']
         peaks_hq_S.index = peaks_hq_S.index.to_pydatetime()  # Convert to DatetimeIndex
         return peaks_hq_S
