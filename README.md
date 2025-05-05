@@ -44,9 +44,9 @@ file with 24 hours of data, the lag can be detected for 30-minute segments, yiel
 ![Logo](images/dyco_v2_fig_covariance_20230517102000_segment3_iter1_segment_3_iteration-1.png)
 **Figure 1**. _Results from the covariance calculation (iteration 1) between turbulent vertical wind and turbulent CH4
 mixing ratios from the subcanopy station [CH-DAS](https://www.swissfluxnet.ethz.ch/index.php/sites/site-info-ch-das/) on
-17 May 2023. Time lag was searched between `-500` and `0` records in a 10MIN segment extracted from a 30MIN data file.
-Peak absolute covariance was found at lag `-246`, which means that `S` (CH4) arrived 246 records after `W` (vertical
-wind) at the sensor._
+17 May 2023. Time lag was searched between `-500` and `0` records in a 10MIN segment between 10:20 and 10:30, extracted
+from a 30MIN data file. Peak absolute covariance was found at lag `-246`, which means that `S` (CH4) arrived 246 records
+after `W` (vertical wind) at the sensor._
 
 ### Step 2: Analyze found time lags
 
