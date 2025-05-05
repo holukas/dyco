@@ -61,7 +61,7 @@ narrower time window from the previous step. This process can be repeated multip
 number of iterations. However, it's important to monitor the size of the time window in each iteration to ensure it
 remains sufficiently large for accurate results.
 
-### Step 4: Collect results across all iterations
+### Step 4: Collect found time lags across all iterations
 
 Across all iterations, all time lags found for `R` are collected. Time lags found for a specific file can appear
 multiple times in the collected results, depending on the number of iterations. This helps in identifying time lags that
@@ -75,10 +75,18 @@ of [-500, 0] was well-suited. Note the number of found lag times: this number al
 iterations._
 
 ![Logo](images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL.png)
+**Figure 4**. _Time series plot of all found time lags across all files and iterations. An accumulation of found time
+lags around lag -200 is clearly visible. The time lags are not constant but show a clear drift._
+
+### Step 5: Remove outlier lags
 
 After collecting all time lags across all iterations, `dyco` analyzes these results. It uses a Hampel filter to remove
 outliers, ensuring that only consistent and similar lags are retained. These filtered lags are then used to create a
 look-up table, providing time lag information for each day.
+
+![Logo](images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL_outlierRemoved.png)
+**Figure 5**. _Application of a Hampel filter for outlier removal to retain consistent and similar lags. The lower left
+panel shows found time lags after outlier removal. These lags are used to create a look-up table._
 
 The generated look-up table is then used to adjust the input data files. For each file, the corresponding time lag from
 the table is applied to shift one or more variables. While `R` is used for lag detection, the lag correction can be
