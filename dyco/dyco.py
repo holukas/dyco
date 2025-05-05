@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020-2024 Lukas Hörtnagl
+    Copyright (C) 2020-2025 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -430,7 +430,7 @@ class Dyco:
         if filepath_lut:
             lut_df = read_segment_lagtimes_file(filepath=filepath_lut)
         else:
-            lut_df = self.segment_lagtimes_df  # TODO needs lut df
+            lut_df = self.segment_lagtimes_df
 
         lut_df.index = pd.to_datetime(lut_df.index)
 
@@ -448,7 +448,7 @@ class Dyco:
 def main(args):
     """Main function that is called with the given args when the script
      is executed from the command line."""
-    # TODO
+
     Dyco(var_reference=args.var_reference,
          var_lagged=args.var_lagged,
          var_target=args.var_target,

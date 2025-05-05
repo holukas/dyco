@@ -178,47 +178,90 @@ follows up on this suggestion by facilitating the dynamic lag-detection between 
 
 ### Code
 
-The class `Dyco` can be used in code.
+The class `Dyco` can be used in code. See class docstring for more details.
 
 ```python
-Dyco(var_reference=W_TURB,
-     var_lagged=C_TURB,
-     var_target=[C_TURB],
-     # var_target=[C_TURB, 'n2o_ppb_qcl', 'ch4_ppb_qcl'],
-     indir=r'F:\CURRENT\DAS\2-filtered_CH4_ROT_TRIM_1-4',
-     outdir=r'F:\CURRENT\DAS\3-dyco',
-     filename_date_format='CH-DAS_%Y%m%d%H%M%S_30MIN-SPLIT_ROT_TRIM.csv',
-     filename_pattern='CH-DAS_*_30MIN-SPLIT_ROT_TRIM.csv',
+from dyco.dyco import Dyco
+
+Dyco(var_reference="W_[R350-B]_TURB",
+     var_lagged="CH4_DRY_[QCL-C2]_TURB",
+     var_target=["CH4_DRY_[QCL-C2]_TURB", "N2O_DRY_[QCL-C2]_TURB"],
+     indir=r"F:\example\input_files",
+     outdir=r"F:\example\output",
+     filename_date_format="CH-DAS_%Y%m%d%H%M%S_30MIN-SPLIT_ROT_TRIM.csv",
+     filename_pattern="CH-DAS_*_30MIN-SPLIT_ROT_TRIM.csv",
      files_how_many=None,
-     file_generation_res='30min',
-     file_duration='30min',
+     file_generation_res="30min",
+     file_duration="30min",
      data_timestamp_format="%Y-%m-%d %H:%M:%S.%f",
      data_nominal_timeres=0.05,
-     lag_segment_dur=DATA_SPLIT_DURATION,
+     lag_segment_dur="10min",
      lag_winsize=1000,
      lag_n_iter=3,
      lag_hist_remove_fringe_bins=True,
      lag_hist_perc_thres=0.7,
      target_lag=0,
-     del_previous_results=True)
+     del_previous_results=False)
 ```
 
 ### CLI
 
-`dyco` is run from the command line interface (CLI).
+`dyco` can be run from the command line interface (CLI).
 
-`usage: dyco.py [-h] [-i INDIR] [-o OUTDIR] [-fnd FILENAMEDATEFORMAT]`
-`[-fnp FILENAMEPATTERN] [-flim LIMITNUMFILES] [-fgr FILEGENRES]`
-`[-fdur FILEDURATION] [-dtf DATATIMESTAMPFORMAT]`
-`[-dres DATANOMINALTIMERES] [-lss LSSEGMENTDURATION]`
-`[-lsw LSWINSIZE] [-lsi LSNUMITER] [-lsf {0,1}]`
-`[-lsp LSPERCTHRES] [-lt TARGETLAG] [-del {0,1}]`
-`var_reference var_lagged var_target [var_target ...]`
+```bash
+python dyco.py W_[R350-B]_TURB CH4_DRY_[QCL-C2]_TURB CH4_DRY_[QCL-C2]_TURB N2O_DRY_[QCL-C2]_TURB 
+-i F:\example\input_files 
+-o F:\example\output
+-fnd CH-DAS_%Y%m%d%H%M%S_30MIN-SPLIT_ROT_TRIM.csv
+-fnp CH-DAS_*_30MIN-SPLIT_ROT_TRIM.csv
+-flim 0
+-fgr 30min
+-fdur 30min
+-dtf "%Y-%m-%d %H:%M:%S.%f"
+-dres 0.05
+-lss 10min
+-lsw 1000
+-lsi 3
+-lsf 1
+-lsp 0.7
+-lt 0
+-del 0
+```
 
-- Example usage with full arguments can be found here: [Example](https://github.com/holukas/dyco/wiki/Example)
-- For an overview of arguments see here: [Usage](https://github.com/holukas/dyco/wiki/Usage)
-- `dyco` creates a range of output folders which are described
-  here: [Results Output Folders](https://github.com/holukas/dyco/wiki/Results-Output-Folders)
+General CLI usage:
+
+```
+usage: dyco.py [-h] 
+var_reference     Column name of the unlagged reference variable in the data files (one-row header). 
+                  Lags are determined in relation to this signal. 
+var_lagged        Column name of the lagged variable in the data files (one-row header). The time lag of this
+                  signal is determined in relation to the reference signal var_reference. 
+var_target [var_target2, var_target3 ...] ... Column name(s) of the target variable(s). Column names of
+                  the variables the lag that was found between var_reference and var_lagged should be applied to. 
+                  Example: var1 var2 var3
+[-i INDIR]        Path to the source folder that contains the data files, e.g. C:/dyco/input
+[-o OUTDIR]       Path to output folder, e.g. C:/bico/output
+[-fnd FILENAMEDATEFORMAT]     Filename date format as datetime format strings. Is used to parse the date and 
+                              time info from the filename of found files. The filename(s) of the files found 
+                              in INDIR must contain datetime information. 
+                              Example for data files named like 20161015123000.csv: %%Y%%m%%d%%H%%M%%S
+[-fnp FILENAMEPATTERN]        Filename pattern for raw data file search, e.g. *.csv
+[-flim LIMITNUMFILES]         Defines how many of the found files should be used. Must be 0 or a positive integer.
+                              If set to 0, all found files will be used.
+[-fgr FILEGENRES]             File generation resolution. Example for data files that were generated 
+                              every 30 minutes: 30min
+[-fdur FILEDURATION]
+[-dtf DATATIMESTAMPFORMAT]
+[-dres DATANOMINALTIMERES]
+[-lss LSSEGMENTDURATION]
+[-lsw LSWINSIZE]
+[-lsi LSNUMITER]
+[-lsf {0,1}]
+[-lsp LSPERCTHRES]
+[-lt TARGETLAG]
+[-del {0,1}]`
+ 
+```
 
 ## Real-world examples
 

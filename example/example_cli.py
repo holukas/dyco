@@ -1,12 +1,10 @@
 """
 Example settings
 
-DYCO is run from the command line interface (CLI).
+dyco can be run from the command line interface (CLI).
 
 The example code below calls the CLI from within Python.
 
-For an overview of arguments see here:
-https://github.com/holukas/dyco/wiki/Usage
 """
 
 import os
@@ -23,7 +21,7 @@ cli = r'python L:\Dropbox\luhk_work\programming\DYCO_Dynamic_Lag_Compensation\dy
       r'-fdur 30T ' \
       r'-dtf "%Y-%m-%d %H:%M:%S.%f" ' \
       r'-dres 0.05 ' \
-      r'-lss 30T ' \
+      r'-lss 30min ' \
       r'-lsw 1000 ' \
       r'-lsi 3 ' \
       r'-lsf 1 ' \

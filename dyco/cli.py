@@ -1,6 +1,6 @@
 """
     DYCO Dynamic Lag Compensation
-    Copyright (C) 2020-2024 Lukas Hörtnagl
+    Copyright (C) 2020-2025 Lukas Hörtnagl
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ def get_args():
                              "integer. If set to 0, all found files will be used. ")
     parser.add_argument('-fgr', '--filegenres', type=str, default='30T',
                         help="File generation resolution. Example for data files that were generated "
-                             "every 30 minutes: 30T")
+                             "every 30 minutes: 30min")
     parser.add_argument('-fdur', '--fileduration', type=str, default='30T',
                         help="Duration of one data file. Example for data files containing 30 minutes "
                              "of data: 30T")
