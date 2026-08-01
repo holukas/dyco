@@ -93,7 +93,7 @@ from textual.widgets.option_list import Option
 
 from dyco.pipeline import (
     _WHITESPACE_SEP, PerFilePipeline, parse_scalar_spec, window_to_lag_params)
-from dyco.rawio import read_preserved_lines
+from dyco.rawio import OUTPUT_COMPRESSIONS, read_preserved_lines
 
 
 def _version() -> str:
@@ -495,6 +495,7 @@ _FIELDS = [
     ('streg', 'Start regex', r'e.g. (\d{12})  — capture file start from name'),
     ('stfmt', 'Start format', 'e.g. %Y%m%d%H%M  (parses the captured text)'),
     ('ctmpl', 'Name tmpl', '{stem}_chunk{index:02d}{suffix}'),
+    ('outcomp', 'Output as', 'auto = same as input  (or none / gz / bz2 / xz / zip)'),
     # --- Output layout ---
     ('detectsub', 'Detect dir', 'default 1_lag_detection  (diagnostics)'),
     ('datasub', 'Data dir', 'default 2_lag_removed  (corrected chunks)'),
@@ -573,6 +574,9 @@ _VALIDATORS = {
     'chunk': [Function(_opt_num, 'a number of seconds')],
     'minchunk': [Function(_opt_num, 'a number of seconds')],
     'nboot': [Function(_opt_int, 'whole number, e.g. 99')],
+    'outcomp': [Function(
+        lambda v: not v.strip() or v.strip() in OUTPUT_COMPRESSIONS,
+        'auto, none, gz, bz2, xz or zip')],
     'lagmax': [Function(_opt_num, 'a number of seconds')],
     'workers': [Function(_opt_int, 'whole number (blank = all cores)')],
     'skiprows': [Function(_opt_int, 'whole number')],
@@ -604,6 +608,7 @@ _DEFAULTS = {
     'datasub': '2_lag_removed',
     'narep': '-9999',
     'lineterm': 'auto',
+    'outcomp': 'auto',
     # Reproducible bootstrap by default (override with a blank field for a
     # non-deterministic run).
     'randomstate': '42',
@@ -688,6 +693,11 @@ _HELP = {
                 'space-separated. Default covers the -9999 family.',
     'narep': 'Value written for missing data in the output files. Default '
              '-9999 (the trailing rows of each shifted column become this).',
+    'outcomp':
+        'Compression of the written chunks. auto keeps whatever the input '
+        'used, so gzipped in gives gzipped out. Set none for plain text, or '
+        'gz / bz2 / xz / zip to force one regardless of the input. The file '
+        'extension follows automatically.',
     'lineterm':
         "Line ending of the output file. 'auto' (default) reproduces the "
         "input file's convention — CRLF for typical Windows EC logger files, "
@@ -805,6 +815,7 @@ def write_run_settings_yaml(output_dir, args, scalars: dict,
             'streg': args.start_time_regex or '',
             'stfmt': args.start_time_format,
             'ctmpl': args.chunk_name_template,
+            'outcomp': getattr(args, 'output_compression', 'auto'),
             'detectsub': args.detect_subdir,
             'datasub': args.data_subdir,
             'workers': '' if args.n_workers is None else str(args.n_workers),
@@ -953,6 +964,7 @@ class DetectRemoveTUI(App):
                 yield self._field('streg')
                 yield self._field('stfmt')
                 yield self._field('ctmpl')
+                yield self._field('outcomp')
                 yield Static('Output layout', classes='section')
                 yield self._field('detectsub')
                 yield self._field('datasub')
@@ -1918,6 +1930,7 @@ class DetectRemoveTUI(App):
             dev_thresh=float(g('devthresh') or 0.5),
             hdi_prefilter=float(g('hdiprefilter') or 1.0),
             lag_column_template=g('lagcol') or '{prefix}_tlag_final_pf_s',
+            output_compression=g('outcomp') or 'auto',
             # File format
             skiprows=int(g('skiprows') or 0),
             extra_rows=int(g('extrarows') or 2),
