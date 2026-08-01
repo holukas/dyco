@@ -17,48 +17,11 @@
 
 """
 
-import datetime as dt
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from dyco._vendor.fileio import read_parquet
-
-
-def read_segment_lagtimes_file(filepath):
-    """
-    Read file.
-
-    Reading segment covariances and lag search results for each segment.
-    Can be used for all text files for which the .read_csv args are valid.
-
-    Parameters
-    ----------
-    filepath: str
-
-    Returns
-    -------
-    pandas DataFrame
-
-    """
-    # parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
-    found_lags_df = pd.read_csv(filepath,
-                                skiprows=None,
-                                header=0,
-                                # names=header_cols_list,
-                                # na_values=-9999,
-                                encoding='utf-8',
-                                delimiter=',',
-                                # mangle_dupe_cols=True,
-                                # keep_date_col=False,
-                                parse_dates=False,
-                                # date_parser=parse,
-                                index_col=0,
-                                dtype=None,
-                                engine='c')
-    return found_lags_df
-
 
 # Compression suffixes pandas infers on its own. A file named `x.csv.gz` has
 # Path.suffix == '.gz', so dispatching on that alone rejects every compressed
@@ -168,44 +131,6 @@ def read_raw_data_csv(filepath, data_timestamp_format):
                           nrows=None)
 
     return data_df
-
-
-def add_data_stats(df, true_resolution, filename, files_overview_df, found_records, fnm_date_format):
-    """
-    Collect additional info about raw data file
-
-    Parameters
-    ----------
-    df: pandas DataFrame
-        Raw data from the file.
-    true_resolution: float
-        Time resolution of the raw data records in seconds, e.g. 0.05 for 20 Hz data.
-    filename: str
-        Filename of the raw data file, without extension.
-    files_overview_df: pandas DataFrame
-        Overview of all raw data files, with stats.
-    found_records: int
-        Number of records in the raw data file.
-    fnm_date_format: str
-        Datetime format of the datetime info in the raw data filename.
-
-    Returns
-    -------
-    pandas DataFrame with additional info for current raw data file
-    """
-    # Detect overall frequency
-    data_duration = found_records * true_resolution
-    data_freq = np.float64(found_records / data_duration)
-
-    idx = dt.datetime.strptime(filename, fnm_date_format)  # Use filename datetime info as index
-
-    files_overview_df.loc[idx, 'first_record'] = df.index[0]
-    files_overview_df.loc[idx, 'last_record'] = df.index[-1]
-    files_overview_df.loc[idx, 'file_duration'] = (df.index[-1] - df.index[0]).total_seconds()
-    files_overview_df.loc[idx, 'found_records'] = found_records
-    files_overview_df.loc[idx, 'data_freq'] = data_freq
-
-    return files_overview_df
 
 
 def generate_missing_cols(header_cols_df, more_data_cols_than_header_cols, num_missing_header_cols):

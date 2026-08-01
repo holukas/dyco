@@ -26,10 +26,9 @@ def add_data_stats(df, true_resolution, filename, found_records) -> DataFrame:
 
     Columns: first_record, last_record, file_duration, found_records, data_freq.
 
-    Note dyco's own `files.add_data_stats` is a different function despite the
-    shared name - it takes six arguments and writes into a running overview
-    frame. This is the four-argument diive version, used by the file splitter.
-    The two collapse into one during the v3 restructure.
+    A second, six-argument variant lived in `files.py` and served the v2
+    covariance-maximization path; it went with that path in v3.0.0. This is the
+    diive version, and now the only one. Used by the file splitter.
     """
     cols = ['first_record', 'last_record', 'file_duration', 'found_records', 'data_freq']
     filestats_df = DataFrame(columns=cols)
