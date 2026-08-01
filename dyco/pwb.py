@@ -22,8 +22,9 @@ sharpening the peak and enabling a cleaner lag estimate.
 **Block-bootstrap** quantifies the uncertainty of the detected lag.  Instead
 of relying on a single CCF computed from the full averaging period, the method
 draws N_B resampled series (moving-block resampling with overlapping blocks of
-length L to preserve local autocorrelation structure, matching R's
-``tsboot(sim="fixed", l=LAG.MAX*2)``), detects the peak lag in each, and
+length L to preserve local autocorrelation structure; R uses ``tsboot(sim=
+"fixed", l=LAG.MAX*2)``, whose blocks wrap around -- see the differences table
+below), detects the peak lag in each, and
 summarises the resulting distribution with a mode (the lag estimate) and a 95%
 Highest Density Interval (HDI).  A narrow HDI (< 0.5 s) indicates that
 repeated resampling consistently finds the same lag -- the S1 reliability
@@ -339,8 +340,9 @@ class PreWhiteningBootstrap:
 
     **Why block-bootstrap?**  A single CCF can be noisy.  The bootstrap draws
     N_B resampled series (moving-block resampling with overlapping blocks of
-    length L to preserve local autocorrelation, matching R's
-    ``tsboot(sim="fixed", l=LAG.MAX*2)``) and detects the peak lag in each.  The mode of the
+    length L to preserve local autocorrelation; R's ``tsboot(sim="fixed",
+    l=LAG.MAX*2)`` wraps its blocks around, this does not) and detects the peak
+    lag in each.  The mode of the
     resulting N_B lag estimates is the final lag; the 95% HDI (Highest Density
     Interval, shortest interval containing 95% of the distribution) measures
     how consistently the resampling agrees on that lag.  A narrow HDI means
@@ -957,8 +959,11 @@ class PreWhiteningBootstrap:
             tc: x_pw = T_SONIC filtered by T_SONIC AR, y_pw = scalar filtered by T_SONIC AR
 
         Leading NaN left by the AR filter (order-p initialisation artifact) are
-        zeroed so that block 0 -- which contains those positions -- is harmless
-        when sampled; it is also excluded from the bootstrap draw.
+        zeroed rather than dropped, so the blocks covering those positions
+        contribute nothing to the CCF numerator when they are drawn.  Every
+        block start is still a candidate, including position 0.  R leaves them
+        NA and its ``acf`` skips NA pairs, which also drops them from the
+        denominator -- a difference of ~1% of positions.
 
         Returns a dict with:
             lags           -- shape (N_B,) peak lags per bootstrap sample, in records
@@ -969,7 +974,7 @@ class PreWhiteningBootstrap:
         x0 = np.where(np.isnan(x_pw), 0.0, x_pw)
         y0 = np.where(np.isnan(y_pw), 0.0, y_pw)
         boot_lags, mean_smooth_ccf = self._block_bootstrap(x0, y0)
-        mode_lag = self._map_estimate(boot_lags, self._rng)  # KDE MAP, matching R's bayestestR::map_estimate
+        mode_lag = self._map_estimate(boot_lags, self._rng)  # KDE MAP; R uses bayestestR::map_estimate
         return {'lags': boot_lags, 'mode_lag': mode_lag, 'mean_smooth_ccf': mean_smooth_ccf}
 
     @staticmethod
@@ -1265,8 +1270,12 @@ class PreWhiteningBootstrap:
     @staticmethod
     def _map_estimate(samples: np.ndarray, rng: np.random.Generator) -> int:
         """
-        MAP (mode) estimate via KDE with tiny jitter, matching R's
-        bayestestR::map_estimate used in tlag_detection.R line 146.
+        MAP (mode) estimate via KDE with tiny jitter.  Same construction as R's
+        bayestestR::map_estimate (tlag_detection.R line 146), but a different
+        density estimator: scipy's gaussian_kde on a 512-point grid against
+        bayestestR's own bandwidth and grid.  The two agree wherever the
+        distribution is unimodal, which is the case whenever the lag is
+        detectable at all; they can differ by a record on a ragged one.
 
         R adds small Gaussian noise to discrete integer lag indices to break
         exact ties before fitting a kernel density, then rounds the KDE peak
