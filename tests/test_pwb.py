@@ -226,6 +226,28 @@ class TestPwbPerGasWindow(unittest.TestCase):
         self.assertEqual(data['randomstate'], '42')
         self.assertTrue(data['saveplots'])
 
+    def test_the_header_bar_shows_the_version(self):
+        # The version was set on App.TITLE first, which this app never renders
+        # -- it has no Header widget. Assert on what actually reaches the
+        # screen, not on the attribute.
+        try:
+            import asyncio
+            from importlib.metadata import version
+            from dyco.tui import DetectRemoveTUI
+            from textual.widgets import Static
+        except Exception:
+            self.skipTest('textual TUI not importable')
+
+        async def scenario():
+            app = DetectRemoveTUI(demo=True)
+            async with app.run_test(size=(120, 50)) as pilot:
+                await pilot.pause()
+                return str(app.query_one('#title', Static).render())
+
+        header = asyncio.run(scenario())
+        self.assertIn(f'v{version("dyco")}', header)
+        self.assertIn('dyco', header)
+
     def test_tui_win_field_autosync(self):
         try:
             import asyncio

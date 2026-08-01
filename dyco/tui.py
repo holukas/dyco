@@ -935,7 +935,10 @@ class DetectRemoveTUI(App):
     # ---- layout: title / [settings | console] / footer ----------------
     def compose(self) -> ComposeResult:
         """Build the main application widgets."""
-        yield Static('dyco · PWB time-lag detect + remove', id='title')
+        # The version belongs where it is visible. App.TITLE is not it:
+        # this app renders no Header widget, so TITLE never reaches the screen.
+        yield Static(f'dyco {_version()} · PWB time-lag detect + remove',
+                     id='title')
         with Horizontal(id='body'):
             with VerticalScroll(id='settings'):
                 yield Static('Paths', classes='section')
