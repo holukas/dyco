@@ -93,6 +93,21 @@ from textual.widgets.option_list import Option
 
 from dyco.pipeline import (
     _WHITESPACE_SEP, PerFilePipeline, parse_scalar_spec, window_to_lag_params)
+from dyco.rawio import read_preserved_lines
+
+
+def _version() -> str:
+    """Installed dyco version, for the title bar.
+
+    Read from package metadata rather than hardcoded, so it cannot drift from
+    what is actually installed. Falls back to a placeholder when dyco is run
+    from a source tree that was never installed.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+    try:
+        return f'v{version("dyco")}'
+    except PackageNotFoundError:
+        return 'v?'
 
 
 def _scan_columns(input_dir: str, file_pattern: str, skiprows: int,
@@ -108,8 +123,7 @@ def _scan_columns(input_dir: str, file_pattern: str, skiprows: int,
             f"no files match '{file_pattern}' in {input_dir}")
     f0 = files[0]
     n_pre = skiprows + 1 + extra_rows
-    with open(f0, 'r', encoding='utf-8', errors='replace') as fh:
-        head = [next(fh) for _ in range(n_pre)]
+    head = read_preserved_lines(f0, n_pre)
     line = head[skiprows].rstrip('\r\n')
     cols = (line.split() if sep == _WHITESPACE_SEP
             else [c.strip() for c in line.split(sep)])
@@ -877,7 +891,7 @@ class DetectRemoveTUI(App):
     """Two-column Textual UI for the PWB detect+remove pipeline."""
 
     CSS = _CSS
-    TITLE = 'dyco · PWB time-lag detect + remove'
+    TITLE = f'dyco {_version()} · PWB time-lag detect + remove'
     # Responsive layout: below 96 cells wide the Screen gets the '-narrow'
     # class and the two panes stack vertically (see the CSS). This keeps the
     # form usable whatever cell grid the terminal/monitor presents.
@@ -1497,8 +1511,7 @@ class DetectRemoveTUI(App):
             skiprows, extra = cfg['skiprows'], cfg['extra_rows']
             sep = cfg['sep']
             n_pre = skiprows + 1 + extra
-            with open(f0, 'r', encoding='utf-8', errors='replace') as fh:
-                head = [next(fh) for _ in range(n_pre)]
+            head = read_preserved_lines(f0, n_pre)
             header_line = head[skiprows].rstrip('\r\n')
             cols = (header_line.split() if sep == _WS
                     else [c.strip() for c in header_line.split(sep)])
