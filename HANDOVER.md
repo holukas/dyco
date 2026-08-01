@@ -9,12 +9,14 @@ You are in `F:\dev\dyco`, branch `indev`, last commit `a69a9b2`.
 
 ## 1. The one thing to know
 
-**dyco is committed on `indev`; `F:\dev\diive` is not.**
+**Both repos are committed and clean.**
 
-The v3 work landed as seven commits on top of `a69a9b2`. The companion repo
-still has ~15,000 lines deleted in its working tree, uncommitted. dyco no longer
-depends on diive, so its history stands alone and the split is safe - but the
-diive side still needs review and staging.
+The v3 work landed as eight commits on `indev` on top of `a69a9b2`, and the
+matching removals landed as six commits in `F:\dev\diive` on top of `6e09f693`.
+dyco no longer depends on diive, so the two histories stand alone.
+
+`pyproject.toml` reads `3.0.0`; the CHANGELOG heading is still
+`## v3.0.0 | unreleased`. Nothing is published.
 
 **Do not commit.** The user stages and commits exclusively. Do not run
 `git commit`, `git add` or `git push`. Do not bump version numbers. (The v3
