@@ -47,7 +47,16 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 - A real raw file for the examples: `examples/data/CH-LAE_202507251300.csv.gz`, a 1-hour 20 Hz
   excerpt from CH-LAE, plus `examples/detect_remove_tlag_realdata.py`, which runs the full
   detect-and-remove pipeline over it. Running this is what surfaced the three gzip faults below
-- A test suite: `tests/`, 98 tests. `dyco` previously had none
+- `--wdt` on `dyco detect-remove`: width, in records, of the centred rolling mean applied to each
+  bootstrap CCF before its peak is taken. The default of 5 follows RFlux; the paper's equation 6
+  specifies `hz/2 + 1` (11 at 20 Hz). Previously the value was fixed at 5 with no way to reach the
+  paper's. It matters: on the bundled CH-LAE hour, `--wdt 11` widens the 95% HDI from 0.00/0.05 s to
+  0.30/0.20 s, and the S1 reliability threshold is 0.5 s
+- A test suite: `tests/`, 109 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
+  the pre-whitening chain to the numbers RFlux v3.2.0 produces on the same input — unit-root
+  decision, AR order, AR coefficients, pre-whitened CCF peak and raw cross-covariance all agree to
+  12 significant digits, on both branches of the unit-root test. Fixtures and the R script that
+  produced the frozen values are in `tests/data/`
 
 ### Changed
 
@@ -67,6 +76,34 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 - New dependencies: `numpy`, `polars`, `pyarrow`, `textual`, `pyyaml`
 
 ### Fixed
+
+- **The PWB raw cross-covariance was read off the differenced series.** When the Breitung
+  variance-ratio test rejects stationarity, all three series are first-differenced before AR
+  fitting — but the differenced arrays were then also used for the raw cross-covariance, which R
+  computes from the *original* series. `cov_pwb` became a covariance of increments: on a drifting
+  record, two orders of magnitude too small and free to carry the opposite sign (measured: -0.017
+  where R gives 4.040 at the same lag). The detected lag was never affected, only the reported
+  covariance and the second diagnostic panel
+
+- **An even CCF smoothing width raised `ValueError`.** The centred rolling mean assumed an odd
+  window, so the paper's `hz/2 + 1` was unusable at 10 Hz (= 6). Even widths now follow zoo's
+  `align="center"` convention, putting the extra sample after the centre, and a window wider than
+  the series returns all-NaN instead of a shape error
+
+- **`dyco apply-batch` could not read or write compressed files.** It used a plain `open()` on both
+  ends, so a `.csv.gz` input — which dyco's own file splitter produces — failed with a bare
+  `StopIteration` and no message. It now handles gzip on both ends, and a file shorter than the
+  header block reports which flag to check
+
+- **`dyco apply-batch` wrote mixed line terminators.** Preserved header lines went out with the LF
+  they picked up from the text-mode read while the data used `--lineterm`, so `--lineterm "\r\n"`
+  produced an LF header above CRLF data. The same fault was already fixed on the `detect-remove`
+  side; both now re-terminate the header
+
+- **`_count_data_rows` lost the last row of a file with no trailing newline**, and so disagreed with
+  `_estimate_data_rows` on the same file (2 vs 3). It is the counter used for every compressed
+  input, so gzipped files were systematically one row short in chunk planning and the preflight
+  check
 
 - **`files.read_raw_data` refused compressed files.** It dispatched on
   `Path(filepath).suffix`, which for `raw.csv.gz` is `.gz`, so every compressed file

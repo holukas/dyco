@@ -3,10 +3,10 @@
 Time-lag detection and compensation for eddy covariance raw data.
 See `CHANGELOG.md` for version history.
 
-> **New to this repo? Read `HANDOVER.md` first.** It carries the current state,
-> what is uncommitted, what is open and in what order, and the traps worth
-> knowing before you spend time on them. This file is the standing reference:
-> conventions, architecture, and the rules that outlive any one task.
+> This file is the single standing reference: conventions, architecture, open
+> items and the rules that outlive any one task. For what changed and when, read
+> `CHANGELOG.md` and `git log` — not a status file that goes stale between
+> commits.
 
 ---
 
@@ -20,7 +20,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Detection | `dyco/pwb.py` |
 | Lag selection | PWBOPT S1/S2/S3, per chunk |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 5 more, 98 total |
+| Tests | `tests/test_pwb.py` + 6 more, 109 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -37,14 +37,17 @@ there, port the specific piece and say so.
 covariance-maximization estimator itself, it is what `FluxDetectionLimit` reads
 its noise from, and it is tested. It stays.
 
+**PWB is measured against the original R code.** `tests/test_pwb_reference.py`
+pins the deterministic half of `pwb.py` to RFlux v3.2.0's `tlag_detection.R` at
+12 significant digits, on both branches of the unit-root test. The remaining
+differences are catalogued with severities in the `pwb.py` module docstring —
+read that before changing the algorithm, and rerun `tests/data/pwb_reference_rflux.R`
+if you do.
+
 ## [READ FIRST] v3 state
 
 The migration is **done**: all of diive's `flux/hires/` plus `filesplitter.py`
 now live here, and the diive dependency is gone.
-
-`HANDOVER.md` carries the current state and what is still open. `MIGRATION_V3.md`
-is historical; its §4 proposed deleting the v2 modules, which is what eventually
-happened, though for a different reason and on the user's call.
 
 `cli.py` is now the unified `dyco` dispatcher (`detect-remove`, `tui`, `pwb-batch`,
 `apply-batch`); the standalone `dyco-*` scripts still work.
@@ -89,9 +92,9 @@ features, abstractions for single-use code, or error handling for impossible
 scenarios.
 
 **Surgical changes:** Touch only what you must. Don't "improve" adjacent code.
-Match existing style. **Mention dead code — don't delete it** (this repo has
-several known dead blocks, see below). Remove only imports and variables that
-YOUR changes made unused.
+Match existing style. **Mention dead code — don't delete it** (nothing is
+catalogued as dead right now; the rule stands for whatever turns up). Remove
+only imports and variables that YOUR changes made unused.
 
 **Goal-driven execution:** For multi-step tasks, state a plan with verifiable
 success criteria before coding.
@@ -122,7 +125,7 @@ not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 98 passed
+uv run pytest tests/ -q                                  # 109 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -163,6 +166,28 @@ coupling is what broke dyco four ways, and it is deliberately gone.
 
 ---
 
+## Open
+
+Two items, neither urgent. Anything else belongs in the GitHub issue tracker.
+
+**`rawio` unification.** `dyco/files.py` (used by `split.py`) and `pipeline.py`'s
+`_read_raw_file` / `_write_raw_file` (PWB path) share no code — which is why the
+same class of gzip gap had to be found and fixed in each. `files.py` reads
+parquet and reconciles a column-count mismatch; `pipeline.py` handles arbitrary
+metadata rows, preserves line endings and can write. Unification takes
+`pipeline.py`'s as the base and folds in the other two capabilities. Low
+priority: `files.py` has exactly one consumer, and the compressed-input breakage
+is already fixed in both. `apply_tlag.py` now carries a third, smaller copy of
+the gzip open helpers — fold that in at the same time.
+
+**Release chores.** `CITATION.cff` needs its `version:` and a Zenodo DOI (the
+`doi:` field is commented out). The `CHANGELOG.md` heading is
+`## v3.0.0 | unreleased` — the date goes in at release, deliberately not before.
+Check `status.svg` still points somewhere valid. **The version in
+`pyproject.toml` is the user's; do not touch it.**
+
+---
+
 ## Known Dead Code
 
 None catalogued. The two known-dead blocks (`plot.py`'s `SummaryPlots`,
@@ -179,33 +204,37 @@ None catalogued. The `analyze.py` defects were fixed, then the module was
 removed; the matplotlib 3.9 breakage (`plt.cm.get_cmap`, `Axes.plot_date`) lived
 entirely in `loop.py`, `analyze.py` and `plot.py`, all of which are gone.
 
-Worth carrying forward: that breakage was found by *running* the code, not by
-the test suite, and so were the three gzip faults. Neither would have surfaced
-from reading.
+Worth carrying forward: nothing real has ever been caught by reading this code.
+The matplotlib breakage, the three gzip faults and all five defects from the
+RFlux comparison were found by *running* it — against real data, or against the
+reference implementation. Prefer that over inspection.
 
 ---
 
 ## Gotchas
 
-- **Two raw-file readers exist.** `pipeline.py`'s `_read_raw_file` /
-  `_write_raw_file` serve the PWB path; `files.py` serves `split.py`. They share
-  no code, which is why the same class of gzip gap had to be found and fixed in
-  each. `files.py` reads parquet and reconciles a column-count mismatch;
-  `pipeline.py` handles arbitrary metadata rows, preserves line endings, and can
-  write. See `HANDOVER.md` §5.3.
+- **Two raw-file readers exist**, plus a third copy of the gzip helpers in
+  `apply_tlag.py`. See **Open** above for what differs and why they have not
+  been merged. The practical consequence: a fix to one is not a fix to the
+  others — the same gzip gap had to be found three times.
 - Two near-identical `add_data_stats` functions used to exist. Only
   `_vendor/filedetector.py:24` remains; `files.py`'s six-argument variant went
   with the v2 path.
+- **The TUI settings path is `~/.dyco/detect_remove_tui.yaml`.** An existing
+  `~/.diive/` config from before the migration will not be found.
+- **Do not truncate pytest output.** Piping the suite through `tail -5` hides
+  which test failed; use `-rf`, or read `.pytest_cache/v/cache/lastfailed`.
 
 ---
 
 ## Testing
 
-`tests/` holds **98 tests plus 31 subtests**, seeded by diive's
-`test_echires.py` (1,297 lines) and extended with gzip and CLI suites.
+`tests/` holds **109 tests plus 55 subtests**, seeded by diive's
+`test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
+suites.
 
 ```bash
-uv run pytest tests/ -q     # 98 passed, 31 subtests
+uv run pytest tests/ -q     # 109 passed, 55 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving
@@ -267,4 +296,4 @@ repo (`holukas/ms_fluxnet_ch4_n2o_timelag`).
 
 ---
 
-**Last Updated:** 2026-08-01 | **Version:** v3.0.0 (unreleased)
+**Last Updated:** 2026-08-02 | **Version:** v3.0.0 (unreleased)
