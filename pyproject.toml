@@ -1,6 +1,6 @@
 [project]
 name = "dyco"
-version = "2.0.3"
+version = "3.0.0"
 description = "Dynamic lag compensation"
 authors = [
     { name = "Lukas Hörtnagl", email = "lukas.hoertnagl@usys.ethz.ch" }

@@ -120,7 +120,8 @@ chars, then bullet points.
 ## Environment
 
 **Python** `>=3.12,<3.14`. **Build** hatchling, **deps** uv. `pyproject.toml`
-still reads `version = "2.0.3"` — the user bumps that at release, not you.
+reads `version = "3.0.0"`. The CHANGELOG entry is still `unreleased` — v3 is
+not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
@@ -291,4 +292,4 @@ repo (`holukas/ms_fluxnet_ch4_n2o_timelag`).
 
 ---
 
-**Last Updated:** 2026-08-01 | **Version:** v2.0.3 (v3 rebuild in progress)
+**Last Updated:** 2026-08-01 | **Version:** v3.0.0 (unreleased)

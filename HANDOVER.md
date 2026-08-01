@@ -167,10 +167,10 @@ Pre-existing, catalogued in `CLAUDE.md`:
 
 ### 5.5 Release chores
 
-- `pyproject.toml` still reads `version = "2.0.3"`. **The user bumps this, not
-  you.**
-- `CHANGELOG.md` has a `## v3.0.0 | unreleased` entry — swap in the date at
-  release.
+- `pyproject.toml` reads `version = "3.0.0"`. **Do not change it again; the user
+  owns the version.**
+- `CHANGELOG.md` heading is `## v3.0.0 | unreleased`. The date goes in at
+  release, deliberately not before.
 - `CITATION.cff` needs its `version:` and a Zenodo DOI (the `doi:` field is
   commented out).
 - `status.svg` badge — check it still points somewhere valid.
