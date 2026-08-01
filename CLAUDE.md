@@ -20,7 +20,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Detection | `dyco/pwb.py` |
 | Lag selection | PWBOPT S1/S2/S3, per chunk |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 6 more, 117 total |
+| Tests | `tests/test_pwb.py` + 7 more, 130 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -135,7 +135,7 @@ not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 117 passed
+uv run pytest tests/ -q                                  # 130 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -148,7 +148,7 @@ came from.
 
 ## Current Architecture
 
-~9,900 lines across 10 modules plus ~400 in `_vendor/`. Pipeline:
+~10,000 lines across 11 modules plus ~400 in `_vendor/`. Pipeline:
 **split into chunks → rotate → detect per chunk → PWBOPT across the sequence →
 shift and write**.
 
@@ -163,6 +163,7 @@ shift and write**.
 | `dyco/maxcov.py` | 417 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it |
 | `dyco/files.py` | 195 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
 | `dyco/rotation.py` | 138 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
+| `dyco/rawio.py` | 155 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
 | `dyco/cli.py` | 101 | Unified `dyco` dispatcher |
 | `dyco/_vendor/` | ~400 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
 | `dyco/__init__.py` | 2 | A comment. **No public API is defined** |
@@ -180,15 +181,13 @@ coupling is what broke dyco four ways, and it is deliberately gone.
 
 Two items, neither urgent. Anything else belongs in the GitHub issue tracker.
 
-**`rawio` unification.** `dyco/files.py` (used by `split.py`) and `pipeline.py`'s
-`_read_raw_file` / `_write_raw_file` (PWB path) share no code — which is why the
-same class of gzip gap had to be found and fixed in each. `files.py` reads
-parquet and reconciles a column-count mismatch; `pipeline.py` handles arbitrary
-metadata rows, preserves line endings and can write. Unification takes
-`pipeline.py`'s as the base and folds in the other two capabilities. Low
-priority: `files.py` has exactly one consumer, and the compressed-input breakage
-is already fixed in both. `apply_tlag.py` now carries a third, smaller copy of
-the gzip open helpers — fold that in at the same time.
+**`rawio` unification, part two.** The *opening* layer is done — `rawio.py`
+owns compression for every module. What is still split is *parsing*:
+`dyco/files.py` (used by `split.py`) reads parquet and reconciles a column-count
+mismatch, while `pipeline.py`'s `_read_raw_file` / `_write_raw_file` handle
+arbitrary metadata rows, preserve line endings and can write. Folding the first
+into the second is low priority — `files.py` has exactly one consumer, and the
+defect class that motivated it lived in the opening layer, which is now shared.
 
 **Release chores.** `CITATION.cff` needs its `version:` and a Zenodo DOI (the
 `doi:` field is commented out). The `CHANGELOG.md` heading is
@@ -223,10 +222,13 @@ reference implementation. Prefer that over inspection.
 
 ## Gotchas
 
-- **Two raw-file readers exist**, plus a third copy of the gzip helpers in
-  `apply_tlag.py`. See **Open** above for what differs and why they have not
-  been merged. The practical consequence: a fix to one is not a fix to the
-  others — the same gzip gap had to be found three times.
+- **Compression is `rawio.py`'s job, nobody else's.** `pipeline.py`,
+  `apply_tlag.py` and `tui.py` each grew their own `open()` calls, and each
+  broke on compressed input independently — the TUI's silently, returning
+  mojibake column names. If you add a reader, go through `rawio`.
+- **Two raw-file *parsers* still exist**: `files.py` (parquet, column
+  reconciliation) and `pipeline.py` (metadata rows, line endings, writing). See
+  **Open** above. Only the opening layer was unified.
 - Two near-identical `add_data_stats` functions used to exist. Only
   `_vendor/filedetector.py:24` remains; `files.py`'s six-argument variant went
   with the v2 path.
@@ -239,12 +241,12 @@ reference implementation. Prefer that over inspection.
 
 ## Testing
 
-`tests/` holds **117 tests plus 58 subtests**, seeded by diive's
+`tests/` holds **130 tests plus 97 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 117 passed, 58 subtests
+uv run pytest tests/ -q     # 130 passed, 97 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving

@@ -43,6 +43,11 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   optional rotation
 - `dyco.detectionlimit` — `FluxDetectionLimit`, the smallest flux distinguishable from noise, read off the
   far tail of the same cross-covariance function used for lag detection
+- `dyco.rawio` — one place that knows how to open a raw data file. Raw EC data is delimited text
+  (`.csv`, `.dat`, `.txt`) that is routinely shipped compressed, so `.gz`, `.bz2`, `.xz` and `.zip`
+  now read and write transparently everywhere: the pipeline, `apply-batch`, the TUI's column scan
+  and preflight check, and the file splitter. A zipped raw file must hold exactly one member;
+  an archive of many files is a different thing and says so
 - `dyco._vendor` — self-contained copies of the small helpers formerly imported from `diive`
 - A real raw file for the examples: `examples/data/CH-LAE_202507251300.csv.gz`, a 1-hour 20 Hz
   excerpt from CH-LAE, plus `examples/detect_remove_tlag_realdata.py`, which runs the full
@@ -52,7 +57,8 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   specifies `hz/2 + 1` (11 at 20 Hz). Previously the value was fixed at 5 with no way to reach the
   paper's. It matters: on the bundled CH-LAE hour, `--wdt 11` widens the 95% HDI from 0.00/0.05 s to
   0.30/0.20 s, and the S1 reliability threshold is 0.5 s
-- A test suite: `tests/`, 117 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
+- The TUI title bar shows the version, read from package metadata rather than hardcoded
+- A test suite: `tests/`, 130 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
   the pre-whitening chain to the numbers RFlux v3.2.0 produces on the same input — unit-root
   decision, AR order, AR coefficients, pre-whitened CCF peak and raw cross-covariance all agree to
   12 significant digits. Three cases: two synthetic, one per branch of the unit-root test, and the
@@ -90,6 +96,11 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   window, so the paper's `hz/2 + 1` was unusable at 10 Hz (= 6). Even widths now follow zoo's
   `align="center"` convention, putting the extra sample after the centre, and a window wider than
   the series returns all-NaN instead of a shape error
+
+- **The TUI's column scan and preflight check produced garbage on compressed input.** Both used a
+  plain `open()`, so a `.csv.gz` was decoded as text: five replacement-character "column names"
+  from the compressed bytes, no exception, and a preflight that then reported every configured
+  column as missing — telling you your setup was broken when the run itself would have worked
 
 - **`dyco apply-batch` could not read or write compressed files.** It used a plain `open()` on both
   ends, so a `.csv.gz` input — which dyco's own file splitter produces — failed with a bare
