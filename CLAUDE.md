@@ -16,11 +16,11 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 
 | | |
 |---|---|
-| Entry point | `dyco detect-remove` (`dyco/pipeline.py`) |
+| Entry point | `dyco tui` (recommended) or `dyco detect-remove` (`dyco/pipeline.py`) |
 | Detection | `dyco/pwb.py` |
 | Lag selection | PWBOPT S1/S2/S3, per chunk |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 7 more, 130 total |
+| Tests | `tests/test_pwb.py` + 7 more, 134 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -135,7 +135,7 @@ not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 130 passed
+uv run pytest tests/ -q                                  # 134 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -163,7 +163,7 @@ shift and write**.
 | `dyco/maxcov.py` | 417 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it |
 | `dyco/files.py` | 195 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
 | `dyco/rotation.py` | 138 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
-| `dyco/rawio.py` | 155 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
+| `dyco/rawio.py` | 190 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
 | `dyco/cli.py` | 101 | Unified `dyco` dispatcher |
 | `dyco/_vendor/` | ~400 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
 | `dyco/__init__.py` | 2 | A comment. **No public API is defined** |
@@ -222,6 +222,10 @@ reference implementation. Prefer that over inspection.
 
 ## Gotchas
 
+- **Compression is a storage detail, not a format.** `.gz`, `.bz2`, `.xz` and
+  `.zip` are read as the text inside them, and `--output-compression` decides
+  how output is written regardless of the input. Chunk-name placeholders are
+  compression-free: `{stem}` has no suffix, `{suffix}` is the data suffix.
 - **Compression is `rawio.py`'s job, nobody else's.** `pipeline.py`,
   `apply_tlag.py` and `tui.py` each grew their own `open()` calls, and each
   broke on compressed input independently — the TUI's silently, returning
@@ -241,12 +245,12 @@ reference implementation. Prefer that over inspection.
 
 ## Testing
 
-`tests/` holds **130 tests plus 97 subtests**, seeded by diive's
+`tests/` holds **134 tests plus 107 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 130 passed, 97 subtests
+uv run pytest tests/ -q     # 134 passed, 107 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving

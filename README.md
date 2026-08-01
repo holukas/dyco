@@ -12,7 +12,7 @@ turbulence would otherwise smear. The lag is then re-estimated on block-bootstra
 detection carries a 95% uncertainty interval instead of a bare number. The PWBOPT decision rule reads
 that interval, discards the detections it cannot trust, and puts a reliable neighbouring lag in their
 place. This is what makes low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> workable.
-`dyco detect-remove` runs it.
+Run it with `dyco tui`, or `dyco detect-remove` on the command line.
 
 > **Version 3 is in development.** The working tree carries the v3 layout described below; the last
 > released version on PyPI is `2.0.3`, which has a different API and depends on
@@ -36,6 +36,29 @@ uv sync
 
 `dyco` has no dependency on `diive`. Everything it needs is bundled.
 
+## Start here: the terminal UI
+
+```bash
+dyco tui
+```
+
+**This is the recommended way to run dyco.** A detect-and-remove run takes on
+the order of thirty settings — column names, file format, chunk length, search
+windows per gas, PWBOPT thresholds — and getting one of them wrong is easy on a
+command line and obvious in a form. The TUI validates as you type, scans your
+first file so you can pick column names from a list rather than typing bracketed
+names by hand, and runs a preflight **Check** that reads a real file and reports
+what it found before anything is processed. It saves and reloads settings, and
+every run writes its configuration back out, so a run started in the TUI can be
+repeated exactly.
+
+`dyco tui --demo` explores the interface with no data at all.
+
+The command line does everything the TUI does and is the right choice for
+scripting or a scheduler. Every TUI run writes a `detect_remove_tui_settings.yaml`
+next to its results, which the TUI can reload — a convenient way to build a
+configuration interactively and then automate it.
+
 ## Command-line tools
 
 Everything is reachable through one command:
@@ -47,8 +70,8 @@ dyco <command> --help   # options for one of them
 
 | Command | Does |
 |---|---|
-| `dyco detect-remove` | **Main entry point.** Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass. |
-| `dyco tui` | The same pipeline behind a terminal UI, with live validation and a preflight check. Run with `--demo` to explore it without data. |
+| `dyco tui` | **Recommended.** The full pipeline behind a form, with live validation and a preflight check. |
+| `dyco detect-remove` | The same pipeline on the command line. Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass. |
 | `dyco pwb-batch` | Detect lags only, across many already-split files. Writes `tlag_results.csv`. |
 | `dyco apply-batch` | Remove lags listed in an existing `tlag_results.csv`. |
 
@@ -97,7 +120,8 @@ scan a file to show you its columns first.
 | `--extra-rows` | Rows **after** the header but before the data, such as units and instrument tags. Default `2`. They are preserved byte-for-byte in the output. |
 | `--na-values` / `--na-rep` | What counts as missing on the way in, what is written for it on the way out. |
 | `--lineterm` | `auto` reproduces the input's CRLF or LF. Force it with `\r\n` or `\n`. |
-| `--file-pattern` | Gzip is handled transparently by suffix: `*.csv.gz` in gives `.gz` chunks out. |
+| `--file-pattern` | Which files to read. Compression is transparent: `.gz`, `.bz2`, `.xz` and `.zip` are read as the text they contain. |
+| `--output-compression` | How the chunks are written: `auto` (default) matches the input, `none` writes plain text, or force `gz` / `bz2` / `xz` / `zip`. Gzipped input can give plain `.csv` output. |
 
 Two limits worth knowing. This path reads **delimited text only**; Parquet is read by
 `dyco.files.read_raw_data`, which serves the file splitter, not this pipeline. And it needs **no
