@@ -165,6 +165,7 @@ See ``examples/flux/hires/flux_apply_tlag_cli.py`` for a complete example.
 Part of the dyco package: https://github.com/holukas/dyco
 """
 
+import gzip
 import os
 import re
 import warnings
@@ -188,6 +189,52 @@ from dyco.pwb import _DEFAULT_NA_VALUES, _read_engine_kwargs
 # pandas understands the regex ``r'\s+'`` for reading; for writing we fall back
 # to a single space character (pandas ``to_csv`` requires a literal sep).
 _WHITESPACE_SEP = r'\s+'
+
+# Compression handling. dyco's own file splitter writes `.csv.gz`, and pandas
+# infers compression from the name when reading the data block -- but the
+# preserved header lines are read with a plain open(), which is why a gzipped
+# input used to fail here with a bare StopIteration. These mirror the helpers
+# in pipeline.py; the two modules are separate readers (see "Open" in
+# CLAUDE.md), so the gzip handling has to exist on both sides.
+_COMPRESSED_SUFFIXES = {'.gz'}
+
+
+def _is_compressed(path: Path) -> bool:
+    """True when *path* looks gzip-compressed by its suffix."""
+    return Path(path).suffix.lower() in _COMPRESSED_SUFFIXES
+
+
+def _open_text(path: Path, encoding: str = 'utf-8', errors: str = 'replace'):
+    """Open *path* for text reading, transparently decompressing .gz."""
+    if _is_compressed(path):
+        return gzip.open(path, 'rt', encoding=encoding, errors=errors)
+    return open(path, 'r', encoding=encoding, errors=errors)
+
+
+def _open_text_write(path: Path, encoding: str = 'utf-8'):
+    """Open *path* for text writing, compressing when the name says .gz."""
+    if _is_compressed(path):
+        return gzip.open(path, 'wt', encoding=encoding, newline='')
+    return open(path, 'w', encoding=encoding, newline='')
+
+
+def _read_preserved_lines(path: Path, n: int) -> list:
+    """Read the first *n* lines of *path*, or say why they are not there.
+
+    ``[next(fh) for _ in range(n)]`` raises a bare ``StopIteration`` with no
+    message when the file is shorter than the header block -- the commonest
+    symptom of a wrong ``--skiprows``/``--extra-rows``, and unreadable as an
+    error row.
+    """
+    with _open_text(path) as fh:
+        lines = []
+        for line in fh:
+            lines.append(line)
+            if len(lines) == n:
+                return lines
+    raise ValueError(
+        f"{Path(path).name} has only {len(lines)} line(s) but --skiprows / "
+        f"--extra-rows ask for {n} header line(s) before the data.")
 
 
 def _extract_key(pattern: str | None, name: str) -> str | None:
@@ -268,8 +315,7 @@ def _apply_tlag_file_worker(args: tuple) -> dict:
         header_idx = skiprows
 
         # Preserve metadata + header + extra-header rows verbatim
-        with open(input_path, 'r', encoding='utf-8', errors='replace') as fh:
-            preserved_lines = [next(fh) for _ in range(n_preserved)]
+        preserved_lines = _read_preserved_lines(Path(input_path), n_preserved)
 
         header_line = preserved_lines[header_idx].rstrip('\n').rstrip('\r')
         # Tokenize header by the same separator used for the data. For the
@@ -323,9 +369,12 @@ def _apply_tlag_file_worker(args: tuple) -> dict:
         out_sep = ' ' if sep == _WHITESPACE_SEP else sep
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w', encoding='utf-8', newline='') as fh:
+        with _open_text_write(Path(output_path)) as fh:
+            # The preserved lines came back from a text-mode read, so they end
+            # in '\n' whatever the input used. Re-terminate them with lineterm
+            # or a --lineterm of '\r\n' yields LF headers above CRLF data.
             for line in preserved_lines:
-                fh.write(line)
+                fh.write(line.rstrip('\r\n') + lineterm)
             df.to_csv(fh, sep=out_sep, index=False, header=False,
                       na_rep=na_rep, lineterminator=lineterm)
 
