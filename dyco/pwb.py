@@ -71,6 +71,24 @@ Implementation notes:
   detect_and_remove_tlag.py for the window -> (lag_max, block) mapping used by
   the pipeline.
 
+Differences from RFlux v3.2.0 (tlag_detection.R):
+    Everything deterministic matches R to 12 significant digits, on both
+    branches of the unit-root test -- pinned by tests/test_pwb_reference.py.
+    What differs, and how much it matters:
+
+    | Difference | Severity |
+    |---|---|
+    | Block bootstrap is moving (starts 0..n-L); R's tsboot defaults to endcorr=TRUE, i.e. circular with wrap-around | low, deliberate -- both are standard, and wrapping joins the end of a turbulence record to its start |
+    | Mode via scipy gaussian_kde; R uses bayestestR::map_estimate | low -- different bandwidth and grid, well inside bootstrap noise |
+    | AR-filter initialisation NaN are zeroed; R's acf skips NA pairs | negligible -- same numerator, ~1% of positions |
+    | Edge-pinned lags are rejected as failures; R returns them | deliberate -- a peak on the window boundary is undetermined, not measured |
+    | lws/uws constrain the returned PWB lag and tlag_pw; R returns unwindowed values and computes windowed variants it never returns | deliberate -- only when a window is set |
+    | PWBOPT S2 updates the carry-forward reference, so accepted lags can drift | low -- paper 2.3 is ambiguous, its S3 wording implies this reading |
+    | Combination tie-break order (cw,wc,ct,tc vs R's ct,cw,tc,wc) | negligible -- exact ties only |
+
+    Shared with R, against the paper: wdt defaults to 5 (R's default), not the
+    paper's hz/2+1. The pipeline exposes --wdt to get the paper's value.
+
 Input data requirement:
     All classes in this module require **wind-rotation-corrected**
     high-frequency data (double rotation or planar-fit, e.g. EddyPro "Advanced"
@@ -423,9 +441,11 @@ class PreWhiteningBootstrap:
                 independent (L = 20 s, LAG.MAX = 10 s); R couples them, and the
                 default here follows R.  An explicit value inconsistent with
                 ``2 * lag_max_s`` emits a warning.
-            wdt (int): Bootstrap CCF smoothing width.  ``wdt=5`` matches R's
-                default; the paper equation 6 specifies ``hz/2 + 1``.  Set
-                ``wdt = hz // 2 + 1`` for paper-equivalent behaviour.
+            wdt (int): Bootstrap CCF smoothing width, in records.  ``wdt=5``
+                matches R's default; the paper equation 6 specifies
+                ``hz/2 + 1`` (11 at 20 Hz, 6 at 10 Hz).  Even widths follow
+                zoo's ``align="center"`` convention, putting the extra sample
+                after the centre.  The pipeline exposes this as ``--wdt``.
                 Defaults to 5.
             random_state (int | np.random.Generator | None): Seed or generator
                 for the block-bootstrap resampling and the MAP jitter.  Pass an
@@ -465,6 +485,8 @@ class PreWhiteningBootstrap:
             warn(f"block_length_s={block_length_s} s is shorter than R's coupled "
                  f"default 2 * lag_max_s = {2.0 * lag_max_s} s.")
         self.block_length_s = block_length_s
+        if wdt < 1:
+            raise ValueError(f"wdt must be at least 1 record, got {wdt}.")
         self.wdt = wdt
         self.segment_name = segment_name
 
@@ -708,6 +730,13 @@ class PreWhiteningBootstrap:
         # is required to use the original series; a single failure triggers
         # differencing.  For turbulent EC data the test virtually always passes.
         # The rare failures occur during sensor drift, rain events, or artefacts.
+        #
+        # Differencing feeds the AR filters ONLY.  R computes the raw
+        # cross-covariance from set[,1]/set[,3] -- the undifferenced series --
+        # so keep them here.  Reading cov_pwb off the differenced series makes
+        # it a covariance of increments: on a drifting record that is smaller
+        # by two orders of magnitude and can carry the opposite sign.
+        s_undiff, w_undiff = s, w
         if not all(self._is_stationary(x) for x in (s, w, t)):
             s = np.diff(s)
             w = np.diff(w)
@@ -736,9 +765,10 @@ class PreWhiteningBootstrap:
 
         # ---- Step 4: raw cross-covariance (diagnostic panel 2) ----
         # R: ccf(detrend(scalar), detrend(w), type="covariance") -- linear detrend
-        # first (w and s are NaN-free here after na.approx + valid masking).
-        self._raw_ccov = self._compute_ccov(_detrend(w, type='linear'),
-                                            _detrend(s, type='linear'))
+        # first, on the UNDIFFERENCED series (see step 1b). Both are NaN-free
+        # here after na.approx + valid masking.
+        self._raw_ccov = self._compute_ccov(_detrend(w_undiff, type='linear'),
+                                            _detrend(s_undiff, type='linear'))
         self._smooth_raw_ccov = self._smooth_series(self._raw_ccov, _SMOOTH_WIDTH_CCOV)
 
         # ---- Step 5: full-data PW CCF, scalar AR (diagnostic panel 1) ----
@@ -1137,38 +1167,54 @@ class PreWhiteningBootstrap:
         return full[mid - self._lag_max_records: mid + self._lag_max_records + 1]
 
     @staticmethod
+    def _lead_trail(width: int) -> tuple[int, int]:
+        """NaN counts at the head and tail of a centred rolling mean.
+
+        Matches zoo's ``rollapply(..., align="center")``: an odd window is
+        symmetric, an even one puts the extra sample *after* the centre, so the
+        head keeps ``(width-1)//2`` NaN and the tail ``width//2``. Verified
+        against R for widths 4, 5 and 6. Handling both parities matters because
+        the paper's smoothing width is ``hz/2 + 1``, which is even at 10 Hz.
+        """
+        return (width - 1) // 2, width // 2
+
+    @staticmethod
     def _smooth_series(series: np.ndarray, width: int) -> np.ndarray:
         """
         Centered rolling mean of given width with NaN at edges (min_periods=width).
         Matches R: rollapply(series, width=width, FUN="mean", fill=NA).
         """
         M = len(series)
-        half = width // 2
+        result = np.full(M, np.nan, dtype=np.float64)
+        if width > M:
+            return result  # no complete window fits
+        lead, trail = PreWhiteningBootstrap._lead_trail(width)
         cs = np.empty(M + 1, dtype=np.float64)
         cs[0] = 0.0
         np.cumsum(series, out=cs[1:])
-        result = np.full(M, np.nan, dtype=np.float64)
-        result[half:M - half] = (cs[width:] - cs[:M - width + 1]) / width
+        result[lead:M - trail] = (cs[width:] - cs[:M - width + 1]) / width
         return result
 
     @staticmethod
     def _smooth_rows(arr: np.ndarray, width: int) -> np.ndarray:
         """
         Vectorised centered rolling mean for every row of a 2-D array.
-        NaN at the first and last half positions (min_periods=width behaviour).
+        NaN at the leading/trailing edge positions (min_periods=width behaviour).
         """
         if width <= 1:
             return arr.copy()
 
         N_B, M = arr.shape
-        half = width // 2
+        result = np.full((N_B, M), np.nan, dtype=np.float64)
+        if width > M:
+            return result  # no complete window fits
+        lead, trail = PreWhiteningBootstrap._lead_trail(width)
 
         cs = np.empty((N_B, M + 1), dtype=np.float64)
         cs[:, 0] = 0.0
         np.cumsum(arr, axis=1, out=cs[:, 1:])
 
-        result = np.full((N_B, M), np.nan, dtype=np.float64)
-        result[:, half:M - half] = (cs[:, width:] - cs[:, :M - width + 1]) / width
+        result[:, lead:M - trail] = (cs[:, width:] - cs[:, :M - width + 1]) / width
         return result
 
     @staticmethod
