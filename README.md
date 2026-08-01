@@ -20,9 +20,9 @@ Run it with `dyco tui`, or `dyco detect-remove` on the command line.
 
 ## One detection method
 
-v3 has a single way of finding the time lag between the vertical wind `W` and a scalar `S`: PWB.
-The covariance-maximization method that `dyco` shipped up to v2 was removed. See
-[below](#the-covariance-maximization-method-removed-in-v3).
+v3 has a single way of finding the time lag between the vertical wind `W` and a scalar `S`: PWB. The
+covariance-maximization method that `dyco` shipped up to v2 was removed; `CHANGELOG.md` records what
+went and why, and `pip install dyco==2.0.3` still has it.
 
 ## Installation
 
@@ -245,30 +245,6 @@ PWB detection needs **wind-rotation-corrected** high-frequency data. `dyco-detec
 this itself. If you use `dyco-pwb-batch` on pre-split files, they must already be rotated (double
 rotation or planar fit, e.g. EddyPro "Advanced" rotated output) — a non-zero mean `W` corrupts the
 cross-correlation.
-
-## The covariance-maximization method (removed in v3)
-
-Up to v2, `dyco` found lags by covariance maximization. It searched a broad window such as
-`[-1000, +1000]` records for the peak absolute covariance, narrowed the window around wherever the
-found lags clustered, repeated that a few times, then pooled everything into a daily median look-up
-table and shifted each file by its day's lag. Lags were counted in records rather than seconds, and a
-normalization step pulled them toward a chosen target lag. That method is what the
-[JOSS paper](https://doi.org/10.21105/joss.02575) describes.
-
-**v3.0.0 removed it.** PWB answers the same question and also says how much each answer can be
-trusted, which covariance maximization cannot. That is what low-SNR gases need. Keeping both meant
-carrying a second path through the package that nothing exercised. The `Dyco` class and the modules
-behind it are gone, and the two methods take different parameters, so there is no flag-for-flag
-migration. Start from `dyco detect-remove` above.
-
-To run the old method, use the last release that carries it:
-
-```bash
-pip install dyco==2.0.3
-```
-
-Note that v2.0.3 depends on `diive` and no longer installs cleanly against current `diive` versions.
-The code also remains in this repository's git history.
 
 ## Other tools
 
