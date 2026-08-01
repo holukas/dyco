@@ -124,6 +124,75 @@ class TestRawioRoundTrip(unittest.TestCase):
                 self.assertEqual(rawio.data_suffix(name), expected)
 
 
+class TestOutputCompressionIsIndependentOfInput(unittest.TestCase):
+    """How the output is stored is the user's choice, not the input's."""
+
+    def test_the_compression_suffix_is_replaced_not_appended(self):
+        for name, comp, from_input, expected in [
+                # gzipped input, plain output -- the .csv is kept either way
+                ('CH-LAE_202507251300.csv', 'none', '.gz', 'CH-LAE_202507251300.csv'),
+                ('CH-LAE_202507251300.csv', 'zip', '.gz', 'CH-LAE_202507251300.csv.zip'),
+                # only 'auto' inherits how the input happened to be stored
+                ('CH-LAE_202507251300.csv', 'auto', '.gz', 'CH-LAE_202507251300.csv.gz'),
+                ('CH-LAE_202507251300.csv', 'auto', '', 'CH-LAE_202507251300.csv'),
+                ('site_chunk00.csv', 'gz', '', 'site_chunk00.csv.gz'),
+                ('site_chunk00.dat', 'gz', '', 'site_chunk00.dat.gz'),
+                # idempotent: asking for what it already is changes nothing
+                ('site_chunk00.csv.gz', 'gz', '.gz', 'site_chunk00.csv.gz')]:
+            with self.subTest(name=name, compression=comp):
+                self.assertEqual(
+                    rawio.resolve_output_name(name, comp, from_input), expected)
+
+    def test_a_template_names_files_the_same_way_compressed_or_not(self):
+        # The guarantee: compression is not part of the name the template
+        # builds. Previously {stem} kept the .csv of a .csv.gz input and
+        # {suffix} was '.gz', so the same template produced
+        # 'site_202401010000.csv_chunk00.gz' for compressed input and
+        # 'site_202401010000_chunk00.csv' for plain.
+        from dyco.pipeline import _chunk_filename
+        tmpl = '{stem}_chunk{index:02d}{suffix}'
+        plain, _ = _chunk_filename(Path('site_202401010000.csv'), 0, 1800,
+                                   tmpl, None, '%Y%m%d%H%M', 'auto')
+        gzipped, _ = _chunk_filename(Path('site_202401010000.csv.gz'), 0, 1800,
+                                     tmpl, None, '%Y%m%d%H%M', 'auto')
+        zipped, _ = _chunk_filename(Path('site_202401010000.csv.zip'), 0, 1800,
+                                    tmpl, None, '%Y%m%d%H%M', 'none')
+        self.assertEqual(plain, 'site_202401010000_chunk00.csv')
+        self.assertEqual(gzipped, plain + '.gz')
+        self.assertEqual(zipped, plain)
+
+    def test_an_unknown_compression_is_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            rawio.resolve_output_name('x.csv', 'rar', '.csv')
+        self.assertIn('auto', str(ctx.exception))
+
+    def test_the_pipeline_writes_the_format_that_was_asked_for(self):
+        from dyco.pipeline import PerFilePipeline
+        df = _raw_frame()
+        # gzipped in -> plain out, and plain in -> gzipped out.
+        for src_suffix, want, out_suffix in [('.csv.gz', 'none', '.csv'),
+                                             ('.csv', 'gz', '.gz'),
+                                             ('.csv', 'zip', '.zip')]:
+            with self.subTest(source=src_suffix, output_compression=want):
+                with TemporaryDirectory() as ind, TemporaryDirectory() as out:
+                    _write_raw(Path(ind) / f'site_202401010000{src_suffix}', df,
+                               extra_rows=0)
+                    PerFilePipeline(
+                        Path(ind), Path(out), 'u', 'v', 'w', 'ts',
+                        {'CH4': 'ch4'}, hz=20, n_bootstrap=9, chunk_seconds=60,
+                        min_chunk_seconds=30, sep=',', extra_rows=0,
+                        n_workers=1, file_pattern=f'*{src_suffix}',
+                        output_compression=want, random_state=42).run()
+                    written = sorted((Path(out) / '2_lag_removed').iterdir())
+                    self.assertTrue(written, 'nothing was written')
+                    for p in written:
+                        self.assertEqual(p.suffix, out_suffix)
+                        # and it really is that format, not just named so
+                        with rawio.open_text(p) as fh:
+                            first = fh.readline()
+                        self.assertTrue(first.startswith('u,v,w'), first[:40])
+
+
 class TestZipArchivesThatAreNotOneFile(unittest.TestCase):
     """A zip of many raw files is a different thing from a zipped raw file."""
 
