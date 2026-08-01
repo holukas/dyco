@@ -100,6 +100,23 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   `--file-duration` with `>`, so `'10min' > '30min'` compared lexically: valid combinations
   were rejected and invalid ones let through. Now compared as `Timedelta`
 
+- **`analyze.AnalyzeLags` called `sys.exit()` on an empty look-up table.** A library
+  terminated the interpreter, and with no status argument, so the exit code was `0`:
+  a run that produced nothing usable looked successful to any shell or scheduler
+  wrapping it. It now raises `ValueError` and says why the table is empty, namely
+  that no high-quality lag survived outlier removal
+
+- **[BREAKING] `analyze.AnalyzeLags.__init__` no longer runs the analysis.** It did
+  the work in the constructor, so an object could not be built without a full
+  analysis running. Call `run()` before `get_lut()`, which is the pattern
+  `FileDetector` and `Loop` already use. `Dyco.analyze_lags` does this internally,
+  so the `dyco cm` workflow is unaffected
+
+- **`analyze.AnalyzeLags.make_lut_instantaneous` hardcoded its acceptance limit.**
+  `ABS_LIMIT` was fixed at 50 records, the threshold above which a found lag is
+  rejected and the default substituted. It is now an `abs_limit` parameter,
+  defaulting to 50 so existing behaviour is unchanged
+
 - **`analyze.AnalyzeLags.make_lut_instantaneous` never filled missing lags.**
   The `fillna` that substitutes the default lag for dates with no detection
   discarded its result instead of assigning it, so the branch logged

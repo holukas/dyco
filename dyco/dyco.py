@@ -410,6 +410,7 @@ class Dyco:
                               lags=segment_lagtimes_df,
                               outlier_winsize=outlier_winsize,
                               outlier_thres_zscore=outlier_thres_zscore)
+        analyze.run()
 
         self.lut_lag_times_df = analyze.get_lut()
 

@@ -17,7 +17,6 @@
 
 """
 
-import sys
 from pathlib import Path
 
 import matplotlib.dates as mdates
@@ -59,8 +58,6 @@ class AnalyzeLags:
         self.lut_lag_times_df = pd.DataFrame()
         self.lut_available = False
 
-        self.run()
-
     def get_lut(self):
         return self.lut_lag_times_df
 
@@ -75,9 +72,11 @@ class AnalyzeLags:
         if self.lut_available:
             self.logger.info(f"Finished creating look-up table for default lag times and normalization correction")
         else:
-            self.logger.critical(f"(!) Look-up Table for default lag times and normalization correction is empty, "
-                                 f"stopping script.")
-            sys.exit()
+            msg = ("Look-up table for default lag times and normalization correction is empty. "
+                   "No high-quality lag survived outlier removal, so no default lag can be "
+                   "derived and no normalization correction is possible.")
+            self.logger.critical(f"(!) {msg}")
+            raise ValueError(msg)
 
         if self.outdirs:
             self.save_lut(lut=self.lut_lag_times_df,
@@ -186,7 +185,8 @@ class AnalyzeLags:
         outpath = outdir / outfile
         lut.to_csv(f"{outpath}.csv")
 
-    def make_lut_instantaneous(self, segment_lagtimes_df: pd.DataFrame, default_lag: int):
+    def make_lut_instantaneous(self, segment_lagtimes_df: pd.DataFrame, default_lag: int,
+                               abs_limit: int = 50):
         """
         Generate instantaneous lag look-up table that contains the found lag time
         for each averaging interval
@@ -199,6 +199,11 @@ class AnalyzeLags:
             Contains found lag times for each segment.
         default_lag: int
             The median of high-quality peaks is moved to target_lag.
+        abs_limit: int
+            Acceptance limit for a found lag, in number of records. A lag whose
+            absolute value exceeds this is rejected and replaced by default_lag.
+            The default of 50 records is the value this was hardcoded to before
+            it became a parameter.
 
         Returns
         -------
@@ -218,7 +223,7 @@ class AnalyzeLags:
         lut_df['INSTANTANEOUS_LAG'] = np.nan
         lut_df['DEFAULT_LAG'] = default_lag
 
-        lut_df['ABS_LIMIT'] = 50
+        lut_df['ABS_LIMIT'] = abs_limit
         lut_df['LAGSEARCH_START'] = _segment_lagtimes_df['lagsearch_start']
         lut_df['LAGSEARCH_END'] = _segment_lagtimes_df['lagsearch_end']
 
