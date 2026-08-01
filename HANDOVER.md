@@ -157,15 +157,39 @@ for no gain to the primary path. The concrete broken behaviour (compressed input
 is already fixed in both. Revisit only if the v2 path is unfrozen or `split.py`
 grows more use.
 
-### 5.4 Known defects in `analyze.py`
+### 5.4 Known defects in `analyze.py` — all fixed
 
-Pre-existing, catalogued in `CLAUDE.md`:
+- ~~`:246` — `fillna` result never assigned~~ **FIXED.** Confirmed with the user
+  that no published result relied on that branch.
+- ~~`:80` — `sys.exit()` inside a library~~ **FIXED.** Raises `ValueError`. Note
+  the old call passed no status, so it exited `0`: a failed run looked successful
+  to the calling shell.
+- ~~`:221` — `ABS_LIMIT = 50` hardcoded~~ **FIXED.** Now an `abs_limit=50`
+  parameter. It lives in `make_lut_instantaneous`, which nothing calls — its only
+  reference is the dead `SummaryPlots` — so this parameterizes dead code.
+- ~~`:62` — `__init__` calls `self.run()`~~ **FIXED.** Breaking for anyone
+  constructing `AnalyzeLags` directly: call `run()` before `get_lut()`.
+  `Dyco.analyze_lags` was updated, so `dyco cm` is unaffected.
 
-- ~~`:246` — `fillna` result never assigned~~ **FIXED in v3.** Confirmed with the
-  user that no published result relied on that branch.
-- `:80` — `sys.exit()` inside a library. Should raise.
-- `:221` — `ABS_LIMIT = 50` hardcoded, should be a parameter.
-- `:62` — `__init__` calls `self.run()`.
+Verified with a synthetic-lag script rather than a test, since the v2 path stays
+untested by decision. The LUT came out at 9 rows with a median of -201 records
+from lags drawn at -200 ± 5.
+
+### 5.4b The v2 plotting is broken on matplotlib 3.9+
+
+Found while verifying the above. `plt.cm.get_cmap` (`loop.py:211`) and
+`Axes.plot_date` (`loop.py:221`) were both removed in matplotlib 3.9; the pinned
+version is 3.11.1. Both sit on the live path, so **`Dyco.analyze_lags()` cannot
+currently complete** — it raises `AttributeError` at the plotting step after the
+look-up table has been built.
+
+Five more `plot_date` calls sit in dead code (`analyze.py:114, 119, 125` and
+`plot.py:99, 105, 111`).
+
+Not fixed: it is a change to frozen code and was outside the task. The fix is
+`matplotlib.colormaps['rainbow'].resampled(n)` and `ax.plot(x, y, fmt, ...)`.
+This is the clearest argument yet that "kept working" and "never run" are not the
+same thing.
 
 ### 5.5 Release chores
 

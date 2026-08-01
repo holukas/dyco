@@ -182,12 +182,13 @@ module docstring before changing it.
 ## Known Dead Code
 
 Present in the repo, unreferenced. **Do not delete without asking** — flag it
-and let the user decide. All of it is slated for removal by the v3 migration.
+and let the user decide. An earlier plan slated this for removal in v3; that is
+superseded, and it stays until the user says otherwise.
 
 | Where | What |
 |---|---|
 | `plot.py:32–264` | `SummaryPlots` — never referenced. Also broken 3 ways: `:46` `NameError` (`setup_dyco` not imported), `:168` `TypeError` (passes `iteration=`/`phase=` that `loop.py:169` does not accept), `:248` `AttributeError` (`AnalyzeLags.filter_dataframe` does not exist). Leftover **v1** code using a "Phase 1–3" model that v2 replaced with "Steps 1–7" |
-| `setup.py:147` | `FilesDetector` — never referenced. Superseded local copy; `dyco.py:371` uses diive's `FileDetector` instead |
+| `setup.py:147` | `FilesDetector` — never referenced. Superseded local copy; `dyco.py:371` uses `_vendor.filedetector.FileDetector` instead |
 
 ---
 
@@ -195,14 +196,29 @@ and let the user decide. All of it is slated for removal by the v3 migration.
 
 Pre-existing, in live code. Fix during the v3 port, not opportunistically.
 
-`analyze.py:246` (the `fillna` whose result was never assigned) was **fixed in
-v3** after confirming no published result relied on that branch. The rest stand.
+**All four catalogued `analyze.py` defects are fixed in v3**: the `fillna` whose
+result was never assigned (`:246`), `sys.exit()` in library code (`:80`, now
+raises `ValueError`), the hardcoded `ABS_LIMIT = 50` (`:221`, now an
+`abs_limit=50` parameter), and `__init__` calling `self.run()` (`:62`).
+`AnalyzeLags` now needs an explicit `run()` before `get_lut()`, which matches the
+`FileDetector` / `Loop` idiom already used in the v2 path.
+
+What stands is a **matplotlib 3.9 problem in the v2 path**. `plt.cm.get_cmap` and
+`Axes.plot_date` were both removed in 3.9; the pinned matplotlib is 3.11.1. Found
+by running `AnalyzeLags.run()` on synthetic lags — the v2 path has no tests, so
+nothing caught it.
 
 | Location | Defect |
 |---|---|
-| `analyze.py:80` | `sys.exit()` inside a library. Should raise |
-| `analyze.py:221` | `ABS_LIMIT = 50` hardcoded. Should be a parameter |
-| `analyze.py:62` | `__init__` calls `self.run()` — work in the constructor |
+| `loop.py:211` | `plt.cm.get_cmap` -> `AttributeError`. **Live**: reached from `analyze.py:161` and `loop.py:164, 646` |
+| `loop.py:221` | `ax.plot_date` -> `AttributeError`. **Live**, same call paths |
+| `analyze.py:114, 119, 125` | `ax.plot_date` in `plot_final_instantaneous_lagtimes`, reachable only from the dead `SummaryPlots` |
+| `plot.py:99, 105, 111` | `ax.plot_date` inside the dead `SummaryPlots` |
+| `loop.py:222` | Latent: colours are indexed `iteration - 1`, so iterations must be contiguous and 1-based or `IndexError` |
+
+The two live ones mean `Dyco.analyze_lags()` cannot currently complete. Fixing
+them is `matplotlib.colormaps['rainbow'].resampled(n)` and `ax.plot(...)` with
+the `fmt` positional, but that is a change to frozen code and has not been made.
 
 ---
 
@@ -221,25 +237,32 @@ v3** after confirming no published result relied on that branch. The rest stand.
   breaks callers silently — grep before touching.
 - **A `logger` is threaded explicitly** through most constructors rather than
   obtained per-module. Keep that pattern until v3 changes it deliberately.
-- **`analyze.py` calls into `loop.py`** (`:162` → `Loop.plot_segment_lagtimes_ts`).
-  The v3 plan deletes `loop.py`, so that plot must be ported first.
-- Two near-identical `add_data_stats` functions exist — `files.py:146` here and
-  `filedetector.add_data_stats` in diive. Common ancestry; only one survives v3.
+- **`analyze.py` calls into `loop.py`** (`:161` → `Loop.plot_segment_lagtimes_ts`).
+  An earlier plan deleted `loop.py`, which would have required porting that plot
+  first; that plan is void and `loop.py` stays, so the coupling simply remains.
+- Two near-identical `add_data_stats` functions exist, now **both in dyco**:
+  `files.py:173` and `_vendor/filedetector.py:24`. Common ancestry, different
+  signatures — `files.py` also takes `files_overview_df` and `fnm_date_format`.
+  They did not get merged.
 
 ---
 
 ## Testing
 
-**There are currently no tests.** No `tests/` directory, no test files.
+`tests/` holds **104 tests plus 34 subtests**, seeded by diive's
+`test_echires.py` (1,297 lines) and extended with gzip and CLI suites. They cover
+the PWB path. **The v2 path has none, by decision.**
 
-The v3 migration brings `F:\dev\diive\tests\test_echires.py` (1,297 lines)
-across, which becomes the initial suite. Getting it green is a hard gate in the
-migration sequence — nothing proceeds past it.
+```bash
+uv run pytest tests/ -q     # 104 passed, 34 subtests
+```
 
 When adding tests: use flexible assertion ranges for anything involving
-stochastic components (the block bootstrap in the incoming PWB code). Do not
-mock file I/O in integration tests — this library's whole job is reading and
-writing real files.
+stochastic components (the block bootstrap in the PWB code). Do not mock file
+I/O in integration tests — this library's whole job is reading and writing real
+files. And note that the test suite has never been what caught the real
+breakages: the gzip faults and the matplotlib 3.9 removals above were all found
+by running the code.
 
 ---
 
