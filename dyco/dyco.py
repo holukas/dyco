@@ -19,10 +19,10 @@
 from pathlib import Path
 
 import pandas as pd
-from diive.core.io.filedetector import FileDetector
-from diive.core.io.filereader import search_files
 
 import dyco.setup as setup
+from dyco._vendor.filedetector import FileDetector
+from dyco._vendor.fileio import search_files
 from dyco import cli, loop
 from dyco.analyze import AnalyzeLags
 from dyco.correction import RemoveLags
@@ -471,6 +471,8 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = cli.get_args()
-    args = cli.validate_args(args)
-    main(args)
+    # The v2 top-level CLI was replaced in v3 by `dyco cm`. Delegate rather than
+    # keeping a second, divergent argument parser here.
+    import sys
+
+    cli.main(['cm'] + sys.argv[1:])

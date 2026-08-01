@@ -26,10 +26,9 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from diive.core.times.times import calc_true_resolution, create_timestamp
-from diive.pkgs.echires.lag import MaxCovariance
-
 from dyco import files, lag, plot
+from dyco._vendor.times import calc_true_resolution, create_timestamp
+from dyco.maxcov import MaxCovariance
 
 
 class Loop:

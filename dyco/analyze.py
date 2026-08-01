@@ -24,9 +24,9 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from diive.pkgs.outlierdetection.zscore import zScoreRolling
 
 from dyco import loop, plot
+from dyco._vendor.outliers import rolling_zscore_flag
 
 
 class AnalyzeLags:
@@ -240,37 +240,36 @@ class AnalyzeLags:
             # All lags available
             pass
         else:
-            # Some or all lags missing, fill with default lag
+            # Some or all lags missing, fill with default lag.
+            # Until v3 the result of this fillna was discarded rather than
+            # assigned, so this branch logged that it had filled the gaps while
+            # leaving them untouched. Any run with missing lags therefore
+            # behaved differently from what the log claimed.
             self.logger.warning(f"No lag was available for dates: {missing_df.index.to_list()}")
             self.logger.warning(f"Filling missing lags with default lag, affected dates: {missing_df.index.to_list()}")
-            lut_df['INSTANTANEOUS_LAG'].fillna(lut_df['DEFAULT_LAG'])
+            lut_df['INSTANTANEOUS_LAG'] = lut_df['INSTANTANEOUS_LAG'].fillna(lut_df['DEFAULT_LAG'])
 
         lut_available = True
         return lut_df, lut_available
 
     def _remove_outliers(self, peaks_hq_S):
         self.outlier_winsize = int(len(peaks_hq_S) / 70) if not self.outlier_winsize else self.outlier_winsize
-        zsr = zScoreRolling(
+        flag, fig = rolling_zscore_flag(
             series=peaks_hq_S,
             thres_zscore=self.outlier_thres_zscore,
             winsize=self.outlier_winsize,
-            showplot=True,
-            plottitle="z-score in a rolling window",
-            verbose=True)
-        zsr.calc(repeat=True)
-
-        fig = zsr.fig
+            repeat=True,
+            plot=True,
+            plottitle="z-score in a rolling window")
 
         # Save
         outdir = self.outdirs[f'7_time_lags_lookup_table']
         outfile = f"TIMESERIES-PLOT_segment_lag_times_FINAL_outlierRemoved"
         outpath = outdir / outfile
-        # print(f"Saving time series of found segment lag times in {outpath} ...")
         fig.savefig(f"{outpath}.png", format='png', bbox_inches='tight', facecolor='w',
                     transparent=True, dpi=150)
         plt.close(fig)
 
-        flag = zsr.get_flag()
         peaks_hq_S_cleaned = peaks_hq_S.loc[flag == 0].copy()
         return peaks_hq_S_cleaned
 

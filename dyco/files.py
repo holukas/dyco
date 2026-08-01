@@ -22,7 +22,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from diive.core.io.files import load_parquet
+
+from dyco._vendor.fileio import read_parquet
 
 
 def read_segment_lagtimes_file(filepath):
@@ -59,9 +60,32 @@ def read_segment_lagtimes_file(filepath):
     return found_lags_df
 
 
+# Compression suffixes pandas infers on its own. A file named `x.csv.gz` has
+# Path.suffix == '.gz', so dispatching on that alone rejects every compressed
+# file - which is what happened until v3, even though `FileSplitterMulti` writes
+# `.csv.gz` when compress_splits=True and its output could not be read back.
+_COMPRESSION_SUFFIXES = {'.gz', '.gzip', '.bz2', '.zip', '.xz', '.zst', '.zstd', '.tar'}
+
+
+def data_suffix(filepath) -> str:
+    """Return the format-bearing suffix of *filepath*, ignoring compression.
+
+    ``'raw.csv'`` and ``'raw.csv.gz'`` both give ``'.csv'``. Returns ``''`` for a
+    name with no usable suffix.
+    """
+    suffixes = [s.lower() for s in Path(filepath).suffixes]
+    while suffixes and suffixes[-1] in _COMPRESSION_SUFFIXES:
+        suffixes.pop()
+    return suffixes[-1] if suffixes else ''
+
+
 def read_raw_data(filepath, data_timestamp_format):
     """
     Read raw data files
+
+    Compressed files are handled: `.csv.gz` and friends read the same as a plain
+    `.csv`, because pandas infers the compression from the name. Only the format
+    suffix decides how the file is parsed.
 
     Parameters
     ----------
@@ -75,16 +99,19 @@ def read_raw_data(filepath, data_timestamp_format):
     pandas DataFrame that contains raw data from the file in filepath
     """
 
-    file_ext = Path(filepath).suffix
+    file_ext = data_suffix(filepath)
 
     if file_ext == '.csv':
         data_df = read_raw_data_csv(filepath, data_timestamp_format)
 
     elif file_ext == '.parquet':
-        data_df = load_parquet(filepath, output_middle_timestamp=False, sanitize_timestamp=False)
+        data_df = read_parquet(filepath)
 
     else:
-        raise Exception('File extension must be ".csv" or ".parquet"')
+        raise ValueError(
+            f"Cannot read {Path(filepath).name}: the format suffix must be '.csv' or "
+            f"'.parquet', optionally followed by a compression suffix such as '.gz'. "
+            f"Detected format suffix: {file_ext!r}.")
 
     return data_df
 

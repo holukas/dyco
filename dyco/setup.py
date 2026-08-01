@@ -26,7 +26,8 @@ import time
 from pathlib import Path
 
 import pandas as pd
-from diive.core.io.filereader import search_files
+
+from dyco._vendor.fileio import search_files
 
 
 def set_dirs(indir: None or Path,
