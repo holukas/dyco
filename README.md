@@ -54,10 +54,14 @@ repeated exactly.
 
 `dyco tui --demo` explores the interface with no data at all.
 
-The command line does everything the TUI does and is the right choice for
-scripting or a scheduler. Every TUI run writes a `detect_remove_tui_settings.yaml`
-next to its results, which the TUI can reload — a convenient way to build a
-configuration interactively and then automate it.
+The TUI drives one command, `dyco detect-remove`, which is the whole job in one
+pass. That covers the normal case. The two-step route below is for when it does
+not — see [Detecting on one gas, applying to another](#detecting-on-one-gas-applying-to-another).
+
+`dyco detect-remove` on the command line does everything the TUI does and is the
+right choice for scripting or a scheduler. Every TUI run writes a
+`detect_remove_tui_settings.yaml` next to its results, which the TUI can reload —
+a convenient way to build a configuration interactively and then automate it.
 
 ## Command-line tools
 
@@ -68,15 +72,40 @@ dyco                    # list the workflows
 dyco <command> --help   # options for one of them
 ```
 
-| Command | Does |
-|---|---|
-| `dyco tui` | **Recommended.** The full pipeline behind a form, with live validation and a preflight check. |
-| `dyco detect-remove` | The same pipeline on the command line. Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass. |
-| `dyco pwb-batch` | Detect lags only, across many already-split files. Writes `tlag_results.csv`. |
-| `dyco apply-batch` | Remove lags listed in an existing `tlag_results.csv`. |
+| Command | Does | When |
+|---|---|---|
+| `dyco tui` | `detect-remove` behind a form, with live validation and a preflight check. | **Start here.** |
+| `dyco detect-remove` | **The main command.** Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass, one output folder. | Almost always. Scripting, or when you prefer a command line. |
+| `dyco pwb-batch` | Detect only, on files that are *already* split into averaging periods. Writes `tlag_results.csv` and stops. | Step 1 of the two-step route below. |
+| `dyco apply-batch` | Remove lags listed in an existing `tlag_results.csv`. Detects nothing. | Step 2 of the two-step route below. |
 
 Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`,
 `dyco-pwb-batch`, `dyco-apply-batch`.
+
+Everything else in `dyco` — the file splitter, the flux detection limit, the
+covariance-maximization estimator — is a library API with no command of its own.
+
+### Detecting on one gas, applying to another
+
+`detect-remove` pairs every gas with its own detected lag. When that is not what
+you want, split the job: detect with `pwb-batch`, then apply with `apply-batch`,
+where the lag and the column it moves are named separately.
+
+In `--scalar LABEL:column`, the **label** picks which lag column to read out of
+`tlag_results.csv` and the **column** is the one that gets shifted. They need not
+be the same gas:
+
+```bash
+dyco apply-batch --input-dir ./raw --output-dir ./aligned --results-csv ./tlag_results.csv --scalar "CO2:N2O_DRY_[QCL-C2]"
+```
+
+That reads the CO<sub>2</sub> lag and shifts the N<sub>2</sub>O column by it — the
+standard move for a gas whose own cross-correlation is too noisy to trust, since
+both travel the same tube. Repeat `--scalar` to drive several columns from one
+gas's lag.
+
+The same two steps also apply when your files are already split into averaging
+periods by other software, so there is nothing for `detect-remove` to chunk.
 
 ### A complete `detect-remove` command
 
@@ -294,8 +323,8 @@ time shifts.
   rather than silently accepted, and a decision rule that substitutes a trustworthy neighbouring lag
   when a period's own detection cannot be trusted
 - lags detected on a high-SNR *reference* gas and applied to a low-SNR *target* measured by the same
-  analyzer: `dyco apply-batch --scalar "CO2:N2O_DRY_[QCL-C2]"` shifts the N<sub>2</sub>O column by the
-  lag found for CO<sub>2</sub>
+  analyzer, via the two-step route described under
+  [Detecting on one gas, applying to another](#detecting-on-one-gas-applying-to-another)
 - dynamic compensation across raw files, so a lag that drifts — from an unsynchronized instrument
   clock, say — is followed period by period instead of averaged away
 
