@@ -27,7 +27,25 @@ source(RFLUX_SRC)
 
 MFREQ <- 20
 
-for (fx in c("pwb_reference_stationary.csv.gz", "pwb_reference_differencing.csv.gz")) {
+# The third case is the bundled real CH-LAE half hour. It is not a fixture file:
+# the test derives it from examples/data/. To reproduce its constants, write the
+# same input out first, then rerun this script --
+#
+#   uv run python -c "import sys; sys.path.insert(0, 'tests'); \
+#     from test_pwb_reference import _load_real_chunk; \
+#     _load_real_chunk().to_csv('tests/data/real_chunk.csv', index=False, \
+#                               float_format='%.6f', lineterminator='\n')"
+#
+# real_chunk.csv is deliberately not committed -- it is derived data, and the
+# test guards the derivation with a checksum instead.
+CASES <- c("pwb_reference_stationary.csv.gz", "pwb_reference_differencing.csv.gz",
+           "real_chunk.csv")
+
+for (fx in CASES) {
+  if (!file.exists(file.path(FIXTURE_DIR, fx))) {
+    cat("\n########", fx, "absent, skipped (see the comment above) ########\n")
+    next
+  }
   d <- read.csv(file.path(FIXTURE_DIR, fx))
   set.seed(42)
   cat("\n########", fx, "########\n")

@@ -10,14 +10,20 @@ cross-covariance. Only the block bootstrap differs between the two
 implementations -- R and numpy do not share an RNG stream -- so the mode and the
 HDI are checked loosely.
 
-The two fixtures and the R script that produced these constants live in
-`tests/data/` (`pwb_reference_generate.py`, `pwb_reference_rflux.R`). The
-second fixture exists to exercise the differencing branch, which real turbulent
-data almost never triggers and which no other test reaches.
+Three cases. Two are synthetic, in `tests/data/` alongside the scripts that
+produced them (`pwb_reference_generate.py`, `pwb_reference_rflux.R`); the second
+of those exercises the differencing branch. The third is the bundled real
+CH-LAE half hour, which is the one that matters: synthetic AR(1) series select
+AR orders of 1 to 5, while real 20 Hz turbulence selects orders in the hundreds,
+and that is where the order search and the Levinson-Durbin recursion are
+actually under load. It needs no fixture file of its own -- it is derived from
+`examples/data/`, and the derivation reproduces byte-for-byte the CSV the R run
+consumed.
 
 Part of the dyco package: https://github.com/holukas/dyco
 """
 
+import hashlib
 import unittest
 from pathlib import Path
 
@@ -25,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from dyco.pwb import PreWhiteningBootstrap
+from dyco.rotation import WindDoubleRotation
 
 _DATA = Path(__file__).parent / 'data'
 _HZ = 20
@@ -62,6 +69,47 @@ def _load(case: str) -> pd.DataFrame:
     return pd.read_csv(_DATA / f'pwb_reference_{case}.csv.gz')
 
 
+def _assert_close(tc, got, ref, what):
+    tc.assertAlmostEqual(got, ref, delta=abs(ref) * _RTOL,
+                         msg=f'{what}: dyco {got!r} vs R {ref!r}')
+
+
+# --- the real-data case ----------------------------------------------------
+# First 30-min chunk of the bundled CH-LAE hour, rotated exactly as the pipeline
+# rotates it. Values are rounded to 6 decimals because that is the precision of
+# the CSV handed to R -- rounding here means both sides consume the same numbers.
+_EXAMPLE = Path(__file__).parents[1] / 'examples' / 'data' / 'CH-LAE_202507251300.csv.gz'
+_REAL_ROWS = 36000  # 30 min at 20 Hz
+
+# Output of the same R script run on that chunk with LAG.MAX=200, lws=0, uws=5.
+_R_REAL = dict(
+    ar_orders=(133, 87, 312),            # scalar, w, tsonic
+    phi1=(-0.992512165671, 0.1173482666556, 0.2374104159050),
+    pww=-149, cor_pww=-0.0107290804485,
+    mcw=-149, cov_mcw=-1.24998502209,
+    mcw_win=99, cov_mcw_win=-0.738845654444,   # CM constrained to [0, +5 s]
+    pwb=18, cov_pwb=-0.630733605019,           # R's unwindowed mode, HDI [-174, 127]
+)
+
+# SHA-256 of the derived chunk serialised the way it was handed to R. Trimming
+# examples/data/, or changing the rotation, silently invalidates every constant
+# above -- this makes that a named failure instead of a puzzling one.
+_R_REAL_INPUT_SHA = '94bd0bc7e78795f3522734bdf853db0aeccfcbc6bd28a795af9730ca8663fcc6'
+
+
+def _load_real_chunk() -> pd.DataFrame:
+    """Rebuild the real-data case from the bundled example file."""
+    df = pd.read_csv(_EXAMPLE, skiprows=[1, 2]).iloc[:_REAL_ROWS].reset_index(drop=True)
+    wr = WindDoubleRotation(u=df['U_[HS50-B]'].astype(float),
+                            v=df['V_[HS50-B]'].astype(float),
+                            w=df['W_[HS50-B]'].astype(float))
+    return pd.DataFrame({
+        'scalar': df['CO2_DRY_[IRGA72-A]'].astype(float),
+        'tsonic': df['T_SONIC_[HS50-B]'].astype(float),
+        'w': wr.w2,
+    }).round(6)
+
+
 class TestPwbAgainstRFlux(unittest.TestCase):
     """Deterministic parity with RFlux v3.2.0 on both unit-root branches."""
 
@@ -79,10 +127,6 @@ class TestPwbAgainstRFlux(unittest.TestCase):
             p.run()
             cls.data[case] = df
             cls.pwb[case] = p
-
-    def _close(self, got, ref, what):
-        self.assertAlmostEqual(got, ref, delta=abs(ref) * _RTOL,
-                               msg=f'{what}: dyco {got!r} vs R {ref!r}')
 
     def _series(self, case):
         """The three aligned series, differenced when the fixture calls for it."""
@@ -119,7 +163,7 @@ class TestPwbAgainstRFlux(unittest.TestCase):
                                          ref['phi1']):
                 with self.subTest(case=case, series=name):
                     phi, _ = self.pwb[case]._fit_ar_model(x)
-                    self._close(float(phi[0]), expected, f'{case}/{name} phi1')
+                    _assert_close(self, float(phi[0]), expected, f'{case}/{name} phi1')
 
     def test_prewhitened_ccf_peak_matches_r(self):
         # R: tl_pww / cor_pww -- the whole pre-whitening chain in two numbers.
@@ -127,7 +171,7 @@ class TestPwbAgainstRFlux(unittest.TestCase):
             with self.subTest(case=case):
                 res = self.pwb[case].results
                 self.assertEqual(res['tlag_pw_records'], ref['pww'])
-                self._close(res['corr_pw'], ref['cor_pww'], f'{case} cor_pww')
+                _assert_close(self, res['corr_pw'], ref['cor_pww'], f'{case} cor_pww')
 
     def test_covariance_maximisation_peak_matches_r(self):
         # R: mcw / cov_mcw, the CM estimate on linearly detrended raw data.
@@ -137,7 +181,7 @@ class TestPwbAgainstRFlux(unittest.TestCase):
                 lag_max = (len(ccov) - 1) // 2
                 self.assertEqual(int(np.argmax(np.abs(ccov))) - lag_max,
                                  ref['mcw'])
-                self._close(float(np.max(np.abs(ccov))), ref['cov_mcw'],
+                _assert_close(self, float(np.max(np.abs(ccov))), ref['cov_mcw'],
                             f'{case} cov_mcw')
 
     def test_raw_covariance_comes_from_the_undifferenced_series(self):
@@ -150,7 +194,7 @@ class TestPwbAgainstRFlux(unittest.TestCase):
             with self.subTest(case=case):
                 ccov = self.pwb[case]._raw_ccov
                 lag_max = (len(ccov) - 1) // 2
-                self._close(float(ccov[ref['pwb'] + lag_max]), ref['cov_pwb'],
+                _assert_close(self, float(ccov[ref['pwb'] + lag_max]), ref['cov_pwb'],
                             f'{case} cov at R lag {ref["pwb"]}')
 
     def test_the_bootstrap_lag_and_hdi_bracket_the_true_lag(self):
@@ -164,6 +208,85 @@ class TestPwbAgainstRFlux(unittest.TestCase):
                 self.assertLess(res['hdi_range_s'], 0.5)  # S1-reliable
                 self.assertLessEqual(res['hdi_lo_s'] * _HZ, _TRUE_LAG_RECORDS)
                 self.assertGreaterEqual(res['hdi_hi_s'] * _HZ, _TRUE_LAG_RECORDS)
+
+
+class TestPwbAgainstRFluxOnRealData(unittest.TestCase):
+    """Parity on real turbulence, where the AR orders run into the hundreds.
+
+    The synthetic fixtures select AR orders of 1 to 5; this one selects 133, 87
+    and 312, so it is the case that actually exercises the AIC search over 455
+    candidate orders and the Levinson-Durbin recursion at depth. It also
+    differences: T_SONIC drifts over half an hour and fails the unit-root test
+    (p = 0.057), which is why that branch is not the edge case it looks like.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.df = _load_real_chunk()
+        cls.pwb = PreWhiteningBootstrap(
+            df=cls.df, var_w='w', var_scalar='scalar', var_tsonic='tsonic',
+            hz=_HZ, lag_max_s=_LAG_MAX_S, n_bootstrap=99, wdt=5, random_state=42)
+        cls.pwb.run()
+
+    def test_the_input_is_the_one_r_was_given(self):
+        # Every constant in _R_REAL is only meaningful for these exact numbers.
+        csv = self.df.to_csv(index=False, float_format='%.6f', lineterminator='\n')
+        self.assertEqual(hashlib.sha256(csv.encode()).hexdigest(),
+                         _R_REAL_INPUT_SHA,
+                         'the derived CH-LAE chunk no longer matches the input '
+                         'the R reference values were produced from')
+
+    def test_tsonic_fails_the_unit_root_test(self):
+        stationary = {c: PreWhiteningBootstrap._is_stationary(
+            self.df[c].to_numpy(float)) for c in ('scalar', 'w', 'tsonic')}
+        self.assertFalse(stationary['tsonic'])          # R: p = 0.057
+        self.assertTrue(stationary['scalar'])
+        self.assertTrue(stationary['w'])
+
+    def test_ar_orders_match_r(self):
+        o = self.pwb.results['ar_orders']
+        self.assertEqual((o['scalar'], o['w'], o['tsonic']), _R_REAL['ar_orders'])
+
+    def test_first_ar_coefficient_matches_r(self):
+        s, w, t = (np.diff(self.df[c].to_numpy(float))   # differenced, see above
+                   for c in ('scalar', 'w', 'tsonic'))
+        for name, x, ref in zip(('scalar', 'w', 'tsonic'), (s, w, t),
+                                _R_REAL['phi1']):
+            with self.subTest(series=name):
+                phi, _ = self.pwb._fit_ar_model(x)
+                _assert_close(self, float(phi[0]), ref, f'real/{name} phi1')
+
+    def test_prewhitened_ccf_peak_matches_r(self):
+        res = self.pwb.results
+        self.assertEqual(res['tlag_pw_records'], _R_REAL['pww'])
+        _assert_close(self, res['corr_pw'], _R_REAL['cor_pww'], 'real cor_pww')
+
+    def test_covariance_maximisation_matches_r_windowed_and_not(self):
+        ccov = self.pwb._raw_ccov
+        lag_max = (len(ccov) - 1) // 2
+        self.assertEqual(int(np.argmax(np.abs(ccov))) - lag_max, _R_REAL['mcw'])
+        _assert_close(self, float(ccov[_R_REAL['mcw'] + lag_max]), _R_REAL['cov_mcw'],
+                    'real cov_mcw')
+        # R's mcw_win: the same search confined to [0, +5 s].
+        win = ccov[lag_max:lag_max + 5 * _HZ + 1]
+        self.assertEqual(int(np.argmax(np.abs(win))), _R_REAL['mcw_win'])
+        _assert_close(self, float(win[_R_REAL['mcw_win']]), _R_REAL['cov_mcw_win'],
+                    'real cov_mcw_win')
+
+    def test_raw_covariance_matches_r_at_its_selected_lag(self):
+        ccov = self.pwb._raw_ccov
+        lag_max = (len(ccov) - 1) // 2
+        _assert_close(self, float(ccov[_R_REAL['pwb'] + lag_max]), _R_REAL['cov_pwb'],
+                    'real cov at R lag 18')
+
+    def test_both_implementations_call_this_period_unreliable(self):
+        # Not a defect: CO2 x W here has no dominant peak. The cross-covariance
+        # maximum sits at -7.45 s, physically impossible for a tube delay, and
+        # the pre-whitened correlation is 0.011 -- the 5% limit at n=36000 is
+        # about 0.01. R returns a 95% HDI of [-174, 127] records; dyco has to
+        # agree that it does not know, or the S1 flag would mean nothing.
+        self.assertGreater(self.pwb.results['hdi_range_s'], 5.0)
+        self.assertFalse(self.pwb.results['is_reliable'])
 
 
 class TestRollingMeanMatchesZoo(unittest.TestCase):
