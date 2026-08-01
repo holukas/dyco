@@ -6,19 +6,40 @@ authors = [
     { name = "Lukas Hörtnagl", email = "lukas.hoertnagl@usys.ethz.ch" }
 ]
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
-    "pandas (>=2.2.3,<3.0.0)",
-    "matplotlib (>=3.8.3)",
-    "scipy (>=1.12.0)",
-    # deactivate next line during dev, activate only for production
-    "diive (>=0.86.0)"
+    "pandas>=3.0.0,<4.0.0",
+    "numpy>=2.2.0,<3.0.0",
+    "matplotlib>=3.10.0",
+    "scipy>=1.12.0",
+    # MaxCovariance runs its covariance sweep on polars.
+    "polars>=1.26.0,<2.0.0",
+    # Parquet raw-data input.
+    "pyarrow>=19.0.0",
+    # Textual TUI (dyco-detect-remove-tui) and its settings file.
+    "textual>=8.2.7",
+    "pyyaml>=6.0.2",
 ]
 
+[project.scripts]
+# Unified front door; dispatches to every workflow below plus `dyco cm`.
+dyco = "dyco.cli:main"
+# PWB is the primary method. dyco-detect-remove is the main entry point:
+# it splits, detects and removes in one pass.
+dyco-detect-remove = "dyco.pipeline:_cli_main"
+dyco-detect-remove-tui = "dyco.tui:_tui_main"
+dyco-pwb-batch = "dyco.pwb:_cli_main"
+dyco-apply-batch = "dyco.apply_tlag:_cli_main"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.group.dev.dependencies]
-#diive = { path = "../../21 - DIIVE/diive", develop = true }
+[tool.hatch.build.targets.wheel]
+packages = ["dyco"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.11.2",
+]
