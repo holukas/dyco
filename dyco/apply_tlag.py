@@ -165,7 +165,6 @@ See ``examples/flux/hires/flux_apply_tlag_cli.py`` for a complete example.
 Part of the dyco package: https://github.com/holukas/dyco
 """
 
-import gzip
 import os
 import re
 import warnings
@@ -190,51 +189,13 @@ from dyco.pwb import _DEFAULT_NA_VALUES, _read_engine_kwargs
 # to a single space character (pandas ``to_csv`` requires a literal sep).
 _WHITESPACE_SEP = r'\s+'
 
-# Compression handling. dyco's own file splitter writes `.csv.gz`, and pandas
-# infers compression from the name when reading the data block -- but the
-# preserved header lines are read with a plain open(), which is why a gzipped
-# input used to fail here with a bare StopIteration. These mirror the helpers
-# in pipeline.py; the two modules are separate readers (see "Open" in
-# CLAUDE.md), so the gzip handling has to exist on both sides.
-_COMPRESSED_SUFFIXES = {'.gz'}
-
-
-def _is_compressed(path: Path) -> bool:
-    """True when *path* looks gzip-compressed by its suffix."""
-    return Path(path).suffix.lower() in _COMPRESSED_SUFFIXES
-
-
-def _open_text(path: Path, encoding: str = 'utf-8', errors: str = 'replace'):
-    """Open *path* for text reading, transparently decompressing .gz."""
-    if _is_compressed(path):
-        return gzip.open(path, 'rt', encoding=encoding, errors=errors)
-    return open(path, 'r', encoding=encoding, errors=errors)
-
-
-def _open_text_write(path: Path, encoding: str = 'utf-8'):
-    """Open *path* for text writing, compressing when the name says .gz."""
-    if _is_compressed(path):
-        return gzip.open(path, 'wt', encoding=encoding, newline='')
-    return open(path, 'w', encoding=encoding, newline='')
-
-
-def _read_preserved_lines(path: Path, n: int) -> list:
-    """Read the first *n* lines of *path*, or say why they are not there.
-
-    ``[next(fh) for _ in range(n)]`` raises a bare ``StopIteration`` with no
-    message when the file is shorter than the header block -- the commonest
-    symptom of a wrong ``--skiprows``/``--extra-rows``, and unreadable as an
-    error row.
-    """
-    with _open_text(path) as fh:
-        lines = []
-        for line in fh:
-            lines.append(line)
-            if len(lines) == n:
-                return lines
-    raise ValueError(
-        f"{Path(path).name} has only {len(lines)} line(s) but --skiprows / "
-        f"--extra-rows ask for {n} header line(s) before the data.")
+# Compression handling lives in dyco.rawio, so this module, the pipeline and
+# the TUI cannot drift apart on it again -- each had its own open() calls, and
+# each broke on compressed input independently.
+from dyco.rawio import (
+    open_text_write as _open_text_write,
+    read_preserved_lines as _read_preserved_lines,
+)
 
 
 def _extract_key(pattern: str | None, name: str) -> str | None:

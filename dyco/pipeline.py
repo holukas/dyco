@@ -204,7 +204,6 @@ See ``examples/flux/hires/flux_detect_remove_tlag.py`` for a complete example.
 Part of the dyco package: https://github.com/holukas/dyco
 """
 
-import gzip
 import os
 import queue as _queue_mod
 import re
@@ -244,45 +243,20 @@ _WHITESPACE_SEP = r'\s+'
 # shifted scalar columns and trailing-NaN rows in those columns only.
 # ---------------------------------------------------------------------------
 
-# Raw EC files are commonly stored gzip-compressed (dyco's own file splitter
-# writes .csv.gz when compress_splits=True). pandas.read_csv infers compression
-# from the suffix on its own, but the header rows and the row counters below are
-# read with the builtin open(), which does not — plain open() on a .gz yields
-# compressed bytes decoded as text. These two helpers dispatch on the suffix so
-# every read path agrees with what read_csv does.
-_COMPRESSED_SUFFIXES = {'.gz', '.gzip'}
+# Raw EC files are commonly stored compressed (dyco's own file splitter writes
+# .csv.gz when compress_splits=True, and users hand over .zip just as often).
+# pandas.read_csv infers compression on its own, but the header rows and the row
+# counters below are read with the builtin open(), which does not. dyco.rawio
+# owns that dispatch for every module -- see its docstring for why it is one
+# module and not one copy per reader.
+from dyco.rawio import (  # noqa: E402
+    is_compressed as _is_compressed,
+    open_binary as _open_binary,
+    open_text as _open_text,
+    open_text_write as _open_text_write,
+    read_preserved_lines as _read_preserved_lines,
+)
 
-
-def _is_compressed(path: Path) -> bool:
-    """True when *path* looks gzip-compressed by its suffix."""
-    return Path(path).suffix.lower() in _COMPRESSED_SUFFIXES
-
-
-def _open_text(path: Path, encoding: str = 'utf-8', errors: str = 'replace'):
-    """Open *path* for text reading, transparently decompressing .gz."""
-    if _is_compressed(path):
-        return gzip.open(path, 'rt', encoding=encoding, errors=errors)
-    return open(path, 'r', encoding=encoding, errors=errors)
-
-
-def _open_binary(path: Path):
-    """Open *path* for binary reading, transparently decompressing .gz."""
-    if _is_compressed(path):
-        return gzip.open(path, 'rb')
-    return open(path, 'rb')
-
-
-def _open_text_write(path: Path, encoding: str = 'utf-8'):
-    """Open *path* for text writing, compressing when the name says .gz.
-
-    The chunk filename template carries the input file's suffix through to the
-    output (``{suffix}``), so a gzipped input yields a gzipped output *name*.
-    Writing plain text to it would produce a file whose extension lies, and
-    downstream software that trusts the extension would fail to open it.
-    """
-    if _is_compressed(path):
-        return gzip.open(path, 'wt', encoding=encoding, newline='')
-    return open(path, 'w', encoding=encoding, newline='')
 
 def _read_raw_file(
         input_path: Path,
@@ -304,8 +278,7 @@ def _read_raw_file(
     n_preserved = skiprows + 1 + extra_rows
     header_idx = skiprows
 
-    with _open_text(input_path) as fh:
-        preserved_lines = [next(fh) for _ in range(n_preserved)]
+    preserved_lines = _read_preserved_lines(input_path, n_preserved)
 
     header_line = preserved_lines[header_idx].rstrip('\n').rstrip('\r')
     if sep == _WHITESPACE_SEP:
@@ -1191,8 +1164,7 @@ def detect_one_chunk(
         timestamp_iso = t_chunk.isoformat() if t_chunk is not None else ''
 
         # ---- Read preserved header (small) -------------------------------
-        with _open_text(input_path) as fh:
-            preserved_lines = [next(fh) for _ in range(n_preserved)]
+        preserved_lines = _read_preserved_lines(input_path, n_preserved)
 
         header_line = preserved_lines[skiprows].rstrip('\n').rstrip('\r')
         if sep == _WHITESPACE_SEP:
@@ -1417,8 +1389,7 @@ def remove_one_chunk(
     _emit('start', chunk_index=chunk_index, chunk_period=chunk_period)
     try:
         # ---- Read preserved header + this chunk's slice ------------------
-        with _open_text(input_path) as fh:
-            preserved_lines = [next(fh) for _ in range(n_preserved)]
+        preserved_lines = _read_preserved_lines(input_path, n_preserved)
         header_line = preserved_lines[skiprows].rstrip('\n').rstrip('\r')
         if sep == _WHITESPACE_SEP:
             header_cols = header_line.split()
