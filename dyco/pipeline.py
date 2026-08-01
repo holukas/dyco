@@ -749,6 +749,7 @@ def process_one_file(
         lag_max_s: float = 10.0,
         n_bootstrap: int = 99,
         block_length_s: float = 20.0,
+        wdt: int = 5,
         chunk_seconds: float = 1800.0,
         min_chunk_seconds: float = 300.0,
         chunk_name_template: str = '{stem}_chunk{index:02d}{suffix}',
@@ -944,6 +945,7 @@ def process_one_file(
                         lag_max_s=g_lag,
                         n_bootstrap=n_bootstrap,
                         block_length_s=g_block,
+                        wdt=wdt,
                         segment_name=chunk_period,
                         random_state=seed,
                         lws=g_lws,
@@ -1128,6 +1130,7 @@ def detect_one_chunk(
         strict: bool,
         save_plots: bool,
         plots_dir: Path | None,
+        wdt: int = 5,
         lws: float | None = None,
         uws: float | None = None,
         gas_lag_overrides: dict | None = None,
@@ -1289,6 +1292,7 @@ def detect_one_chunk(
                 lag_max_s=g_lag,
                 n_bootstrap=n_bootstrap,
                 block_length_s=g_block,
+                wdt=wdt,
                 segment_name=chunk_period,
                 random_state=seed,
                 lws=g_lws,
@@ -1494,14 +1498,19 @@ def _count_data_rows(path: Path, header_lines: int) -> int:
     rows.
     """
     n_lines = 0
+    last_byte = b''
     with _open_binary(path) as fh:
         while True:
             block = fh.read(1 << 20)
             if not block:
                 break
             n_lines += block.count(b'\n')
-    # Most files end without a trailing newline; the last data row still
-    # counts. Subtract only the preserved header.
+            last_byte = block[-1:]
+    # A file that ends without a trailing newline has one more line than it has
+    # newlines, and that last line is a data row. Counting newlines alone loses
+    # it -- and disagrees with _estimate_data_rows, which does count it.
+    if last_byte not in (b'', b'\n'):
+        n_lines += 1
     return max(0, n_lines - header_lines)
 
 
@@ -1785,6 +1794,7 @@ class PerFilePipeline:
             lag_max_s: float = 10.0,
             n_bootstrap: int = 99,
             block_length_s: float = 20.0,
+            wdt: int = 5,
             chunk_seconds: float = 1800.0,
             min_chunk_seconds: float = 300.0,
             chunk_name_template: str = '{stem}_chunk{index:02d}{suffix}',
@@ -1824,6 +1834,7 @@ class PerFilePipeline:
         self.lag_max_s = lag_max_s
         self.n_bootstrap = n_bootstrap
         self.block_length_s = block_length_s
+        self.wdt = wdt
         self.chunk_seconds = chunk_seconds
         self.min_chunk_seconds = min_chunk_seconds
         self.chunk_name_template = chunk_name_template
@@ -2143,6 +2154,7 @@ class PerFilePipeline:
                     lag_max_s=self.lag_max_s,
                     n_bootstrap=self.n_bootstrap,
                     block_length_s=self.block_length_s,
+                    wdt=self.wdt,
                     lws=self.lws,
                     uws=self.uws,
                     gas_lag_overrides=self.per_gas_lag,
@@ -2414,6 +2426,10 @@ class PerFilePipeline:
             ('block_length_s', self.block_length_s,
              'Bootstrap block length (s); long enough to contain the lag '
              '(paper floor 20 s).'),
+            ('wdt', self.wdt,
+             'Width (records) of the centred rolling mean applied to each '
+             'bootstrap CCF before its peak is taken. 5 follows RFlux; the '
+             'paper uses hz/2+1.'),
             ('lws / uws (window)', f'{self.lws} / {self.uws}',
              'Optional asymmetric search window [lower, upper] (s); '
              'None = the full symmetric +/-lag_max_s.'),
@@ -2824,6 +2840,10 @@ def _build_parser():
                    help='Number of block-bootstrap replicates (paper: 99).')
     p.add_argument('--block-length', type=float, default=20.0,
                    help='Bootstrap block length [s] (paper: L = 20 s).')
+    p.add_argument('--wdt', type=int, default=5,
+                   help='Width [records] of the centred rolling mean applied to '
+                        'each bootstrap CCF before its peak is taken. 5 follows '
+                        'RFlux; the paper uses hz/2+1 (11 at 20 Hz, 6 at 10 Hz).')
     p.add_argument('--lws', type=float, default=None,
                    help='Optional lower limit [s] of an asymmetric lag search '
                         'window applied to all gases (per-gas "@lws=" overrides).')
@@ -3012,6 +3032,7 @@ def _cli_main():
         lag_max_s=args.lag_max,
         n_bootstrap=args.n_bootstrap,
         block_length_s=args.block_length,
+        wdt=args.wdt,
         chunk_seconds=args.chunk_seconds,
         min_chunk_seconds=args.min_chunk_seconds,
         chunk_name_template=args.chunk_name_template,
