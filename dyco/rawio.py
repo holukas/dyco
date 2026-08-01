@@ -60,6 +60,51 @@ def data_suffix(path) -> str:
     return suffixes[-1] if suffixes else ''
 
 
+# Output compression, as the user asks for it. 'auto' keeps whatever the
+# filename template produced, which follows the input; the rest force a format
+# regardless of how the input was stored.
+OUTPUT_COMPRESSIONS = ('auto', 'none', 'gz', 'bz2', 'xz', 'zip')
+
+
+def compression_suffix(path) -> str:
+    """The compression suffix of *path* (``'.gz'``), or ``''`` if plain."""
+    suffix = Path(path).suffix
+    return suffix if suffix.lower() in COMPRESSION_SUFFIXES else ''
+
+
+def strip_compression(name: str) -> str:
+    """*name* without its compression suffixes: ``'a.csv.gz'`` -> ``'a.csv'``."""
+    while True:
+        suffix = Path(name).suffix
+        if suffix and suffix.lower() in COMPRESSION_SUFFIXES:
+            name = name[:-len(suffix)]
+        else:
+            return name
+
+
+def resolve_output_name(name: str, compression: str,
+                        input_compression: str = '') -> str:
+    """Set *name*'s compression suffix according to *compression*.
+
+    Whether the output is compressed is the user's choice, not something
+    inherited from how the input happened to be stored: gzipped input can yield
+    plain ``.csv`` output and the other way round. ``'auto'`` is the one mode
+    that does inherit, and *input_compression* is what it inherits.
+
+    The suffix is replaced rather than appended, so this is idempotent. The
+    format suffix is expected to be part of *name* already -- the filename
+    template's ``{suffix}`` carries it.
+    """
+    if compression not in OUTPUT_COMPRESSIONS:
+        raise ValueError(
+            f'unknown output compression {compression!r}; '
+            f'expected one of {", ".join(OUTPUT_COMPRESSIONS)}')
+    stem = strip_compression(name)
+    if compression == 'auto':
+        return stem + input_compression
+    return stem if compression == 'none' else f'{stem}.{compression}'
+
+
 def _zip_member(zf: zipfile.ZipFile, path) -> zipfile.ZipInfo:
     """The single data member of *zf*, or a message explaining why there isn't one."""
     members = [i for i in zf.infolist() if not i.is_dir()]

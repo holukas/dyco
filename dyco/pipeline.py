@@ -252,9 +252,13 @@ _WHITESPACE_SEP = r'\s+'
 from dyco.rawio import (  # noqa: E402
     is_compressed as _is_compressed,
     open_binary as _open_binary,
-    open_text as _open_text,
     open_text_write as _open_text_write,
     read_preserved_lines as _read_preserved_lines,
+    resolve_output_name as _resolve_output_name,
+    data_suffix as _data_suffix,
+    compression_suffix as _compression_suffix,
+    strip_compression as _strip_compression,
+    OUTPUT_COMPRESSIONS as _OUTPUT_COMPRESSIONS,
 )
 
 
@@ -366,6 +370,7 @@ def _chunk_filename(
         name_template: str,
         start_time_regex: str | None,
         start_time_format: str,
+        output_compression: str = 'auto',
 ) -> tuple[str, 'datetime | None']:
     """Compose the output filename for one chunk inside ``input_path``.
 
@@ -377,10 +382,20 @@ def _chunk_filename(
     Supported placeholders: ``{stem}``, ``{suffix}``, ``{index}``,
     ``{starttime}`` (only available when ``start_time_regex`` matches
     ``input_path.name``).
+
+    ``output_compression`` then sets the compression of the result:
+    ``'auto'`` keeps whatever the template produced (which follows the input),
+    ``'none'`` writes plain text, and ``'gz'`` / ``'bz2'`` / ``'xz'`` / ``'zip'``
+    force that format. See ``rawio.resolve_output_name``.
     """
+    # Compression is not part of the name the template builds: {stem} is the
+    # name without any suffix and {suffix} is the data suffix (.csv/.dat), so a
+    # template produces the same names whether or not the input was compressed.
+    # resolve_output_name puts the compression back at the end.
+    data_sfx = _data_suffix(input_path)
     fields: dict = {
-        'stem': input_path.stem,
-        'suffix': input_path.suffix,
+        'stem': _strip_compression(input_path.name)[:-len(data_sfx) or None],
+        'suffix': data_sfx,
         'index': chunk_index,
     }
     t_chunk: datetime | None = None
@@ -422,12 +437,14 @@ def _chunk_filename(
             fields['starttime'] = t_chunk.strftime(start_time_format)
 
     try:
-        return name_template.format(**fields), t_chunk
+        name = name_template.format(**fields)
     except KeyError as e:
         raise ValueError(
             f"--chunk-name-template {name_template!r} uses placeholder {e}; "
             f"available: {sorted(fields.keys())}"
         ) from e
+    return _resolve_output_name(name, output_compression,
+                                _compression_suffix(input_path)), t_chunk
 
 
 def _parse_file_start_time(
@@ -726,6 +743,7 @@ def process_one_file(
         chunk_seconds: float = 1800.0,
         min_chunk_seconds: float = 300.0,
         chunk_name_template: str = '{stem}_chunk{index:02d}{suffix}',
+        output_compression: str = 'auto',
         start_time_regex: str | None = None,
         start_time_format: str = '%Y%m%d-%H%M',
         skiprows: int = 0,
@@ -865,6 +883,7 @@ def process_one_file(
                 name_template=chunk_name_template,
                 start_time_regex=start_time_regex,
                 start_time_format=start_time_format,
+                output_compression=output_compression,
             )
 
             # Skip too-short trailing chunks (PWB needs enough records).
@@ -1103,6 +1122,7 @@ def detect_one_chunk(
         strict: bool,
         save_plots: bool,
         plots_dir: Path | None,
+        output_compression: str = 'auto',
         wdt: int = 5,
         lws: float | None = None,
         uws: float | None = None,
@@ -1160,6 +1180,7 @@ def detect_one_chunk(
             name_template=chunk_name_template,
             start_time_regex=start_time_regex,
             start_time_format=start_time_format,
+            output_compression=output_compression,
         )
         timestamp_iso = t_chunk.isoformat() if t_chunk is not None else ''
 
@@ -1769,6 +1790,7 @@ class PerFilePipeline:
             chunk_seconds: float = 1800.0,
             min_chunk_seconds: float = 300.0,
             chunk_name_template: str = '{stem}_chunk{index:02d}{suffix}',
+            output_compression: str = 'auto',
             start_time_regex: str | None = None,
             start_time_format: str = '%Y%m%d-%H%M',
             file_pattern: str = '*.csv',
@@ -1809,6 +1831,7 @@ class PerFilePipeline:
         self.chunk_seconds = chunk_seconds
         self.min_chunk_seconds = min_chunk_seconds
         self.chunk_name_template = chunk_name_template
+        self.output_compression = output_compression
         self.start_time_regex = start_time_regex
         self.start_time_format = start_time_format
         self.file_pattern = file_pattern
@@ -2072,6 +2095,7 @@ class PerFilePipeline:
             name_template=self.chunk_name_template,
             start_time_regex=self.start_time_regex,
             start_time_format=self.start_time_format,
+            output_compression=self.output_compression,
         )
 
         # Validate the chunk-name template can produce distinct names —
@@ -2131,6 +2155,7 @@ class PerFilePipeline:
                     gas_lag_overrides=self.per_gas_lag,
                     chunk_seconds=self.chunk_seconds,
                     chunk_name_template=self.chunk_name_template,
+                    output_compression=self.output_compression,
                     start_time_regex=self.start_time_regex,
                     start_time_format=self.start_time_format,
                     skiprows=self.skiprows,
@@ -2397,6 +2422,9 @@ class PerFilePipeline:
             ('block_length_s', self.block_length_s,
              'Bootstrap block length (s); long enough to contain the lag '
              '(paper floor 20 s).'),
+            ('output_compression', self.output_compression,
+             "Compression of the written chunks: 'auto' follows the input, "
+             "'none' writes plain text, or force gz / bz2 / xz / zip."),
             ('wdt', self.wdt,
              'Width (records) of the centred rolling mean applied to each '
              'bootstrap CCF before its peak is taken. 5 follows RFlux; the '
@@ -2811,6 +2839,12 @@ def _build_parser():
                    help='Number of block-bootstrap replicates (paper: 99).')
     p.add_argument('--block-length', type=float, default=20.0,
                    help='Bootstrap block length [s] (paper: L = 20 s).')
+    p.add_argument('--output-compression', default='auto',
+                   choices=list(_OUTPUT_COMPRESSIONS),
+                   help='Compression of the written chunks. auto (default) '
+                        'follows the input file; none writes plain text; gz / '
+                        'bz2 / xz / zip force that format regardless of how the '
+                        'input was stored.')
     p.add_argument('--wdt', type=int, default=5,
                    help='Width [records] of the centred rolling mean applied to '
                         'each bootstrap CCF before its peak is taken. 5 follows '
@@ -3003,6 +3037,7 @@ def _cli_main():
         lag_max_s=args.lag_max,
         n_bootstrap=args.n_bootstrap,
         block_length_s=args.block_length,
+        output_compression=args.output_compression,
         wdt=args.wdt,
         chunk_seconds=args.chunk_seconds,
         min_chunk_seconds=args.min_chunk_seconds,
