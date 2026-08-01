@@ -20,7 +20,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Detection | `dyco/pwb.py` |
 | Lag selection | PWBOPT S1/S2/S3, per chunk |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 6 more, 109 total |
+| Tests | `tests/test_pwb.py` + 6 more, 117 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -39,10 +39,20 @@ its noise from, and it is tested. It stays.
 
 **PWB is measured against the original R code.** `tests/test_pwb_reference.py`
 pins the deterministic half of `pwb.py` to RFlux v3.2.0's `tlag_detection.R` at
-12 significant digits, on both branches of the unit-root test. The remaining
-differences are catalogued with severities in the `pwb.py` module docstring —
-read that before changing the algorithm, and rerun `tests/data/pwb_reference_rflux.R`
-if you do.
+12 significant digits: both branches of the unit-root test, and the bundled real
+CH-LAE half hour, where the AR orders reach 133 / 87 / 312 and the synthetic
+cases only reach 5. The remaining differences are catalogued with severities in
+the `pwb.py` module docstring — read that before changing the algorithm, and
+rerun `tests/data/pwb_reference_rflux.R` if you do.
+
+That comparison also settled two things worth remembering. The differencing
+branch fires on ordinary data (T_SONIC drifts over half an hour), so it is not
+the edge case it looks like. And on that half hour the *unwindowed* PWB
+detection is unreliable in **both** implementations — the cross-covariance peaks
+at -7.45 s, which no tube delay can be. The pipeline gets a usable 8.45 s
+because `--lws 0 --uws 10` confines the search to physical lags; that window is
+doing real work, and an S1 flag from a windowed search is a weaker claim than
+from an unwindowed one.
 
 ## [READ FIRST] v3 state
 
@@ -125,7 +135,7 @@ not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 109 passed
+uv run pytest tests/ -q                                  # 117 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -229,12 +239,12 @@ reference implementation. Prefer that over inspection.
 
 ## Testing
 
-`tests/` holds **109 tests plus 55 subtests**, seeded by diive's
+`tests/` holds **117 tests plus 58 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 109 passed, 55 subtests
+uv run pytest tests/ -q     # 117 passed, 58 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving

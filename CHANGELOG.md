@@ -52,11 +52,12 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   specifies `hz/2 + 1` (11 at 20 Hz). Previously the value was fixed at 5 with no way to reach the
   paper's. It matters: on the bundled CH-LAE hour, `--wdt 11` widens the 95% HDI from 0.00/0.05 s to
   0.30/0.20 s, and the S1 reliability threshold is 0.5 s
-- A test suite: `tests/`, 109 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
+- A test suite: `tests/`, 117 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
   the pre-whitening chain to the numbers RFlux v3.2.0 produces on the same input — unit-root
   decision, AR order, AR coefficients, pre-whitened CCF peak and raw cross-covariance all agree to
-  12 significant digits, on both branches of the unit-root test. Fixtures and the R script that
-  produced the frozen values are in `tests/data/`
+  12 significant digits. Three cases: two synthetic, one per branch of the unit-root test, and the
+  bundled **real** CH-LAE half hour, where AR orders reach 133 / 87 / 312 against the synthetic
+  cases' 1 to 5. Fixtures and the R script that produced the frozen values are in `tests/data/`
 
 ### Changed
 
