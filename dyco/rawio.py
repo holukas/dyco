@@ -60,10 +60,41 @@ def data_suffix(path) -> str:
     return suffixes[-1] if suffixes else ''
 
 
-# Output compression, as the user asks for it. 'auto' keeps whatever the
-# filename template produced, which follows the input; the rest force a format
-# regardless of how the input was stored.
-OUTPUT_COMPRESSIONS = ('auto', 'none', 'gz', 'bz2', 'xz', 'zip')
+# Compression suffixes that exist but that this module cannot open or write.
+# Naming one is a mistake worth catching: the file would be written as plain
+# text under a name promising otherwise.
+_UNSUPPORTED_COMPRESSION = {'.zst', '.zstd', '.7z', '.rar', '.tar', '.tgz',
+                            '.lz4', '.br'}
+
+# The sentinel meaning "whatever the input was".
+AUTO_SUFFIX = 'auto'
+
+
+def normalise_output_suffix(spec: str) -> str:
+    """Validate a user-supplied output suffix and return it dot-prefixed.
+
+    Takes the whole extension the output files should carry, so one setting
+    covers both the text format and the compression: ``'.csv'``, ``'csv.gz'``,
+    ``'.dat.zip'``. A leading dot is optional. ``'auto'`` (the default) means
+    keep whatever the input used.
+
+    The format part is never interpreted -- dyco writes delimited text
+    whatever it is called -- but the *compression* part has to be one that can
+    actually be written, or the file would be plain text under a name that
+    lies.
+    """
+    spec = (spec or '').strip()
+    if not spec or spec.lower() == AUTO_SUFFIX:
+        return AUTO_SUFFIX
+    if not spec.startswith('.'):
+        spec = '.' + spec
+    last = Path(spec).suffix.lower()
+    if last in _UNSUPPORTED_COMPRESSION:
+        raise ValueError(
+            f'output suffix {spec!r} asks for {last} compression, which dyco '
+            f'cannot write. Supported: '
+            f'{", ".join(sorted(COMPRESSION_SUFFIXES))}, or none at all.')
+    return spec
 
 
 def compression_suffix(path) -> str:
@@ -82,27 +113,17 @@ def strip_compression(name: str) -> str:
             return name
 
 
-def resolve_output_name(name: str, compression: str,
-                        input_compression: str = '') -> str:
-    """Set *name*'s compression suffix according to *compression*.
+def resolve_output_suffix(spec: str, input_path) -> str:
+    """The extension output files should carry, resolving ``'auto'``.
 
-    Whether the output is compressed is the user's choice, not something
-    inherited from how the input happened to be stored: gzipped input can yield
-    plain ``.csv`` output and the other way round. ``'auto'`` is the one mode
-    that does inherit, and *input_compression* is what it inherits.
-
-    The suffix is replaced rather than appended, so this is idempotent. The
-    format suffix is expected to be part of *name* already -- the filename
-    template's ``{suffix}`` carries it.
+    ``'auto'`` reproduces the input's own extension -- ``file1.csv.gz`` gives
+    ``'.csv.gz'``, ``file1.gz`` gives ``'.gz'``, ``file1.csv`` gives ``'.csv'``.
     """
-    if compression not in OUTPUT_COMPRESSIONS:
-        raise ValueError(
-            f'unknown output compression {compression!r}; '
-            f'expected one of {", ".join(OUTPUT_COMPRESSIONS)}')
-    stem = strip_compression(name)
-    if compression == 'auto':
-        return stem + input_compression
-    return stem if compression == 'none' else f'{stem}.{compression}'
+    normalised = normalise_output_suffix(spec)
+    if normalised != AUTO_SUFFIX:
+        return normalised
+    name = Path(input_path).name
+    return data_suffix(name) + compression_suffix(name)
 
 
 def _zip_member(zf: zipfile.ZipFile, path) -> zipfile.ZipInfo:

@@ -163,7 +163,7 @@ shift and write**.
 | `dyco/maxcov.py` | 417 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it |
 | `dyco/files.py` | 195 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
 | `dyco/rotation.py` | 138 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
-| `dyco/rawio.py` | 190 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
+| `dyco/rawio.py` | 200 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
 | `dyco/cli.py` | 101 | Unified `dyco` dispatcher |
 | `dyco/_vendor/` | ~400 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
 | `dyco/__init__.py` | 2 | A comment. **No public API is defined** |
@@ -223,9 +223,10 @@ reference implementation. Prefer that over inspection.
 ## Gotchas
 
 - **Compression is a storage detail, not a format.** `.gz`, `.bz2`, `.xz` and
-  `.zip` are read as the text inside them, and `--output-compression` decides
-  how output is written regardless of the input. Chunk-name placeholders are
-  compression-free: `{stem}` has no suffix, `{suffix}` is the data suffix.
+  `.zip` are read as the text inside them. `--output-suffix` sets the whole
+  output extension (`.csv`, `.csv.gz`), independent of the input; the name
+  template's `{suffix}` expands to it, and `{stem}` is the input name with
+  every suffix stripped.
 - **Compression is `rawio.py`'s job, nobody else's.** `pipeline.py`,
   `apply_tlag.py` and `tui.py` each grew their own `open()` calls, and each
   broke on compressed input independently — the TUI's silently, returning
@@ -245,12 +246,12 @@ reference implementation. Prefer that over inspection.
 
 ## Testing
 
-`tests/` holds **134 tests plus 107 subtests**, seeded by diive's
+`tests/` holds **134 tests plus 108 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 134 passed, 107 subtests
+uv run pytest tests/ -q     # 134 passed, 108 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving

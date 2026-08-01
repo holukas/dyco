@@ -254,11 +254,9 @@ from dyco.rawio import (  # noqa: E402
     open_binary as _open_binary,
     open_text_write as _open_text_write,
     read_preserved_lines as _read_preserved_lines,
-    resolve_output_name as _resolve_output_name,
+    resolve_output_suffix as _resolve_output_suffix,
     data_suffix as _data_suffix,
-    compression_suffix as _compression_suffix,
     strip_compression as _strip_compression,
-    OUTPUT_COMPRESSIONS as _OUTPUT_COMPRESSIONS,
 )
 
 
@@ -370,7 +368,7 @@ def _chunk_filename(
         name_template: str,
         start_time_regex: str | None,
         start_time_format: str,
-        output_compression: str = 'auto',
+        output_suffix: str = 'auto',
 ) -> tuple[str, 'datetime | None']:
     """Compose the output filename for one chunk inside ``input_path``.
 
@@ -388,14 +386,21 @@ def _chunk_filename(
     ``'none'`` writes plain text, and ``'gz'`` / ``'bz2'`` / ``'xz'`` / ``'zip'``
     force that format. See ``rawio.resolve_output_name``.
     """
-    # Compression is not part of the name the template builds: {stem} is the
-    # name without any suffix and {suffix} is the data suffix (.csv/.dat), so a
-    # template produces the same names whether or not the input was compressed.
-    # resolve_output_name puts the compression back at the end.
+    # {stem} is the input name with every suffix removed and {suffix} is the
+    # extension the OUTPUT should carry -- the whole thing, format and
+    # compression together ('.csv.gz'). So one template names files the same way
+    # whatever the input was called, and changing the output format is a matter
+    # of changing {suffix}, not the template.
     data_sfx = _data_suffix(input_path)
+    out_sfx = _resolve_output_suffix(output_suffix, input_path)
+    if out_sfx != _resolve_output_suffix('auto', input_path)             and '{suffix}' not in name_template:
+        raise ValueError(
+            f"--output-suffix {output_suffix!r} cannot be applied: "
+            f"--chunk-name-template {name_template!r} does not use {{suffix}}, "
+            f"so the output extension is fixed by the template. Add {{suffix}}.")
     fields: dict = {
         'stem': _strip_compression(input_path.name)[:-len(data_sfx) or None],
-        'suffix': data_sfx,
+        'suffix': out_sfx,
         'index': chunk_index,
     }
     t_chunk: datetime | None = None
@@ -443,8 +448,7 @@ def _chunk_filename(
             f"--chunk-name-template {name_template!r} uses placeholder {e}; "
             f"available: {sorted(fields.keys())}"
         ) from e
-    return _resolve_output_name(name, output_compression,
-                                _compression_suffix(input_path)), t_chunk
+    return name, t_chunk
 
 
 def _parse_file_start_time(
@@ -743,7 +747,7 @@ def process_one_file(
         chunk_seconds: float = 1800.0,
         min_chunk_seconds: float = 300.0,
         chunk_name_template: str = '{stem}_chunk{index:02d}{suffix}',
-        output_compression: str = 'auto',
+        output_suffix: str = 'auto',
         start_time_regex: str | None = None,
         start_time_format: str = '%Y%m%d-%H%M',
         skiprows: int = 0,
@@ -883,7 +887,7 @@ def process_one_file(
                 name_template=chunk_name_template,
                 start_time_regex=start_time_regex,
                 start_time_format=start_time_format,
-                output_compression=output_compression,
+                output_suffix=output_suffix,
             )
 
             # Skip too-short trailing chunks (PWB needs enough records).
@@ -1122,7 +1126,7 @@ def detect_one_chunk(
         strict: bool,
         save_plots: bool,
         plots_dir: Path | None,
-        output_compression: str = 'auto',
+        output_suffix: str = 'auto',
         wdt: int = 5,
         lws: float | None = None,
         uws: float | None = None,
@@ -1180,7 +1184,7 @@ def detect_one_chunk(
             name_template=chunk_name_template,
             start_time_regex=start_time_regex,
             start_time_format=start_time_format,
-            output_compression=output_compression,
+            output_suffix=output_suffix,
         )
         timestamp_iso = t_chunk.isoformat() if t_chunk is not None else ''
 
@@ -1790,7 +1794,7 @@ class PerFilePipeline:
             chunk_seconds: float = 1800.0,
             min_chunk_seconds: float = 300.0,
             chunk_name_template: str = '{stem}_chunk{index:02d}{suffix}',
-            output_compression: str = 'auto',
+            output_suffix: str = 'auto',
             start_time_regex: str | None = None,
             start_time_format: str = '%Y%m%d-%H%M',
             file_pattern: str = '*.csv',
@@ -1831,7 +1835,7 @@ class PerFilePipeline:
         self.chunk_seconds = chunk_seconds
         self.min_chunk_seconds = min_chunk_seconds
         self.chunk_name_template = chunk_name_template
-        self.output_compression = output_compression
+        self.output_suffix = output_suffix
         self.start_time_regex = start_time_regex
         self.start_time_format = start_time_format
         self.file_pattern = file_pattern
@@ -2095,7 +2099,7 @@ class PerFilePipeline:
             name_template=self.chunk_name_template,
             start_time_regex=self.start_time_regex,
             start_time_format=self.start_time_format,
-            output_compression=self.output_compression,
+            output_suffix=self.output_suffix,
         )
 
         # Validate the chunk-name template can produce distinct names —
@@ -2155,7 +2159,7 @@ class PerFilePipeline:
                     gas_lag_overrides=self.per_gas_lag,
                     chunk_seconds=self.chunk_seconds,
                     chunk_name_template=self.chunk_name_template,
-                    output_compression=self.output_compression,
+                    output_suffix=self.output_suffix,
                     start_time_regex=self.start_time_regex,
                     start_time_format=self.start_time_format,
                     skiprows=self.skiprows,
@@ -2422,9 +2426,9 @@ class PerFilePipeline:
             ('block_length_s', self.block_length_s,
              'Bootstrap block length (s); long enough to contain the lag '
              '(paper floor 20 s).'),
-            ('output_compression', self.output_compression,
-             "Compression of the written chunks: 'auto' follows the input, "
-             "'none' writes plain text, or force gz / bz2 / xz / zip."),
+            ('output_suffix', self.output_suffix,
+             "Extension the written chunks carry, format and compression "
+             "together ('.csv.gz'). 'auto' reuses the input's extension."),
             ('wdt', self.wdt,
              'Width (records) of the centred rolling mean applied to each '
              'bootstrap CCF before its peak is taken. 5 follows RFlux; the '
@@ -2839,12 +2843,12 @@ def _build_parser():
                    help='Number of block-bootstrap replicates (paper: 99).')
     p.add_argument('--block-length', type=float, default=20.0,
                    help='Bootstrap block length [s] (paper: L = 20 s).')
-    p.add_argument('--output-compression', default='auto',
-                   choices=list(_OUTPUT_COMPRESSIONS),
-                   help='Compression of the written chunks. auto (default) '
-                        'follows the input file; none writes plain text; gz / '
-                        'bz2 / xz / zip force that format regardless of how the '
-                        'input was stored.')
+    p.add_argument('--output-suffix', default='auto',
+                   help='Extension the written chunks carry, format and '
+                        'compression together: .csv, .csv.gz, .dat.zip, .txt. '
+                        'auto (default) reuses the extension of the input '
+                        'file. The template placeholder {suffix} expands to '
+                        'this.')
     p.add_argument('--wdt', type=int, default=5,
                    help='Width [records] of the centred rolling mean applied to '
                         'each bootstrap CCF before its peak is taken. 5 follows '
@@ -3037,7 +3041,7 @@ def _cli_main():
         lag_max_s=args.lag_max,
         n_bootstrap=args.n_bootstrap,
         block_length_s=args.block_length,
-        output_compression=args.output_compression,
+        output_suffix=args.output_suffix,
         wdt=args.wdt,
         chunk_seconds=args.chunk_seconds,
         min_chunk_seconds=args.min_chunk_seconds,

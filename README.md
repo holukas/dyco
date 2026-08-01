@@ -121,7 +121,7 @@ scan a file to show you its columns first.
 | `--na-values` / `--na-rep` | What counts as missing on the way in, what is written for it on the way out. |
 | `--lineterm` | `auto` reproduces the input's CRLF or LF. Force it with `\r\n` or `\n`. |
 | `--file-pattern` | Which files to read. Compression is transparent: `.gz`, `.bz2`, `.xz` and `.zip` are read as the text they contain. |
-| `--output-compression` | How the chunks are written: `auto` (default) matches the input, `none` writes plain text, or force `gz` / `bz2` / `xz` / `zip`. Gzipped input can give plain `.csv` output. |
+| `--output-suffix` | The extension the written chunks carry, format and compression in one: `.csv`, `.csv.gz`, `.dat.zip`, `.txt`. `auto` (default) reuses the input's own extension, so gzipped in gives gzipped out. Reading `file1.csv.gz` with `--output-suffix .csv` gives plain CSV. This is what `{suffix}` in the name template expands to. |
 
 Two limits worth knowing. This path reads **delimited text only**; Parquet is read by
 `dyco.files.read_raw_data`, which serves the file splitter, not this pipeline. And it needs **no

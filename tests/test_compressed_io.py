@@ -124,56 +124,54 @@ class TestRawioRoundTrip(unittest.TestCase):
                 self.assertEqual(rawio.data_suffix(name), expected)
 
 
-class TestOutputCompressionIsIndependentOfInput(unittest.TestCase):
-    """How the output is stored is the user's choice, not the input's."""
+class TestOutputSuffixIsIndependentOfInput(unittest.TestCase):
+    """The output extension is one setting, format and compression together."""
 
-    def test_the_compression_suffix_is_replaced_not_appended(self):
-        for name, comp, from_input, expected in [
-                # gzipped input, plain output -- the .csv is kept either way
-                ('CH-LAE_202507251300.csv', 'none', '.gz', 'CH-LAE_202507251300.csv'),
-                ('CH-LAE_202507251300.csv', 'zip', '.gz', 'CH-LAE_202507251300.csv.zip'),
-                # only 'auto' inherits how the input happened to be stored
-                ('CH-LAE_202507251300.csv', 'auto', '.gz', 'CH-LAE_202507251300.csv.gz'),
-                ('CH-LAE_202507251300.csv', 'auto', '', 'CH-LAE_202507251300.csv'),
-                ('site_chunk00.csv', 'gz', '', 'site_chunk00.csv.gz'),
-                ('site_chunk00.dat', 'gz', '', 'site_chunk00.dat.gz'),
-                # idempotent: asking for what it already is changes nothing
-                ('site_chunk00.csv.gz', 'gz', '.gz', 'site_chunk00.csv.gz')]:
-            with self.subTest(name=name, compression=comp):
-                self.assertEqual(
-                    rawio.resolve_output_name(name, comp, from_input), expected)
+    TMPL = '{stem}_chunk{index:02d}{suffix}'
 
-    def test_a_template_names_files_the_same_way_compressed_or_not(self):
-        # The guarantee: compression is not part of the name the template
-        # builds. Previously {stem} kept the .csv of a .csv.gz input and
-        # {suffix} was '.gz', so the same template produced
-        # 'site_202401010000.csv_chunk00.gz' for compressed input and
-        # 'site_202401010000_chunk00.csv' for plain.
+    def _name(self, source: str, spec: str) -> str:
         from dyco.pipeline import _chunk_filename
-        tmpl = '{stem}_chunk{index:02d}{suffix}'
-        plain, _ = _chunk_filename(Path('site_202401010000.csv'), 0, 1800,
-                                   tmpl, None, '%Y%m%d%H%M', 'auto')
-        gzipped, _ = _chunk_filename(Path('site_202401010000.csv.gz'), 0, 1800,
-                                     tmpl, None, '%Y%m%d%H%M', 'auto')
-        zipped, _ = _chunk_filename(Path('site_202401010000.csv.zip'), 0, 1800,
-                                    tmpl, None, '%Y%m%d%H%M', 'none')
-        self.assertEqual(plain, 'site_202401010000_chunk00.csv')
-        self.assertEqual(gzipped, plain + '.gz')
-        self.assertEqual(zipped, plain)
+        name, _ = _chunk_filename(Path(source), 0, 1800, self.TMPL, None,
+                                  '%Y%m%d%H%M', spec)
+        return name
 
-    def test_an_unknown_compression_is_rejected(self):
+    def test_the_output_extension_is_whatever_was_asked_for(self):
+        for source, spec, expected in [
+                # auto reuses the input's own extension, whatever it is
+                ('file1.csv.gz', 'auto', 'file1_chunk00.csv.gz'),
+                ('file1.gz', 'auto', 'file1_chunk00.gz'),
+                ('file1.csv', 'auto', 'file1_chunk00.csv'),
+                # compressed in, plain out
+                ('file1.csv.gz', '.csv', 'file1_chunk00.csv'),
+                # an input with no format suffix can still be labelled on the way out
+                ('file1.gz', '.csv', 'file1_chunk00.csv'),
+                ('file1.gz', '.csv.zip', 'file1_chunk00.csv.zip'),
+                # plain in, compressed out; leading dot optional
+                ('file1.csv', 'csv.gz', 'file1_chunk00.csv.gz'),
+                ('file1.csv', '.dat', 'file1_chunk00.dat')]:
+            with self.subTest(source=source, output_suffix=spec):
+                self.assertEqual(self._name(source, spec), expected)
+
+    def test_a_compression_dyco_cannot_write_is_refused(self):
+        # Accepting .zst would write plain text under a name promising zstd.
         with self.assertRaises(ValueError) as ctx:
-            rawio.resolve_output_name('x.csv', 'rar', '.csv')
-        self.assertIn('auto', str(ctx.exception))
+            self._name('file1.csv.gz', '.csv.zst')
+        self.assertIn('cannot write', str(ctx.exception))
+
+    def test_a_template_without_suffix_says_so_instead_of_ignoring_the_setting(self):
+        from dyco.pipeline import _chunk_filename
+        with self.assertRaises(ValueError) as ctx:
+            _chunk_filename(Path('file1.csv.gz'), 0, 1800, '{stem}_chunk{index:02d}',
+                            None, '%Y%m%d%H%M', '.csv')
+        self.assertIn('{suffix}', str(ctx.exception))
 
     def test_the_pipeline_writes_the_format_that_was_asked_for(self):
         from dyco.pipeline import PerFilePipeline
         df = _raw_frame()
-        # gzipped in -> plain out, and plain in -> gzipped out.
-        for src_suffix, want, out_suffix in [('.csv.gz', 'none', '.csv'),
-                                             ('.csv', 'gz', '.gz'),
-                                             ('.csv', 'zip', '.zip')]:
-            with self.subTest(source=src_suffix, output_compression=want):
+        for src_suffix, want, out_suffix in [('.csv.gz', '.csv', '.csv'),
+                                             ('.csv', '.csv.gz', '.gz'),
+                                             ('.csv', '.csv.zip', '.zip')]:
+            with self.subTest(source=src_suffix, output_suffix=want):
                 with TemporaryDirectory() as ind, TemporaryDirectory() as out:
                     _write_raw(Path(ind) / f'site_202401010000{src_suffix}', df,
                                extra_rows=0)
@@ -182,7 +180,7 @@ class TestOutputCompressionIsIndependentOfInput(unittest.TestCase):
                         {'CH4': 'ch4'}, hz=20, n_bootstrap=9, chunk_seconds=60,
                         min_chunk_seconds=30, sep=',', extra_rows=0,
                         n_workers=1, file_pattern=f'*{src_suffix}',
-                        output_compression=want, random_state=42).run()
+                        output_suffix=want, random_state=42).run()
                     written = sorted((Path(out) / '2_lag_removed').iterdir())
                     self.assertTrue(written, 'nothing was written')
                     for p in written:

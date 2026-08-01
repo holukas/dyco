@@ -57,10 +57,12 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   specifies `hz/2 + 1` (11 at 20 Hz). Previously the value was fixed at 5 with no way to reach the
   paper's. It matters: on the bundled CH-LAE hour, `--wdt 11` widens the 95% HDI from 0.00/0.05 s to
   0.30/0.20 s, and the S1 reliability threshold is 0.5 s
-- `--output-compression` on `dyco detect-remove` (**Output as** in the TUI): how the corrected
-  chunks are written, independent of how the input was stored. `auto` (default) matches the input,
-  `none` writes plain text, and `gz` / `bz2` / `xz` / `zip` force a format — so gzipped input can
-  give plain `.csv` output
+- `--output-suffix` on `dyco detect-remove` (**Output as** in the TUI): the extension the corrected
+  chunks carry, text format and compression in one setting — `.csv`, `.csv.gz`, `.dat.zip`, `.txt`.
+  `auto` (default) reuses the input's own extension. Reading `file1.csv.gz` with `.csv` gives plain
+  CSV; reading `file1.gz`, which says nothing about its format, with `.csv` gives properly named
+  output rather than an extensionless file. A compression dyco cannot write (`.zst`) is refused
+  rather than quietly producing plain text under a name that promises otherwise
 - The TUI title bar shows the version, read from package metadata rather than hardcoded
 - A test suite: `tests/`, 130 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
   the pre-whitening chain to the numbers RFlux v3.2.0 produces on the same input — unit-root
@@ -74,11 +76,13 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 - **The TUI is now the recommended way to run dyco.** A detect-and-remove run takes around thirty
   settings; the TUI validates as you type, picks column names off a real file, and previews the run
   with a preflight check. The CLI is unchanged and remains the right choice for scripting
-- **Chunk filename placeholders ignore compression.** `{stem}` is the filename without any suffix and
-  `{suffix}` is the data suffix, so one template produces the same names whether or not the input was
-  compressed; the compression extension is appended afterwards. Previously a `.csv.gz` input put the
-  `.csv` inside `{stem}` and left `{suffix}` as `.gz`, so `{stem}_chunk{index:02d}{suffix}` produced
-  `site_202401010000.csv_chunk00.gz`. It now produces `site_202401010000_chunk00.csv.gz`
+- **Chunk filename placeholders changed.** `{stem}` is the input filename with every suffix removed,
+  and `{suffix}` is the extension the *output* should carry — `--output-suffix`, resolved. One
+  template therefore names files the same way whatever the input was called. Previously a `.csv.gz`
+  input put the `.csv` inside `{stem}` and left `{suffix}` as `.gz`, so
+  `{stem}_chunk{index:02d}{suffix}` produced `site_202401010000.csv_chunk00.gz`; it now produces
+  `site_202401010000_chunk00.csv.gz`. Setting `--output-suffix` with a template that has no
+  `{suffix}` is an error rather than a silently ignored setting
 - **New unified `dyco` command.** One front door dispatching to every workflow:
   `dyco detect-remove`, `dyco tui`, `dyco pwb-batch`, `dyco apply-batch`. The four
   standalone `dyco-*` scripts keep working unchanged
