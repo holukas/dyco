@@ -5,6 +5,15 @@
 `dyco` takes eddy covariance raw data files as input and produces lag-compensated raw data files as
 output, ready for flux calculation software such as EddyPro.
 
+**The primary method is pre-whitening with block-bootstrap (PWB), following
+[Vitale et al. (2024)](https://doi.org/10.1007/s10651-024-00615-9).** An AR(p) filter strips the serial
+autocorrelation out of both series before the cross-correlation is computed, which sharpens a peak that
+turbulence would otherwise smear. The lag is then re-estimated on block-bootstrap resamples, so each
+detection carries a 95% uncertainty interval instead of a bare number. The PWBOPT decision rule reads
+that interval, discards the detections it cannot trust, and puts a reliable neighbouring lag in their
+place. This is what makes low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> workable.
+`dyco detect-remove` runs it.
+
 > **Version 3 is in development.** The working tree carries the v3 layout described below; the last
 > released version on PyPI is `2.0.3`, which has a different API and depends on
 > [diive](https://github.com/holukas/diive). v3 is standalone. See `CHANGELOG.md` for release status.
@@ -53,11 +62,58 @@ dyco <command> --help   # options for one of them
 | `dyco tui` | The same pipeline behind a terminal UI, with live validation and a preflight check. Run with `--demo` to explore it without data. |
 | `dyco pwb-batch` | Detect lags only, across many already-split files. Writes `tlag_results.csv`. |
 | `dyco apply-batch` | Remove lags listed in an existing `tlag_results.csv`. |
-
 | `dyco cm` | The covariance-maximization workflow — see below. |
 
 Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`,
 `dyco-pwb-batch`, `dyco-apply-batch`.
+
+### A complete `detect-remove` command
+
+This is the bundled CH-LAE example run from the command line. It processes
+`examples/data/CH-LAE_202507251300.csv.gz`, one hour of 20 Hz data, gzipped, with a 3-row header,
+and writes two 30-minute lag-corrected chunks:
+
+```bash
+dyco detect-remove --input-dir examples/data --output-dir ./dyco_out --file-pattern "*.csv.gz" --col-u "U_[HS50-B]" --col-v "V_[HS50-B]" --col-w "W_[HS50-B]" --col-tsonic "T_SONIC_[HS50-B]" --scalar "CO2:CO2_DRY_[IRGA72-A]" --scalar "H2O:H2O_DRY_[IRGA72-A]@lag=30;uws=30" --hz 20 --chunk-seconds 1800 --lag-max 10 --lws 0 --uws 10 --n-bootstrap 100 --skiprows 0 --extra-rows 2 --sep "," --start-time-regex "(\d{12})" --start-time-format "%Y%m%d%H%M" --chunk-name-template "CH-LAE_{starttime}{suffix}" --n-workers 4 --random-state 42
+```
+
+Reading it in groups:
+
+| Flags | What they say |
+|---|---|
+| `--input-dir` `--output-dir` `--file-pattern` | Where the raw files are, where results go, which of them to take. |
+| `--col-u/v/w` `--col-tsonic` | The four wind columns. `T_SONIC` is **required**, because PWB tries it as an alternative reference. |
+| `--scalar LABEL:column` | One per gas, repeated. `LABEL` becomes the prefix in the results (`co2_tlag_s`). `@lag=30;uws=30` gives H<sub>2</sub>O its own wider window, since sorption on the tube walls delays it beyond the dry gases. |
+| `--hz` `--chunk-seconds` | Sampling rate, and the averaging period each file is cut into. |
+| `--lag-max` `--lws` `--uws` | Search window in **seconds**. `0` to `10` keeps only positive lags, because a closed-path tube delay cannot be negative. |
+| `--skiprows` `--extra-rows` `--sep` | The file format. See below. |
+| `--start-time-regex` `--start-time-format` `--chunk-name-template` | Read the start time out of the filename so each output chunk can be named for its own wall-clock time. |
+| `--n-workers` `--random-state` | Parallelism, and a seed that makes the bootstrap reproducible. |
+
+Output lands in two subfolders: `1_lag_detection/` (the summary CSV, a column dictionary, checkpoints,
+and diagnostic plots if you pass `--save-plots`) and `2_lag_removed/` (the corrected chunks, ready to
+be the input directory of the next step). A `detect_remove_tui_settings.yaml` is written alongside
+them, which `dyco tui` can load. That is a convenient way to inspect or re-run what a command line did.
+
+### Input file formats
+
+**The CLI and the TUI take the same format settings.** `dyco tui` is a front end over this same
+parser, building its configuration from the identical arguments, so anything you can describe in the
+TUI you can pass on the command line. The difference is that the TUI validates as you type and can
+scan a file to show you its columns first.
+
+| Flag | Handles |
+|---|---|
+| `--sep` | Field separator. `,` by default; `\t` for TSV, `\s+` for whitespace-aligned. |
+| `--skiprows` | Metadata lines **before** the column-name row. `0` for a plain CSV with names on line 1; `9` for EddyPro rotated output. |
+| `--extra-rows` | Rows **after** the header but before the data, such as units and instrument tags. Default `2`. They are preserved byte-for-byte in the output. |
+| `--na-values` / `--na-rep` | What counts as missing on the way in, what is written for it on the way out. |
+| `--lineterm` | `auto` reproduces the input's CRLF or LF. Force it with `\r\n` or `\n`. |
+| `--file-pattern` | Gzip is handled transparently by suffix: `*.csv.gz` in gives `.gz` chunks out. |
+
+Two limits worth knowing. This path reads **delimited text only**; Parquet is supported by the CM
+path's reader, not this one. And it needs **no data-timestamp column**: chunking is driven by `--hz`
+and record count, and the wall-clock time comes from the filename via `--start-time-regex`.
 
 ### Try it
 
@@ -75,6 +131,43 @@ minute. `examples/detect_remove_tlag.py` is the synthetic counterpart, where the
 lag is known in advance and can be checked.
 
 ## The PWB workflow
+
+```mermaid
+flowchart TD
+    RAW["Raw EC file<br/>unrotated, CSV or CSV.GZ<br/>--input-dir, --file-pattern"]
+    RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30"]
+
+    subgraph P1["Phase 1 — detect (nothing is written yet)"]
+        direction TB
+        ROT["Double rotation<br/>in memory only, never reaches disk"]
+        PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC"]
+        BS["Block-bootstrap the CCF<br/>--n-bootstrap, --block-length<br/>4 combinations of W / T_SONIC"]
+        EST["Lag for this chunk<br/>mode + 95% HDI"]
+        ROT --> PW --> BS --> EST
+    end
+
+    SPLIT --> ROT
+
+    EST --> OPT{"PWBOPT<br/>all chunks together, in time order"}
+    OPT -->|"S1: HDI narrower than --hdi-thresh"| KEEP["trust the chunk's own lag"]
+    OPT -->|"S2 / S3: HDI too wide"| SUB["substitute a reliable neighbouring lag"]
+
+    subgraph P2["Phase 2 — remove"]
+        direction TB
+        APPLY["Shift each scalar in the UNROTATED chunk<br/>by round(tlag * hz) records"]
+        WRITE["Write one file per chunk<br/>header rows and column order intact"]
+        APPLY --> WRITE
+    end
+
+    KEEP --> APPLY
+    SUB --> APPLY
+
+    WRITE --> OUT["2_lag_removed/<br/>lag-compensated raw files<br/>-> flux software, lag maximization OFF"]
+    EST -.-> CSV["1_lag_detection/<br/>summary CSV, checkpoints,<br/>plots if --save-plots"]
+```
+
+Detection and removal are separate phases because PWBOPT cannot decide anything about one chunk until
+it has seen the whole sequence.
 
 ### What pre-whitening and block-bootstrap do
 
