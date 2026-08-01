@@ -152,11 +152,29 @@ class TestOutputSuffixIsIndependentOfInput(unittest.TestCase):
             with self.subTest(source=source, output_suffix=spec):
                 self.assertEqual(self._name(source, spec), expected)
 
+    def test_a_bare_compression_keeps_the_input_text_format(self):
+        # "output as zip" means zip the csv, not replace the .csv with .zip:
+        # the text format comes from the input, the compression from the ask.
+        for source, spec, expected in [
+                ('file1.csv', 'zip', 'file1_chunk00.csv.zip'),
+                ('file1.csv', 'gz', 'file1_chunk00.csv.gz'),
+                ('file1.dat', 'zip', 'file1_chunk00.dat.zip'),
+                ('file1.csv.gz', 'zip', 'file1_chunk00.csv.zip'),
+                # and the reverse: naming the text format alone drops the
+                # compression, so a zipped input is written out plain
+                ('file1.csv.zip', 'csv', 'file1_chunk00.csv'),
+                # nothing to keep in front when the input names no format
+                ('file1.gz', 'zip', 'file1_chunk00.zip')]:
+            with self.subTest(source=source, output_suffix=spec):
+                self.assertEqual(self._name(source, spec), expected)
+
     def test_a_compression_dyco_cannot_write_is_refused(self):
         # Accepting .zst would write plain text under a name promising zstd.
-        with self.assertRaises(ValueError) as ctx:
-            self._name('file1.csv.gz', '.csv.zst')
-        self.assertIn('cannot write', str(ctx.exception))
+        for spec in ('.csv.zst', 'zst', '.7z'):
+            with self.subTest(output_suffix=spec):
+                with self.assertRaises(ValueError) as ctx:
+                    self._name('file1.csv.gz', spec)
+                self.assertIn('cannot write', str(ctx.exception))
 
     def test_a_template_without_suffix_says_so_instead_of_ignoring_the_setting(self):
         from dyco.pipeline import _chunk_filename

@@ -88,7 +88,9 @@ def normalise_output_suffix(spec: str) -> str:
         return AUTO_SUFFIX
     if not spec.startswith('.'):
         spec = '.' + spec
-    last = Path(spec).suffix.lower()
+    # Both forms have to be checked: Path('.zst').suffix is '' -- a name that
+    # is nothing but a dotted word reads as a hidden file, not as a suffix.
+    last = Path(spec).suffix.lower() or spec.lower()
     if last in _UNSUPPORTED_COMPRESSION:
         raise ValueError(
             f'output suffix {spec!r} asks for {last} compression, which dyco '
@@ -116,14 +118,22 @@ def strip_compression(name: str) -> str:
 def resolve_output_suffix(spec: str, input_path) -> str:
     """The extension output files should carry, resolving ``'auto'``.
 
-    ``'auto'`` reproduces the input's own extension -- ``file1.csv.gz`` gives
-    ``'.csv.gz'``, ``file1.gz`` gives ``'.gz'``, ``file1.csv`` gives ``'.csv'``.
+    Three shapes, each answering a different question:
+
+    - a full extension (``'.csv.gz'``, ``'.dat'``) is used as given;
+    - a bare compression (``'zip'``, ``'gz'``) keeps the input's text format
+      in front of it, so ``file1.csv`` written as ``zip`` becomes
+      ``file1.csv.zip`` rather than ``file1.zip``;
+    - ``'auto'`` reproduces the input's own extension -- ``file1.csv.gz`` gives
+      ``'.csv.gz'``, ``file1.gz`` gives ``'.gz'``, ``file1.csv`` gives ``'.csv'``.
     """
     normalised = normalise_output_suffix(spec)
-    if normalised != AUTO_SUFFIX:
-        return normalised
     name = Path(input_path).name
-    return data_suffix(name) + compression_suffix(name)
+    if normalised == AUTO_SUFFIX:
+        return data_suffix(name) + compression_suffix(name)
+    if normalised.lower() in COMPRESSION_SUFFIXES:
+        return data_suffix(name) + normalised
+    return normalised
 
 
 def _zip_member(zf: zipfile.ZipFile, path) -> zipfile.ZipInfo:

@@ -20,7 +20,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Detection | `dyco/pwb.py` |
 | Lag selection | PWBOPT S1/S2/S3, per chunk |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 7 more, 135 total |
+| Tests | `tests/test_pwb.py` + 7 more, 136 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -135,7 +135,7 @@ not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 135 passed
+uv run pytest tests/ -q                                  # 136 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -246,12 +246,12 @@ reference implementation. Prefer that over inspection.
 
 ## Testing
 
-`tests/` holds **135 tests plus 108 subtests**, seeded by diive's
+`tests/` holds **136 tests plus 117 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 135 passed, 108 subtests
+uv run pytest tests/ -q     # 136 passed, 117 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving

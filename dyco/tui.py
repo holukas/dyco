@@ -504,7 +504,7 @@ _FIELDS = [
     ('streg', 'Start regex', r'e.g. (\d{12})  — capture file start from name'),
     ('stfmt', 'Start format', 'e.g. %Y%m%d%H%M  (parses the captured text)'),
     ('ctmpl', 'Name tmpl', '{stem}_chunk{index:02d}{suffix}'),
-    ('outsuffix', 'Output as', 'auto = same as input  (or .csv / .csv.gz / .dat.zip)'),
+    ('outsuffix', 'Output as', 'auto = same as input  (or csv / zip / .csv.gz)'),
     # --- Output layout ---
     ('detectsub', 'Detect dir', 'default 1_lag_detection  (diagnostics)'),
     ('datasub', 'Data dir', 'default 2_lag_removed  (corrected chunks)'),
@@ -702,10 +702,12 @@ _HELP = {
     'narep': 'Value written for missing data in the output files. Default '
              '-9999 (the trailing rows of each shifted column become this).',
     'outsuffix':
-        'Extension the written chunks carry, format and compression together: '
-        '.csv, .csv.gz, .dat.zip, .txt. auto keeps whatever the input used, so '
-        'gzipped in gives gzipped out. Set .csv to get plain text from '
-        'compressed input. This is what {suffix} in Name tmpl expands to.',
+        'Extension the written chunks carry; reading and writing follow from '
+        'it. Give the whole thing (.csv.gz, .dat.zip), just the text format '
+        '(csv writes plain text, so file1.csv.zip gives file1.csv), or just '
+        'the compression (zip keeps the input format, so file1.csv gives '
+        'file1.csv.zip). auto keeps whatever the input used. This is what '
+        '{suffix} in Name tmpl expands to.',
     'lineterm':
         "Line ending of the output file. 'auto' (default) reproduces the "
         "input file's convention — CRLF for typical Windows EC logger files, "
