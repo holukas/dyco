@@ -6,38 +6,36 @@ See `CHANGELOG.md` for version history.
 > **New to this repo? Read `HANDOVER.md` first.** It carries the current state,
 > what is uncommitted, what is open and in what order, and the traps worth
 > knowing before you spend time on them. This file is the standing reference:
-> conventions, architecture, known dead code and known defects.
+> conventions, architecture, and the rules that outlive any one task.
 
 ---
 
-## [CRITICAL] PWB is the primary method; the v2 method is retained
+## [CRITICAL] PWB is the only method
 
-dyco now carries **two** lag-detection methods. Do not treat them as equals when
-choosing defaults, docs order, or where new work goes:
+dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 
-| | Primary | Retained |
-|---|---|---|
-| Method | **Pre-whitening block-bootstrap (PWB)** | Iterative max-covariance window narrowing |
-| Entry point | `dyco detect-remove` (`dyco/pipeline.py`) | `dyco cm` -> `dyco/dyco.py` `Dyco` |
-| Detection | `dyco/pwb.py` | `dyco/maxcov.py` + `dyco/lag.py` |
-| Lag selection | PWBOPT S1/S2/S3, per chunk | histogram narrowing -> daily median LUT (`dyco/analyze.py`) |
-| Removal | `dyco/apply_tlag.py` `TlagApplier` | `dyco/correction.py` `RemoveLags` |
-| Tests | `tests/test_pwb.py` + 5 more, 104 total | none, by decision |
+| | |
+|---|---|
+| Entry point | `dyco detect-remove` (`dyco/pipeline.py`) |
+| Detection | `dyco/pwb.py` |
+| Lag selection | PWBOPT S1/S2/S3, per chunk |
+| Removal | `dyco/apply_tlag.py` `TlagApplier` |
+| Tests | `tests/test_pwb.py` + 5 more, 98 total |
 
-New features, docs and defaults go to the PWB path. **The v2 path stays
-available and must keep working** - do not delete `dyco.py`, `loop.py`,
-`analyze.py`, `correction.py`, `setup.py`, `lag.py` or `plot.py`. An earlier
-draft of `MIGRATION_V3.md` proposed deleting five of them; that is superseded.
+**The v2 covariance-maximization method was removed on 2026-08-01**, at the
+user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
+`correction.py`, `plot.py`, `setup.py` and `_vendor/outliers.py`. It pooled
+detections into a daily median LUT and normalized toward a target lag, with no
+per-detection confidence, which is what low-SNR gases need. `dyco cm` now exits
+with a pointer. The code is in git history and in the `2.0.3` release.
 
-**But do not invest in it either.** Decided: the v2 path is kept working, not
-extended - no new tests, no reference run. Its z-score deviation
-(`_vendor/outliers.py`) therefore stays unvalidated *by decision*, not by
-oversight.
+Do not reintroduce it, and do not restore a module from history to "fix" a
+missing import. If something the PWB path needs turns out to have lived only
+there, port the specific piece and say so.
 
-The two methods answer the same question differently. PWBOPT decides per chunk
-whether a detection is trustworthy; the v2 path pools detections into a daily
-median and normalizes toward a target lag. They are not interchangeable, and
-neither is a drop-in replacement for the other.
+`dyco/maxcov.py` (`MaxCovariance`) is **not** part of that removal. It is the
+covariance-maximization estimator itself, it is what `FluxDetectionLimit` reads
+its noise from, and it is tested. It stays.
 
 ## [READ FIRST] v3 state
 
@@ -45,11 +43,11 @@ The migration is **done**: all of diive's `flux/hires/` plus `filesplitter.py`
 now live here, and the diive dependency is gone.
 
 `HANDOVER.md` carries the current state and what is still open. `MIGRATION_V3.md`
-is historical, and parts of it are explicitly superseded — in particular its
-proposal to delete five of dyco's modules, which is void (see the rule above).
+is historical; its §4 proposed deleting the v2 modules, which is what eventually
+happened, though for a different reason and on the user's call.
 
 `cli.py` is now the unified `dyco` dispatcher (`detect-remove`, `tui`, `pwb-batch`,
-`apply-batch`, `cm`); the standalone `dyco-*` scripts still work.
+`apply-batch`); the standalone `dyco-*` scripts still work.
 
 ## [DONE] dyco no longer depends on diive
 
@@ -63,8 +61,9 @@ What that involved:
 - **`dyco/_vendor/`** — leaf utilities copied from diive: `times`
   (`create_timestamp`, `calc_true_resolution`), `fileio` (`search_files`,
   `read_parquet`), `filedetector` (`FileDetector`, `add_data_stats`), `frames`
-  (`trim_frame`), `plotstyle` (`default_format` + theme constants), `console`,
-  and `outliers` (a port of `zScoreRolling`).
+  (`trim_frame`), `plotstyle` (`default_format` + theme constants) and
+  `console`. `outliers` (a port of `zScoreRolling`) was here too and went with
+  the v2 path — it had no other caller.
 - **`dyco/maxcov.py`, `dyco/rotation.py`, `dyco/detectionlimit.py`,
   `dyco/split.py`** — domain code moved over from diive. Not vendored helpers;
   these are dyco's own now.
@@ -74,8 +73,6 @@ runs the full PWB pipeline over a bundled 1-hour CH-LAE file: correct chunking,
 genuinely gzipped output, headers byte-identical to the source, and scalar
 columns shifted by exactly the applied lag. `FluxDetectionLimit` also reproduces
 diive's numbers to 10 decimal places.
-
-The **v2 path** has had no such run, by decision.
 
 ---
 
@@ -125,7 +122,7 @@ not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 104 passed
+uv run pytest tests/ -q                                  # 98 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -136,133 +133,87 @@ came from.
 
 ---
 
-## Current Architecture (v2)
+## Current Architecture
 
-~3,400 lines across 10 modules. Pipeline: **detect lags → analyze → build
-lookup table → shift files**.
-
-| Module | LOC | Role |
-|---|---|---|
-| `dyco/dyco.py` | ~490 | `Dyco` orchestrator. `detect_lags()` → `analyze_lags()` → `remove_lags()` |
-| `dyco/loop.py` | 750 | `Loop` — iterate files, then segments within each file; calls `MaxCovariance` per segment |
-| `dyco/lag.py` | 350 | `AdjustLagsearchWindow` — histogram-based iterative narrowing of the search window. **dyco's core IP** |
-| `dyco/analyze.py` | 415 | `AnalyzeLags` — outlier filtering, daily median lookup table, normalization correction |
-| `dyco/correction.py` | 155 | `RemoveLags` — shift target variables by the LUT lag, write output files |
-| `dyco/files.py` | 292 | Raw CSV/parquet reading, header-vs-data column reconciliation |
-| `dyco/plot.py` | 300 | `default_format`/`format_spines`/`setup_fig_ax` (live) + `SummaryPlots` (dead) |
-| `dyco/setup.py` | ~260 | **Not packaging** — see gotchas. Output dirs, logger, run ID |
-| `dyco/cli.py` | 250 | **Rewritten in v3.** Unified `dyco` dispatcher; the v2 workflow is `dyco cm` |
-| `dyco/__init__.py` | 1 | A single commented-out line. **No public API is defined** |
-
-**Lag is expressed in "number of records", not seconds.** At 20 Hz, 1000
-records = 50 s. Negative lag means the scalar lags behind the wind.
-
-### Moved in from diive (2026-08-01)
-
-Not part of the v2 design. These arrived when the diive dependency was severed.
+~9,900 lines across 10 modules plus ~400 in `_vendor/`. Pipeline:
+**split into chunks → rotate → detect per chunk → PWBOPT across the sequence →
+shift and write**.
 
 | Module | LOC | Role |
 |---|---|---|
-| `dyco/maxcov.py` | 501 | `MaxCovariance` — the lag estimator `loop.py` drives. v2 imported this from diive; dyco had no estimator of its own |
-| `dyco/rotation.py` | 179 | `WindDoubleRotation`, `reynolds_decomposition`. Prerequisite for lag detection — chunks are rotated before the search |
-| `dyco/detectionlimit.py` | 570 | `FluxDetectionLimit` — minimum detectable flux, read off the far tail of the same cross-covariance function |
-| `dyco/split.py` | 578 | `FileSplitter`, `FileSplitterMulti` — divide a long raw file into averaging-period parts. Was unreferenced dead code in diive |
-| `dyco/_vendor/` | ~480 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
+| `dyco/pipeline.py` | 3,006 | `PerFilePipeline`, `process_one_file`. The primary workflow, and its own raw-file reader/writer |
+| `dyco/pwb.py` | 2,541 | `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. The detection method itself |
+| `dyco/tui.py` | 1,808 | Textual UI over the pipeline. `--demo` needs no data |
+| `dyco/apply_tlag.py` | 683 | `TlagApplier` — remove lags listed in an existing `tlag_results.csv` |
+| `dyco/split.py` | 524 | `FileSplitter`, `FileSplitterMulti` — divide a long raw file into averaging-period parts |
+| `dyco/detectionlimit.py` | 476 | `FluxDetectionLimit` — minimum detectable flux, read off the far tail of the cross-covariance function |
+| `dyco/maxcov.py` | 417 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it |
+| `dyco/files.py` | 195 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
+| `dyco/rotation.py` | 138 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
+| `dyco/cli.py` | 101 | Unified `dyco` dispatcher |
+| `dyco/_vendor/` | ~400 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
+| `dyco/__init__.py` | 2 | A comment. **No public API is defined** |
+
+**Lag is expressed in seconds.** The removed v2 path counted records instead, so
+older notes, plots and result files may mean something different by "lag".
 
 **Never import from diive again.** If something is needed from there, copy it
 into `_vendor/` with a provenance note, or reimplement it. The cross-repo
 coupling is what broke dyco four ways, and it is deliberately gone.
 
-`_vendor/outliers.py` carries a **documented behavioural deviation** from
-diive's `zScoreRolling` — it does not regularize an irregular index. Read the
-module docstring before changing it.
-
 ---
 
 ## Known Dead Code
 
-Present in the repo, unreferenced. **Do not delete without asking** — flag it
-and let the user decide. An earlier plan slated this for removal in v3; that is
-superseded, and it stays until the user says otherwise.
+None catalogued. The two known-dead blocks (`plot.py`'s `SummaryPlots`,
+`setup.py`'s `FilesDetector`) went with the v2 path.
 
-| Where | What |
-|---|---|
-| `plot.py:32–264` | `SummaryPlots` — never referenced. Also broken 3 ways: `:46` `NameError` (`setup_dyco` not imported), `:168` `TypeError` (passes `iteration=`/`phase=` that `loop.py:169` does not accept), `:248` `AttributeError` (`AnalyzeLags.filter_dataframe` does not exist). Leftover **v1** code using a "Phase 1–3" model that v2 replaced with "Steps 1–7" |
-| `setup.py:147` | `FilesDetector` — never referenced. Superseded local copy; `dyco.py:371` uses `_vendor.filedetector.FileDetector` instead |
+**The standing rule still holds: mention dead code, don't delete it.** Flag it
+and let the user decide.
 
 ---
 
 ## Known Defects
 
-Pre-existing, in live code. Fix during the v3 port, not opportunistically.
+None catalogued. The `analyze.py` defects were fixed, then the module was
+removed; the matplotlib 3.9 breakage (`plt.cm.get_cmap`, `Axes.plot_date`) lived
+entirely in `loop.py`, `analyze.py` and `plot.py`, all of which are gone.
 
-**All four catalogued `analyze.py` defects are fixed in v3**: the `fillna` whose
-result was never assigned (`:246`), `sys.exit()` in library code (`:80`, now
-raises `ValueError`), the hardcoded `ABS_LIMIT = 50` (`:221`, now an
-`abs_limit=50` parameter), and `__init__` calling `self.run()` (`:62`).
-`AnalyzeLags` now needs an explicit `run()` before `get_lut()`, which matches the
-`FileDetector` / `Loop` idiom already used in the v2 path.
-
-What stands is a **matplotlib 3.9 problem in the v2 path**. `plt.cm.get_cmap` and
-`Axes.plot_date` were both removed in 3.9; the pinned matplotlib is 3.11.1. Found
-by running `AnalyzeLags.run()` on synthetic lags — the v2 path has no tests, so
-nothing caught it.
-
-| Location | Defect |
-|---|---|
-| `loop.py:211` | `plt.cm.get_cmap` -> `AttributeError`. **Live**: reached from `analyze.py:161` and `loop.py:164, 646` |
-| `loop.py:221` | `ax.plot_date` -> `AttributeError`. **Live**, same call paths |
-| `analyze.py:114, 119, 125` | `ax.plot_date` in `plot_final_instantaneous_lagtimes`, reachable only from the dead `SummaryPlots` |
-| `plot.py:99, 105, 111` | `ax.plot_date` inside the dead `SummaryPlots` |
-| `loop.py:222` | Latent: colours are indexed `iteration - 1`, so iterations must be contiguous and 1-based or `IndexError` |
-
-The two live ones mean `Dyco.analyze_lags()` cannot currently complete. Fixing
-them is `matplotlib.colormaps['rainbow'].resampled(n)` and `ax.plot(...)` with
-the `fmt` positional, but that is a change to frozen code and has not been made.
+Worth carrying forward: that breakage was found by *running* the code, not by
+the test suite, and so were the three gzip faults. Neither would have surfaced
+from reading.
 
 ---
 
 ## Gotchas
 
-- **`dyco/setup.py` is not a packaging file.** It holds `set_dirs`,
-  `create_logger`, `CreateOutputDirs`, `FilesDetector`, `generate_run_id`,
-  `set_logfile_path`. Do not treat it as setuptools config. It was once named
-  `setup_dyco` — `plot.py:46` still refers to that old name, which is one
-  reason `SummaryPlots` cannot run.
-- **Output directories are addressed by string key** through an `outdirs` dict
-  built in `setup.CreateOutputDirs`: `'0_log'`, `'1_overview'`,
-  `'2_covariances'`, `'3_covariances_plots'`, `'4_time_lags_overview'`,
-  `'5_time_lags_overview_histograms'`, `'6_time_lags_overview_timeseries'`,
-  `'7_time_lags_lookup_table'`, `'8_time_lags_corrected_files'`. Renaming a key
-  breaks callers silently — grep before touching.
-- **A `logger` is threaded explicitly** through most constructors rather than
-  obtained per-module. Keep that pattern until v3 changes it deliberately.
-- **`analyze.py` calls into `loop.py`** (`:161` → `Loop.plot_segment_lagtimes_ts`).
-  An earlier plan deleted `loop.py`, which would have required porting that plot
-  first; that plan is void and `loop.py` stays, so the coupling simply remains.
-- Two near-identical `add_data_stats` functions exist, now **both in dyco**:
-  `files.py:173` and `_vendor/filedetector.py:24`. Common ancestry, different
-  signatures — `files.py` also takes `files_overview_df` and `fnm_date_format`.
-  They did not get merged.
+- **Two raw-file readers exist.** `pipeline.py`'s `_read_raw_file` /
+  `_write_raw_file` serve the PWB path; `files.py` serves `split.py`. They share
+  no code, which is why the same class of gzip gap had to be found and fixed in
+  each. `files.py` reads parquet and reconciles a column-count mismatch;
+  `pipeline.py` handles arbitrary metadata rows, preserves line endings, and can
+  write. See `HANDOVER.md` §5.3.
+- Two near-identical `add_data_stats` functions used to exist. Only
+  `_vendor/filedetector.py:24` remains; `files.py`'s six-argument variant went
+  with the v2 path.
 
 ---
 
 ## Testing
 
-`tests/` holds **104 tests plus 34 subtests**, seeded by diive's
-`test_echires.py` (1,297 lines) and extended with gzip and CLI suites. They cover
-the PWB path. **The v2 path has none, by decision.**
+`tests/` holds **98 tests plus 31 subtests**, seeded by diive's
+`test_echires.py` (1,297 lines) and extended with gzip and CLI suites.
 
 ```bash
-uv run pytest tests/ -q     # 104 passed, 34 subtests
+uv run pytest tests/ -q     # 98 passed, 31 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving
 stochastic components (the block bootstrap in the PWB code). Do not mock file
 I/O in integration tests — this library's whole job is reading and writing real
 files. And note that the test suite has never been what caught the real
-breakages: the gzip faults and the matplotlib 3.9 removals above were all found
-by running the code.
+breakages: the gzip faults and the matplotlib 3.9 removals were all found by
+running the code.
 
 ---
 
@@ -271,7 +222,8 @@ by running the code.
 - **Input validation** — only at system boundaries (CLI args, user files).
   Trust internal code.
 - **Error handling** — let exceptions propagate unless you can recover. Never
-  `sys.exit()` from library code (see Known Defects).
+  `sys.exit()` from library code — the removed `analyze.py` did, with no status,
+  so a failed run exited `0` and looked successful to the calling shell.
 - **Comments** — only WHY, not WHAT. Hidden constraints, workarounds,
   non-obvious logic.
 - **Console strings must be cp1252-safe** (Windows stdout): use ASCII `->`,

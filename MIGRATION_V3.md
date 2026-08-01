@@ -12,12 +12,14 @@ before touching anything.
 
 Two decisions in this document have been overtaken:
 
-1. **PWB is the primary method**, not one of two equal backends. The v2
-   iterative max-covariance path is **retained** and must keep working.
-2. **§4's "delete five modules" is void.** `dyco.py`, `loop.py`, `analyze.py`,
-   `correction.py`, `setup.py`, `lag.py` and `plot.py` all stay - they are the
-   v2 path. Only genuinely dead code (`SummaryPlots`, `FilesDetector`) is
-   removable, and only with the user's say-so.
+1. **PWB is the only method**, not one of two equal backends. The v2 iterative
+   max-covariance path was removed on 2026-08-01 at the user's instruction.
+   (In between it was briefly "retained but not extended" — that is also
+   superseded.)
+2. **§4's "delete five modules" turned out right**, but not for the reason given
+   here, and it undercounted: `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
+   `correction.py`, `plot.py` and `setup.py` are all gone. Read §4 as history,
+   not as instructions.
 
 Everything about the file moves, the vendoring and the diive-side removals still
 holds.

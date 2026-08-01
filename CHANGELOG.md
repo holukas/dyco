@@ -2,9 +2,9 @@
 
 ## v3.0.0 | unreleased
 
-`dyco` gains a second time-lag detection method and becomes a standalone package.
+`dyco` replaces its time-lag detection method and becomes a standalone package.
 
-**Pre-whitening with block-bootstrap (PWB) is now the primary method.** Following Vitale et al. (2024),
+**Pre-whitening with block-bootstrap (PWB) is now the only method.** Following Vitale et al. (2024),
 the lag is estimated after removing serial autocorrelation with an AR(p) filter, and its reliability is
 quantified by block-bootstrap resampling: each detection carries a 95% highest-density interval, and the
 PWBOPT decision rule (S1/S2/S3) substitutes a trustworthy neighbouring lag where a period's own detection
@@ -12,10 +12,11 @@ cannot be trusted. This addresses the case the covariance-maximization method ca
 as N<sub>2</sub>O and CH<sub>4</sub>, where the cross-correlation function is too noisy to locate the peak
 reliably. Lags are expressed in **seconds** here, not in number of records.
 
-**The v2 covariance-maximization method is retained, unchanged.** Existing workflows keep working. The two
-methods answer the same question differently and neither replaces the other: PWB judges each averaging
-period on its own evidence, while the v2 path pools detections into a daily median and normalizes toward a
-target lag.
+**[BREAKING] The v1/v2 covariance-maximization method is removed.** It pooled detections into a daily
+median look-up table and normalized them toward a target lag, without saying how much any single
+detection could be trusted. That is the difficulty with low-SNR gases, and it is what PWB addresses.
+Existing v2 workflows do not carry over: the two methods take different parameters, so there is no
+flag-for-flag migration. See **Removed** below.
 
 **`diive` is no longer a dependency.** v2.0.3 introduced it to avoid duplicating code; that coupling broke
 `dyco` four separate ways when `diive` restructured internally — two import paths moved, and the Python and
@@ -35,7 +36,8 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   `--demo` mode that needs no data
 - Per-gas time-lag search windows, so a long-inlet gas such as H<sub>2</sub>O can use a wider window than
   the dry gases in the same run
-- `dyco.maxcov` — `MaxCovariance`, the v2 lag estimator, previously imported from `diive`
+- `dyco.maxcov` — `MaxCovariance`, the covariance-maximization estimator, previously imported from
+  `diive`. `FluxDetectionLimit` builds on it, and it is usable on its own
 - `dyco.rotation` — `WindDoubleRotation`, `reynolds_decomposition`
 - `dyco.split` — `FileSplitter`, `FileSplitterMulti`, splitting long raw files into shorter parts with
   optional rotation
@@ -45,89 +47,31 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 - A real raw file for the examples: `examples/data/CH-LAE_202507251300.csv.gz`, a 1-hour 20 Hz
   excerpt from CH-LAE, plus `examples/detect_remove_tlag_realdata.py`, which runs the full
   detect-and-remove pipeline over it. Running this is what surfaced the three gzip faults below
-- A test suite: `tests/`, 104 tests. `dyco` previously had none
+- A test suite: `tests/`, 98 tests. `dyco` previously had none
 
 ### Changed
 
 - **New unified `dyco` command.** One front door dispatching to every workflow:
-  `dyco detect-remove`, `dyco tui`, `dyco pwb-batch`, `dyco apply-batch`, `dyco cm`. The four
+  `dyco detect-remove`, `dyco tui`, `dyco pwb-batch`, `dyco apply-batch`. The four
   standalone `dyco-*` scripts keep working unchanged
 - **Console scripts renamed**: `dyco-detect-remove`, `dyco-detect-remove-tui`, `dyco-pwb-batch`,
   `dyco-apply-batch`
-- **[BREAKING] The v2 top-level CLI is gone.** It took short flags directly (`dyco REF LAG TGT
-  -lsw 1000 -lsi 3 ...`) and drove the covariance-maximization method. That work is now
-  `dyco cm` with long flag names, and the options that were `0`/`1` integers are real switches.
-  An old-style command line is detected and answered with a pointer rather than a parse error.
-  Mapping:
-
-  | v2 | v3 (`dyco cm`) |
-  |---|---|
-  | `-fnd` | `--filename-date-format` |
-  | `-fnp` | `--file-pattern` |
-  | `-flim` | `--limit-files` |
-  | `-fgr` | `--file-generation-res` |
-  | `-fdur` | `--file-duration` |
-  | `-dtf` | `--timestamp-format` |
-  | `-dres` | `--nominal-timeres` |
-  | `-lss` | `--segment-duration` |
-  | `-lsw` | `--lag-winsize` |
-  | `-lsi` | `--n-iterations` |
-  | `-lsf 1` / `-lsf 0` | `--remove-fringe-bins` / `--no-remove-fringe-bins` |
-  | `-lsp` | `--perc-threshold` |
-  | `-lt` | `--target-lag` |
-  | `-del 1` | `--delete-previous` |
+- **[BREAKING] The v2 top-level CLI is gone**, with the method it drove. It took short flags directly
+  (`dyco REF LAG TGT -lsw 1000 -lsi 3 ...`). An old-style command line is detected and answered with a
+  pointer to `dyco detect-remove` rather than a parse error
 - **TUI settings file moved** from `~/.diive/detect_remove_tui.yaml` to `~/.dyco/detect_remove_tui.yaml`.
   An existing settings file is not found until it is moved
 - Python requirement raised to `>=3.12,<3.14` (was `>=3.11,<3.12`)
 - pandas requirement raised to `>=3.0.0` (was `>=2.2.3,<3.0.0`)
 - Build backend switched from `poetry-core` to `hatchling`; `uv` is now used for dependency management
 - New dependencies: `numpy`, `polars`, `pyarrow`, `textual`, `pyyaml`
-- Rolling z-score outlier removal in `analyze.AnalyzeLags` no longer regularizes an irregular index before
-  filtering. The lags it screens are indexed by segment start time and are inherently irregular, since
-  segments are missing wherever a raw file was missing or its peak was low quality; regularizing inserted
-  rows the caller never had and produced a flag that did not align with the input. Results may differ from
-  v2.0.3 where the previous frequency detection succeeded
 
 ### Fixed
 
-- **The v2 CLI could not run on pandas 3 at all.** Its `--file-generation-res`,
-  `--file-duration` and `--segment-duration` equivalents defaulted to `'30T'`, and
-  pandas 3 removed the `T` alias — every invocation raised
-  `ValueError: invalid unit abbreviation: T` before doing any work. Defaults are now
-  `'30min'`, and an explicit `'30T'` is rejected with a message naming the replacement
-
-- **The v2 CLI compared durations as strings.** `--segment-duration` was checked against
-  `--file-duration` with `>`, so `'10min' > '30min'` compared lexically: valid combinations
-  were rejected and invalid ones let through. Now compared as `Timedelta`
-
-- **`analyze.AnalyzeLags` called `sys.exit()` on an empty look-up table.** A library
-  terminated the interpreter, and with no status argument, so the exit code was `0`:
-  a run that produced nothing usable looked successful to any shell or scheduler
-  wrapping it. It now raises `ValueError` and says why the table is empty, namely
-  that no high-quality lag survived outlier removal
-
-- **[BREAKING] `analyze.AnalyzeLags.__init__` no longer runs the analysis.** It did
-  the work in the constructor, so an object could not be built without a full
-  analysis running. Call `run()` before `get_lut()`, which is the pattern
-  `FileDetector` and `Loop` already use. `Dyco.analyze_lags` does this internally,
-  so the `dyco cm` workflow is unaffected
-
-- **`analyze.AnalyzeLags.make_lut_instantaneous` hardcoded its acceptance limit.**
-  `ABS_LIMIT` was fixed at 50 records, the threshold above which a found lag is
-  rejected and the default substituted. It is now an `abs_limit` parameter,
-  defaulting to 50 so existing behaviour is unchanged
-
-- **`analyze.AnalyzeLags.make_lut_instantaneous` never filled missing lags.**
-  The `fillna` that substitutes the default lag for dates with no detection
-  discarded its result instead of assigning it, so the branch logged
-  *"Filling missing lags with default lag"* while leaving those dates missing.
-  Any run that hit missing lags behaved differently from what its log claimed.
-  Now assigned
-
 - **`files.read_raw_data` refused compressed files.** It dispatched on
   `Path(filepath).suffix`, which for `raw.csv.gz` is `.gz`, so every compressed file
-  raised *"File extension must be '.csv' or '.parquet'"*. This is the reader the v2
-  path and `FileSplitter` use — and `FileSplitterMulti` writes `.csv.gz` when
+  raised *"File extension must be '.csv' or '.parquet'"*. This is the reader
+  `FileSplitter` uses — and `FileSplitterMulti` writes `.csv.gz` when
   `compress_splits=True`, so the splitter's own output could not be read back in.
   Dispatch now ignores compression suffixes (new `files.data_suffix`), and the error
   for a genuinely unsupported format names what it saw
@@ -157,6 +101,18 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 
 ### Removed
 
+- **[BREAKING] The covariance-maximization method**, i.e. everything reached through the `Dyco` class:
+  `dyco.dyco` (`Dyco`), `dyco.loop` (`Loop`), `dyco.lag` (`AdjustLagsearchWindow`), `dyco.analyze`
+  (`AnalyzeLags`), `dyco.correction` (`RemoveLags`), `dyco.plot` and `dyco.setup`. With them go the
+  iterative window narrowing, the daily median look-up table, the target-lag normalization, the
+  `outdirs` numbered output tree, and the rolling z-score outlier filter (`dyco._vendor.outliers`).
+  `dyco cm` exits with a pointer to `dyco detect-remove`. To run the old method, install `dyco==2.0.3`,
+  noting that it depends on `diive` and no longer installs cleanly against current `diive` versions.
+  `MaxCovariance` (`dyco.maxcov`) stays: `FluxDetectionLimit` uses it, and it is useful on its own
+- `files.read_segment_lagtimes_file` and `files.add_data_stats`, which only served that path.
+  `dyco._vendor.filedetector.add_data_stats` is now the only function of that name
+- The `example/` directory (two JOSS-era scripts driving the old CLI, and their input archive) and the
+  `images/dyco_v2_*.png` figures that illustrated the removed workflow. `examples/` is unaffected
 - `diive` dependency
 
 ### Notes

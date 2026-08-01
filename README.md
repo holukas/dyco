@@ -5,7 +5,7 @@
 `dyco` takes eddy covariance raw data files as input and produces lag-compensated raw data files as
 output, ready for flux calculation software such as EddyPro.
 
-**The primary method is pre-whitening with block-bootstrap (PWB), following
+**The method is pre-whitening with block-bootstrap (PWB), following
 [Vitale et al. (2024)](https://doi.org/10.1007/s10651-024-00615-9).** An AR(p) filter strips the serial
 autocorrelation out of both series before the cross-correlation is computed, which sharpens a peak that
 turbulence would otherwise smear. The lag is then re-estimated on block-bootstrap resamples, so each
@@ -18,22 +18,11 @@ place. This is what makes low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub
 > released version on PyPI is `2.0.3`, which has a different API and depends on
 > [diive](https://github.com/holukas/diive). v3 is standalone. See `CHANGELOG.md` for release status.
 
-## Two detection methods
+## One detection method
 
-v3 ships two ways of finding the time lag between the vertical wind `W` and a scalar `S`.
-
-| | **PWB** (primary) | **CM** (retained) |
-|---|---|---|
-| Method | Pre-whitening with block-bootstrap, Vitale et al. (2024) | Iterative covariance-maximization window narrowing |
-| Best for | Low-SNR gases: N<sub>2</sub>O, CH<sub>4</sub> | High-SNR reference gases, and long records where a daily default lag is wanted |
-| Lag decision | PWBOPT per averaging period, with an uncertainty interval | Daily median look-up table across all files |
-| Uncertainty | 95% highest-density interval per detection | none |
-| Entry point | `dyco detect-remove` | `dyco cm` / `Dyco` class |
-| Lag unit | seconds | number of records |
-
-**Use PWB unless you have a reason not to.** It reports how confident each detection is, which the
-covariance-maximization approach cannot, and that is exactly the problem low-SNR gases present. The
-CM method remains available and unchanged for existing workflows.
+v3 has a single way of finding the time lag between the vertical wind `W` and a scalar `S`: PWB.
+The covariance-maximization method that `dyco` shipped up to v2 was removed. See
+[below](#the-covariance-maximization-method-removed-in-v3).
 
 ## Installation
 
@@ -62,7 +51,6 @@ dyco <command> --help   # options for one of them
 | `dyco tui` | The same pipeline behind a terminal UI, with live validation and a preflight check. Run with `--demo` to explore it without data. |
 | `dyco pwb-batch` | Detect lags only, across many already-split files. Writes `tlag_results.csv`. |
 | `dyco apply-batch` | Remove lags listed in an existing `tlag_results.csv`. |
-| `dyco cm` | The covariance-maximization workflow — see below. |
 
 Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`,
 `dyco-pwb-batch`, `dyco-apply-batch`.
@@ -111,9 +99,10 @@ scan a file to show you its columns first.
 | `--lineterm` | `auto` reproduces the input's CRLF or LF. Force it with `\r\n` or `\n`. |
 | `--file-pattern` | Gzip is handled transparently by suffix: `*.csv.gz` in gives `.gz` chunks out. |
 
-Two limits worth knowing. This path reads **delimited text only**; Parquet is supported by the CM
-path's reader, not this one. And it needs **no data-timestamp column**: chunking is driven by `--hz`
-and record count, and the wall-clock time comes from the filename via `--start-time-regex`.
+Two limits worth knowing. This path reads **delimited text only**; Parquet is read by
+`dyco.files.read_raw_data`, which serves the file splitter, not this pipeline. And it needs **no
+data-timestamp column**: chunking is driven by `--hz` and record count, and the wall-clock time comes
+from the filename via `--start-time-regex`.
 
 ### Try it
 
@@ -233,103 +222,29 @@ this itself. If you use `dyco-pwb-batch` on pre-split files, they must already b
 rotation or planar fit, e.g. EddyPro "Advanced" rotated output) — a non-zero mean `W` corrupts the
 cross-correlation.
 
-## The CM workflow (retained)
+## The covariance-maximization method (removed in v3)
 
-The original `dyco` method. It searches for the lag in a broad window, narrows that window based on
-where lags actually cluster, repeats, then reduces everything to a daily look-up table.
+Up to v2, `dyco` found lags by covariance maximization. It searched a broad window such as
+`[-1000, +1000]` records for the peak absolute covariance, narrowed the window around wherever the
+found lags clustered, repeated that a few times, then pooled everything into a daily median look-up
+table and shifted each file by its day's lag. Lags were counted in records rather than seconds, and a
+normalization step pulled them toward a chosen target lag. That method is what the
+[JOSS paper](https://doi.org/10.21105/joss.02575) describes.
 
-**Lag is expressed in number of records here, not seconds.** At 20 Hz, 1000 records is 50 seconds. A
-negative lag means `S` arrived after `W`.
+**v3.0.0 removed it.** PWB answers the same question and also says how much each answer can be
+trusted, which covariance maximization cannot. That is what low-SNR gases need. Keeping both meant
+carrying a second path through the package that nothing exercised. The `Dyco` class and the modules
+behind it are gone, and the two methods take different parameters, so there is no flag-for-flag
+migration. Start from `dyco detect-remove` above.
 
-### Step 1: Detect time lags across all files
+To run the old method, use the last release that carries it:
 
-Detection starts in a broad window, e.g. `[-1000, +1000]` records. This is iteration 1. Lag search can
-run on segments within a file: a 30-minute file searched in 10-minute segments yields three lags.
-
-![Covariance](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_fig_covariance_20230517102000_segment3_iter1_segment_3_iteration-1.png)
-**Figure 1**. _Covariance between turbulent vertical wind and turbulent CH4 mixing ratios from the
-subcanopy station [CH-DAS](https://www.swissfluxnet.ethz.ch/index.php/sites/site-info-ch-das/) on 17
-May 2023. Searched between `-500` and `0` records in a 10MIN segment. Peak absolute covariance at lag
-`-246`: CH4 arrived 246 records after the wind._
-
-### Step 2: Analyze found time lags
-
-The distribution of found lags is examined, the histogram peak identified, and a narrower window built
-outward from it until a set percentage of detections is enclosed.
-
-![Histogram](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-1.png)
-**Figure 2**. _Histogram of found lags (iteration 1), window `[-500, 0]`, from 6919 files between 12
-May and 31 Dec 2023 searched in 10MIN segments. The clear peak just below `-200` sets the next
-iteration's window._
-
-### Step 3: Repeat
-
-Steps 1 and 2 repeat with the narrower window. There is no iteration limit, but watch that the window
-stays wide enough to be meaningful.
-
-### Step 4: Collect lags across all iterations
-
-Lags found for `S` across all iterations are pooled. A lag that survives progressively narrower windows
-indicates high covariance between `W` and `S`.
-
-![Histogram](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_fig_HISTOGRAM_segment_lag_times_iteration-3.png)
-**Figure 3**. _Distribution after the third iteration, window `[-482, -26]`. Little narrowing was
-needed since the initial `[-500, 0]` was well chosen. The count includes lags from earlier iterations._
-
-![Time series plot](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL.png)
-**Figure 4**. _All found lags across files and iterations. Lags accumulate near -200 but are not
-constant — there is a clear drift._
-
-### Step 5: Remove outlier lags
-
-A rolling z-score filter removes outliers so only consistent lags feed the look-up table.
-
-![Outlier removal](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times_FINAL_outlierRemoved.png)
-**Figure 5**. _Outlier removal. The lower left panel shows the retained lags._
-
-### Step 6: Create look-up table and remove lags
-
-The filtered lags become a daily look-up table, which is then applied to shift one or more variables in
-each file. `S` is used for detection, but the correction can be applied to any variable — so a strong
-`S` signal can drive lag detection even when `S` is not the compound of interest.
-
-![Time series](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_v2_TIMESERIES-PLOT_segment_lag_times2_FINAL.png)
-**Figure 6**. _The 5-day median of high-quality lags after outlier removal, used to shift each scalar.
-All files from a given day are shifted by the same number of records. Afterwards the lag between wind
-and scalar is at or near zero._
-
-### Step 7: Use the lag-compensated files
-
-The output files go straight into flux calculation.
-
-### Using it
-
-```python
-from dyco.dyco import Dyco
-
-Dyco(var_reference="W_[R350-B]_TURB",  # Turbulent departures of vertical wind
-     var_lagged="CH4_DRY_[QCL-C2]_TURB",  # Turbulent departures of CH4
-     var_target=["CH4_DRY_[QCL-C2]_TURB", "N2O_DRY_[QCL-C2]_TURB"],
-     indir=r"F:\example\input_files",
-     outdir=r"F:\example\output",
-     filename_date_format="CH-DAS_%Y%m%d%H%M%S_30MIN-SPLIT_ROT_TRIM.csv",
-     filename_pattern="CH-DAS_*_30MIN-SPLIT_ROT_TRIM.csv",
-     files_how_many=None,
-     file_generation_res="30min",
-     file_duration="30min",
-     data_timestamp_format="%Y-%m-%d %H:%M:%S.%f",
-     data_nominal_timeres=0.05,
-     lag_segment_dur="10min",
-     lag_winsize=1000,
-     lag_n_iter=3,
-     lag_hist_remove_fringe_bins=True,
-     lag_hist_perc_thres=0.7,
-     target_lag=0,
-     del_previous_results=False)
+```bash
+pip install dyco==2.0.3
 ```
 
-This method needs input files that are **already rotated**. `FileSplitterMulti` (below) does the
-splitting and rotation in one step.
+Note that v2.0.3 depends on `diive` and no longer installs cleanly against current `diive` versions.
+The code also remains in this repository's git history.
 
 ## Other tools
 
@@ -375,16 +290,16 @@ time shifts.
 
 `dyco` assists flux processing software for exactly these compounds. It offers:
 
-- **PWB**: a lag estimate with an explicit uncertainty interval, so unreliable detections can be
-  identified rather than silently accepted, and a decision rule that substitutes a trustworthy
-  neighbouring lag when a period's own detection cannot be trusted
-- **CM**: progressively narrower search windows for a *reference* compound (e.g. CO<sub>2</sub>, which
-  usually shows a clear peak), daily default lags derived from it, and application of those lags to one
-  or more *target* compounds
-- Dynamic compensation across raw files, and automatic correction of systematic time drifts, e.g. from
-  unsynchronized instrument clocks
+- a lag estimate with an explicit uncertainty interval, so unreliable detections can be identified
+  rather than silently accepted, and a decision rule that substitutes a trustworthy neighbouring lag
+  when a period's own detection cannot be trusted
+- lags detected on a high-SNR *reference* gas and applied to a low-SNR *target* measured by the same
+  analyzer: `dyco apply-batch --scalar "CO2:N2O_DRY_[QCL-C2]"` shifts the N<sub>2</sub>O column by the
+  lag found for CO<sub>2</sub>
+- dynamic compensation across raw files, so a lag that drifts — from an unsynchronized instrument
+  clock, say — is followed period by period instead of averaged away
 
-Both produce lag-removed files usable directly in flux calculation software.
+The output is lag-removed files usable directly in flux calculation software.
 
 ## Scientific background
 
@@ -401,11 +316,12 @@ N<sub>2</sub>O and CH<sub>4</sub> the cross-covariance function is noisy, and fl
 larger absolute values (Langford et al., 2015), making annual GHG budgets harder to calculate
 accurately.
 
-Two responses are implemented here. One is to detect the lag for a high-SNR *reference* compound and
-apply it to the low-SNR *target* measured by the same analyzer (Nemitz et al., 2018) — the CM method.
-The other is to improve the estimate itself: pre-whitening sharpens the cross-correlation peak by
-removing serial autocorrelation, and block-bootstrap resampling quantifies how reproducible the
-resulting lag is (Vitale et al., 2024) — the PWB method.
+There are two responses to this. One is to detect the lag for a high-SNR *reference* compound and
+apply it to the low-SNR *target* measured by the same analyzer (Nemitz et al., 2018), which `dyco`
+supports by pairing one gas's lag with another gas's column at the removal step. The other is to
+improve the estimate itself: pre-whitening sharpens the cross-correlation peak by removing serial
+autocorrelation, and block-bootstrap resampling quantifies how reproducible the resulting lag is
+(Vitale et al., 2024). The second is the method `dyco` implements as of v3.
 
 ## Real-world examples
 
@@ -418,8 +334,8 @@ measurement cell, so the gas signal lags the wind. Covariance maximization handl
 but mostly fails for N<sub>2</sub>O, whose cross-correlation function is noisy, giving noisy fluxes.
 Since N<sub>2</sub>O has adsorption/desorption characteristics similar to CO<sub>2</sub>, both need
 roughly the same travel time — so `dyco` can detect lags on CO<sub>2</sub> and remove them from
-N<sub>2</sub>O. Normalizing lags across files leaves the *true* wind-to-N<sub>2</sub>O lag near zero,
-which makes a small window or a constant lag viable during flux calculation.
+N<sub>2</sub>O. Once the tube delay is out of the files, the remaining wind-to-N<sub>2</sub>O lag sits
+near zero, which makes a small window or a constant lag viable during flux calculation.
 
 Another case is managed grassland, where N<sub>2</sub>O exchange is dominated by sporadic
 high-emission events (e.g., Hörtnagl et al., 2018; Merbold et al., 2014). Large quantities are emitted
