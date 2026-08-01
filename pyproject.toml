@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-# Unified front door; dispatches to every workflow below plus `dyco cm`.
+# Unified front door; dispatches to every workflow below.
 dyco = "dyco.cli:main"
 # PWB is the primary method. dyco-detect-remove is the main entry point:
 # it splits, detects and removes in one pass.
