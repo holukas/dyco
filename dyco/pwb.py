@@ -49,8 +49,10 @@ selected as the most informative for that averaging period
 Implementation notes:
 - A Breitung (2002) variance-ratio unit-root test (R: egcm::bvr.test) is applied
   to each aligned series before AR fitting.  If any series has a unit root
-  (p >= 0.01), all series are first-differenced.  For turbulent EC data this
-  virtually never triggers but handles pathological non-stationary periods.
+  (p >= 0.01), all series are first-differenced.  This is a routine event, not
+  an edge case: on the bundled CH-LAE half hour it fires on T_SONIC (p = 0.057),
+  which drifts with the diurnal cycle over an averaging period.  The test only
+  has to fail on *one* of the three series to difference all of them.
 - Three separate AR(p) models are fitted (scalar, W, T_SONIC) using AIC with
   max_order = floor(100 * log10(N)), matching R's formula.  For N = 36000
   records this gives max_order = 455, which is large enough for AIC to capture
