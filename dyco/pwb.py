@@ -88,6 +88,8 @@ Differences from RFlux v3.2.0 (tlag_detection.R):
     | lws/uws constrain the returned PWB lag and tlag_pw; R returns unwindowed values and computes windowed variants it never returns | deliberate -- only when a window is set |
     | PWBOPT S2 updates the carry-forward reference, so accepted lags can drift | low -- paper 2.3 is ambiguous, its S3 wording implies this reading |
     | Combination tie-break order (cw,wc,ct,tc vs R's ct,cw,tc,wc) | negligible -- exact ties only |
+    | ``max_carry`` can expire an S3 carry that has travelled too far; the paper's carry is unbounded | opt-in, off by default -- see ``apply_pwbopt`` |
+    | A donor gas (``lagfrom``) fills any period with no accepted detection, not only a gas that failed everywhere | opt-in, only when a donor is named -- see ``fill_tlag_gaps`` |
 
     Shared with R, against the paper: wdt defaults to 5 (R's default), not the
     paper's hz/2+1. The pipeline exposes --wdt to get the paper's value.
@@ -2447,6 +2449,7 @@ class PwbBatchDetection:
             hdi_range_s,
             hdi_thresh: float = 0.5,
             dev_thresh: float = 0.5,
+            max_carry: int | None = None,
     ) -> DataFrame:
         """
         Apply PWBOPT S1/S2/S3 selection to a sequence of PWB lag estimates.
@@ -2461,42 +2464,70 @@ class PwbBatchDetection:
         edge lag is a failed detection and is never applied, matching EddyPro),
         so this method only sees usable lags or NaN gaps.
 
+        The carry in S3 is unbounded in the paper: once an optimal lag exists it
+        is handed to every later period that has none, however far away. With
+        *max_carry* set, a carry that has travelled further than that many
+        periods expires (flag ``S3_expired``, value NaN) and falls through to
+        whatever ``fill_tlag_gaps`` can offer instead -- a donor gas, or the
+        median. Left at ``None`` the behaviour is the paper's.
+
         Args:
             tlag_s: Detected PWB lags in seconds (NaN where detection failed).
             hdi_range_s: 95% HDI range in seconds per period.
             hdi_thresh: S1 threshold in seconds. Default: 0.5.
             dev_thresh: S2 max deviation from the preceding optimal. Default: 0.5.
+            max_carry: Longest carry, in periods, that S3 may use. ``None``
+                (default) leaves the carry unbounded.
 
         Returns:
-            DataFrame with columns ``pwbopt_s`` (optimal lag, s) and ``flag``.
+            DataFrame with columns ``pwbopt_s`` (optimal lag, s), ``flag``,
+            ``accepted_s`` (the lag this period detected for itself -- S1/S2
+            only, NaN otherwise) and ``carry_periods`` (0 when the period
+            detected its own lag, n when the value travelled n periods, NaN
+            when there is no value).
         """
         tlag_s = np.asarray(tlag_s, dtype=float)
         hdi_range_s = np.asarray(hdi_range_s, dtype=float)
         n = len(tlag_s)
         flags = ['S3_unreliable'] * n
         optimal = np.full(n, np.nan)
+        accepted = np.full(n, np.nan)
+        carry = np.full(n, np.nan)
         last_optimal = np.nan
+        distance = 0            # periods travelled by last_optimal so far
 
         for i in range(n):
             tl = tlag_s[i]
             hdi = hdi_range_s[i]
+            # How far the standing optimal would have to travel to reach here.
+            distance += 1
+            stale = max_carry is not None and distance > max_carry
+            # An expired carry is no anchor for S2 either: accepting a lag for
+            # being close to a value already judged too old to hand out would
+            # let the series drift on evidence that no longer counts.
+            reference = np.nan if stale else last_optimal
 
-            if np.isnan(tl) or np.isnan(hdi):
-                optimal[i] = last_optimal
+            if not np.isnan(tl) and not np.isnan(hdi):
+                if hdi < hdi_thresh:
+                    flags[i] = 'S1_optimal'
+                elif not np.isnan(reference) and abs(tl - reference) <= dev_thresh:
+                    flags[i] = 'S2_optimal'
+                if flags[i] != 'S3_unreliable':
+                    optimal[i] = accepted[i] = last_optimal = tl
+                    carry[i] = 0
+                    distance = 0
+                    continue
+
+            if np.isnan(last_optimal):
+                continue                      # nothing detected yet to carry
+            if stale:
+                flags[i] = 'S3_expired'
                 continue
+            optimal[i] = last_optimal
+            carry[i] = distance
 
-            if hdi < hdi_thresh:
-                flags[i] = 'S1_optimal'
-                optimal[i] = tl
-                last_optimal = tl
-            elif not np.isnan(last_optimal) and abs(tl - last_optimal) <= dev_thresh:
-                flags[i] = 'S2_optimal'
-                optimal[i] = tl
-                last_optimal = tl
-            else:
-                optimal[i] = last_optimal
-
-        return pd.DataFrame({'pwbopt_s': optimal, 'flag': flags})
+        return pd.DataFrame({'pwbopt_s': optimal, 'flag': flags,
+                             'accepted_s': accepted, 'carry_periods': carry})
 
     @staticmethod
     def fill_tlag_gaps(
@@ -2505,6 +2536,8 @@ class PwbBatchDetection:
             fallback: float | None = None,
             donor_s=None,
             return_source: bool = False,
+            accepted_s=None,
+            max_carry: int | None = None,
     ):
         """
         Fill NaN values in a PWBOPT lag series so every averaging period has
@@ -2515,7 +2548,7 @@ class PwbBatchDetection:
         remain NaN.  This method fills them with a three-step strategy:
 
         1. **Backward fill** — propagates the first reliable lag backward to
-           cover the leading NaN periods.
+           cover the leading NaN periods, no further than *max_carry* periods.
         2. **Another gas's lag** — *donor_s*, the final lag series of the gas
            named by ``lagfrom``. A trace gas whose own cross-correlation is too
            noisy to trust anywhere gets nothing from steps 1 and 3 but the
@@ -2527,6 +2560,24 @@ class PwbBatchDetection:
            lags being averaged are exactly the ones judged unreliable.
         4. **Explicit fallback** — constant value used as last resort (e.g.
            the nominal tube-delay for the gas/site).
+
+        Passing *accepted_s* alongside *donor_s* switches the donor from
+        whole-series to **per period**. Without it, the donor can only reach a
+        gas that failed everywhere: PWBOPT's carry already fills every period
+        after the first S1/S2, so a gas with a single good detection has no
+        gaps left and never borrows. With it, the order becomes
+
+            own detection here -> own lag carried forward -> own lag filled
+            backward -> donor here -> median.
+
+        The gas's own lag comes first in all three of its forms, and
+        deliberately so: two gases sharing a tube still have different delays
+        (a 0.35 s systematic gap between CH4 and N2O is ordinary), so borrowing
+        trades a stale number for a biased one. What decides when to borrow is
+        ``max_carry``, which bounds the gas's own reach in both directions;
+        beyond it the donor takes over. With no limit set the gas's own lag
+        covers the whole series and only a gas that never detects at all
+        borrows anything.
 
         Args:
             pwbopt_s: Optimal lag series from ``apply_pwbopt()``.
@@ -2541,19 +2592,42 @@ class PwbBatchDetection:
                 lag came from (``'own'``, ``'donor'``, ``'median'``,
                 ``'fallback'``, ``''`` for none). A borrowed lag is otherwise
                 indistinguishable from a detected one in the results.
+            accepted_s: ``accepted_s`` from ``apply_pwbopt()`` -- the lags each
+                period detected for itself. Only meaningful together with
+                *donor_s*; see above.
+            max_carry: The same limit ``apply_pwbopt`` applied forward, applied
+                here to the backward fill, so the gas's own lag reaches at most
+                that many periods in *either* direction. Leaving the backward
+                fill unbounded would undo the limit: with detections either
+                side of a long unusable stretch, the later one would fill the
+                whole of it from the future and nothing would ever expire.
 
         Returns:
             Array of the same length as *pwbopt_s*, NaN-free when a finite
             value can be found through any of the strategies -- or a
             ``(values, source)`` tuple when *return_source* is set.
         """
-        result = pd.Series(np.asarray(pwbopt_s, dtype=float))
+        carried = pd.Series(np.asarray(pwbopt_s, dtype=float))
+        per_period_donor = accepted_s is not None and donor_s is not None
+        result = (pd.Series(np.asarray(accepted_s, dtype=float))
+                  if per_period_donor else carried.copy())
         source = np.where(result.notna(), 'own', '').astype(object)
 
-        result = result.bfill()
+        if per_period_donor:
+            missing = np.asarray(result.isna())
+            result = result.fillna(carried)
+            source[missing & np.asarray(result.notna())] = 'own'
+
+        result = result.bfill(limit=max_carry)
         source[np.asarray(result.notna()) & (source == '')] = 'own'
 
-        if result.isna().any() and donor_s is not None:
+        if per_period_donor:
+            donor = pd.Series(np.asarray(donor_s, dtype=float))
+            missing = np.asarray(result.isna())
+            result = result.fillna(donor)
+            source[missing & np.asarray(result.notna())] = 'donor'
+
+        if not per_period_donor and result.isna().any() and donor_s is not None:
             donor = pd.Series(np.asarray(donor_s, dtype=float))
             missing = np.asarray(result.isna())
             result = result.fillna(donor)

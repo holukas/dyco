@@ -18,7 +18,8 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 |---|---|
 | Entry point | `dyco tui` (recommended) or `dyco detect-remove` (`dyco/pipeline.py`) |
 | Detection | `dyco/pwb.py` |
-| Lag selection | PWBOPT S1/S2/S3, per chunk; a gas may borrow another's lag where it has none (`@lagfrom=`) |
+| Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
+| Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
 | Tests | `tests/test_pwb.py` + 7 more, 143 total |
 

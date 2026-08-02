@@ -592,6 +592,7 @@ def _pwbopt_final_lags(
         hdi_prefilter: float,
         lag_column_template: str,
         lag_fallback: dict | None = None,
+        max_carry: int | None = None,
 ) -> dict:
     """Pick the per-chunk PWBOPT lag to remove, as ``{(chunk_index, label): lag_s}``.
 
@@ -616,18 +617,21 @@ def _pwbopt_final_lags(
                         dtype=float)
         hdi = np.array([float(r.get(f'{pfx}_hdi_range_s', np.nan)) for r in ordered],
                        dtype=float)
-        std = PwbBatchDetection.apply_pwbopt(tlag, hdi, hdi_thresh, dev_thresh)
+        std = PwbBatchDetection.apply_pwbopt(tlag, hdi, hdi_thresh, dev_thresh,
+                                             max_carry=max_carry)
         if hdi_prefilter and hdi_prefilter > 0:
             tlag_pf = PwbBatchDetection.apply_hdi_prefilter(tlag, hdi, hdi_prefilter)
-            pf_pwbopt = PwbBatchDetection.apply_pwbopt(
-                tlag_pf, hdi, hdi_thresh, dev_thresh)['pwbopt_s'].to_numpy()
+            pf = PwbBatchDetection.apply_pwbopt(tlag_pf, hdi, hdi_thresh,
+                                                dev_thresh, max_carry=max_carry)
         else:
-            pf_pwbopt = std['pwbopt_s'].to_numpy()
+            pf = std
         donor = donors.get(donor_of.get(label))
         final_std = PwbBatchDetection.fill_tlag_gaps(
-            std['pwbopt_s'].to_numpy(), tlag_s_raw=tlag, donor_s=donor)
+            std['pwbopt_s'].to_numpy(), tlag_s_raw=tlag, donor_s=donor,
+            accepted_s=std['accepted_s'].to_numpy(), max_carry=max_carry)
         final_pf = PwbBatchDetection.fill_tlag_gaps(
-            pf_pwbopt, tlag_s_raw=tlag, donor_s=donor)
+            pf['pwbopt_s'].to_numpy(), tlag_s_raw=tlag, donor_s=donor,
+            accepted_s=pf['accepted_s'].to_numpy(), max_carry=max_carry)
         # Honour the requested column; default (and anything ending _pf_s) uses
         # the pre-filtered series, otherwise the standard PWBOPT series.
         col = lag_column_template.format(prefix=pfx)
@@ -816,6 +820,7 @@ def process_one_file(
         uws: float | None = None,
         gas_lag_overrides: dict | None = None,
         lag_fallback: dict | None = None,
+        max_carry: int | None = None,
         progress_queue=None,
 ) -> list:
     """Run the two-phase PWB pipeline on one (possibly multi-hour) input file.
@@ -1048,7 +1053,7 @@ def process_one_file(
         # ============ PWBOPT: best lag per (chunk, gas) ==================
         final_lags = _pwbopt_final_lags(
             rows, scalars, hdi_thresh, dev_thresh, hdi_prefilter,
-            lag_column_template, lag_fallback,
+            lag_column_template, lag_fallback, max_carry,
         )
 
         # ============ PHASE 2: remove the best lag + write ===============
@@ -1697,7 +1702,8 @@ _SUMMARY_PERGAS_COLS = [
      "PWBOPT decision flag for the standard series: 'S1_optimal' (reliable "
      "detection), 'S2_optimal' (uncertain but within --dev-thresh of the "
      "preceding optimal lag, so carried forward), 'S3_unreliable' (neither; "
-     "filled from neighbours in the final column)."),
+     "filled from neighbours in the final column), 'S3_expired' (neither, and "
+     "the nearest optimal lag was further away than --max-carry periods)."),
     ('{gas}_pwbopt_s_pf',
      "PWBOPT-selected lag (s), PRE-FILTERED rule: detections with an HDI range "
      "wider than --hdi-prefilter are dropped before the S1/S2/S3 logic runs."),
@@ -1716,7 +1722,93 @@ _SUMMARY_PERGAS_COLS = [
      "another gas, see --scalar ...@lagfrom=), 'median' (last resort: the "
      "median of this gas's raw detections, all of which PWBOPT rejected), or "
      "'none'."),
+    ('{gas}_carry_periods',
+     "How far the applied lag travelled: 0 = detected in this very period, n = "
+     "carried across n periods from the nearest period that did detect it. "
+     "Empty when the lag did not come from this gas's own carry - borrowed, "
+     "back-filled, the median fallback, or none at all."),
+    ('{gas}_lag_applied_s',
+     "THE LAG ACTUALLY REMOVED (s): what phase 2 shifted this gas's column by. "
+     "Always a whole number of records, so this is round(final_lag * hz) / hz "
+     "(hz = {hz}) and may differ from the final lag by up to half a record. "
+     "Empty when no file was written for this period. This is the column to "
+     "read when you want to know what happened to the data - the other lag "
+     "columns are the working steps that led to it."),
+    ('{gas}_lag_reason',
+     "Plain-language account of why this lag was applied, the same text as in "
+     "detect_and_remove_tlag_decisions.txt."),
 ]
+
+
+def _lag_reason(summary, i: int, pfx: str, hdi_thresh: float,
+                dev_thresh: float, hdi_prefilter: float,
+                max_carry: int | None) -> str:
+    """Say in words why this gas's lag for this period is what it is.
+
+    Every ingredient of the decision is already in the summary, spread over
+    six columns whose interaction is not obvious (a lag can be detected here,
+    carried from elsewhere, borrowed from another gas, back-filled, or the
+    median of rejected detections). This reduces that to one sentence per gas
+    per output file, for the decisions report and the summary CSV.
+    """
+    row = summary.iloc[i]
+    status = str(row.get('status', ''))
+    if status != 'ok':
+        return f'no file written for this period ({status}) - no lag needed'
+
+    source = str(row.get(f'{pfx}_lag_source', 'none'))
+    flag = str(row.get(f'{pfx}_flag_pf', ''))
+    hdi = row.get(f'{pfx}_hdi_range_s', np.nan)
+    carry = row.get(f'{pfx}_carry_periods', np.nan)
+    if hdi != hdi:
+        unusable = 'nothing detected here'
+    elif hdi_prefilter > 0 and hdi > hdi_prefilter:
+        unusable = f'HDI {hdi:.2f} s, wider than the {hdi_prefilter:.2f} s prefilter'
+    else:
+        unusable = f'HDI {hdi:.2f} s, not reliable enough to accept'
+
+    def _period(j: int) -> str:
+        return (str(summary.iloc[j].get('period', '?'))
+                if 0 <= j < len(summary) else '?')
+
+    if source.startswith('from:'):
+        near = ('' if max_carry is None
+                else f', and no detection of its own within {max_carry} '
+                     f'period(s) either side')
+        return f'borrowed from {source[5:]}: {unusable}{near}'
+    if source == 'median':
+        return ('median of this gas\'s raw detections - PWBOPT rejected every '
+                'one of them, so there was nothing better anywhere in the run')
+    if source == 'none':
+        return 'no lag could be determined and none was applied'
+
+    # source == 'own': detected here, carried forward, or back-filled.
+    if flag == 'S1_optimal':
+        return (f'detected here and reliable (S1): HDI {hdi:.2f} s '
+                f'< {hdi_thresh:.2f} s')
+    if flag == 'S2_optimal':
+        return (f'detected here, accepted for continuity (S2): HDI {hdi:.2f} s '
+                f'is wide, but the lag is within {dev_thresh:.2f} s of the '
+                f'preceding optimal one')
+    if carry == carry and carry > 0:
+        n = int(carry)
+        return (f'carried {n} period(s) forward from {_period(i - n)}: '
+                f'{unusable}')
+    # Nothing had been detected yet, so the first later detection was pulled
+    # back. Name it: 'back-filled' alone leaves the reader hunting for it.
+    later = [j for j in range(i + 1, len(summary))
+             if summary.iloc[j].get(f'{pfx}_carry_periods', np.nan) == 0]
+    src = _period(later[0]) if later else 'a later period'
+    n_back = next((j - i for j in range(i + 1, len(summary))
+                   if summary.iloc[j].get(f'{pfx}_carry_periods', np.nan) == 0),
+                  None)
+    dist = f' {n_back} period(s) back' if n_back else ''
+    if flag == 'S3_expired':
+        return (f'nothing usable here ({unusable}) and the nearest earlier '
+                f'detection was more than {max_carry} period(s) away, so it '
+                f'expired; filled{dist} from {src} instead')
+    return (f'nothing had been detected yet at this point in the run, so the '
+            f'lag was filled{dist} from {src}, the first period that did')
 
 
 def _summary_columns_doc(scalars: dict, lag_column_template: str,
@@ -1790,10 +1882,14 @@ def _summary_columns_doc(scalars: dict, lag_column_template: str,
     lines.append(
         "- Only rows with `status = ok` produce an output file. "
         "`skipped:short`, `skipped:duplicate` and `error` rows are reported "
-        "for traceability but write nothing.")
+        "for traceability but write nothing, and their lag columns are left "
+        "empty: there is no data there to align, so there is no lag to state.")
     lines.append(
-        "- The applied lag in seconds for a gas equals "
-        "`{gas}_applied_records / hz`.")
+        "- **To read off what was done to the data, use "
+        "`{gas}_lag_applied_s`** and `{gas}_lag_reason`. Everything else in "
+        "the per-gas block is a working step on the way to those two. "
+        "`detect_and_remove_tlag_decisions.txt` in this folder says the same "
+        "thing as prose, one block per output file.")
     lines.append("")
     return '\n'.join(lines)
 
@@ -1874,6 +1970,7 @@ class PerFilePipeline:
             uws: float | None = None,
             per_gas_lag: dict | None = None,
             lag_fallback: dict | None = None,
+            max_carry: int | None = None,
     ):
         """Set up the per-file detect-and-remove pipeline. See the class docstring."""
         self.input_dir = Path(input_dir)
@@ -1887,6 +1984,7 @@ class PerFilePipeline:
         self.lag_max_s = lag_max_s
         self.n_bootstrap = n_bootstrap
         self.block_length_s = block_length_s
+        self.max_carry = max_carry
         self.wdt = wdt
         self.chunk_seconds = chunk_seconds
         self.min_chunk_seconds = min_chunk_seconds
@@ -2259,6 +2357,7 @@ class PerFilePipeline:
         # return the partial detection summary (no files aligned).
         if cancel_event is not None and cancel_event.is_set():
             self._cancelled = True
+            summary = self._finalise_lag_columns(summary)
             self._summary = summary
             self._write_summary_and_plots(summary)
             return summary
@@ -2362,9 +2461,110 @@ class PerFilePipeline:
 
         # Cancelled during the remove phase: some chunks aligned, some not.
         self._cancelled = bool(cancel_event is not None and cancel_event.is_set())
+        summary = self._finalise_lag_columns(summary)
         self._summary = summary
         self._write_summary_and_plots(summary)
         return self._summary
+
+    def _finalise_lag_columns(self, summary: DataFrame) -> DataFrame:
+        """Add the applied-lag and reason columns; clear lags for gap periods.
+
+        Runs last, once phase 2 has reported back, because both answers depend
+        on what was actually written: the applied lag is read off the record
+        shift rather than the requested lag, and a period that produced no file
+        gets no lag at all -- there is no flux there to align it to, and a
+        number in that row reads as though something had been corrected.
+        """
+        if summary.empty:
+            return summary
+        no_file = (summary['status'].astype(str).ne('ok')
+                   if 'status' in summary.columns
+                   else pd.Series(False, index=summary.index))
+        for label in self.scalars:
+            pfx = label.lower()
+            rec_col = f'{pfx}_applied_records'
+            applied = (summary[rec_col].astype(float) / self.hz
+                       if rec_col in summary.columns
+                       else pd.Series(np.nan, index=summary.index))
+            summary[f'{pfx}_lag_applied_s'] = applied.where(~no_file)
+            for col in (f'{pfx}_tlag_final_s', f'{pfx}_tlag_final_pf_s',
+                        f'{pfx}_carry_periods'):
+                if col in summary.columns:
+                    summary.loc[no_file, col] = np.nan
+            if f'{pfx}_lag_source' in summary.columns:
+                summary.loc[no_file, f'{pfx}_lag_source'] = 'none'
+            summary[f'{pfx}_lag_reason'] = [
+                _lag_reason(summary, i, pfx, self.hdi_thresh, self.dev_thresh,
+                            self.hdi_prefilter, self.max_carry)
+                for i in range(len(summary))]
+        return summary
+
+    def _write_decisions_report(self, summary: DataFrame,
+                                detect_dir: Path) -> None:
+        """Write the per-output-file account of which lag was applied and why.
+
+        The summary CSV holds the same facts, but spread over six columns per
+        gas whose interaction has to be reconstructed by the reader. This is
+        the same information as prose, one block per written file.
+        """
+        path = detect_dir / 'detect_and_remove_tlag_decisions.txt'
+        labels = list(self.scalars)
+        width = max((len(l) for l in labels), default=4)
+        carry_txt = ('unlimited (paper behaviour)' if self.max_carry is None
+                     else f'{self.max_carry} period(s)')
+        out = [
+            'WHY EACH TIME LAG WAS APPLIED',
+            '=============================',
+            f'written {datetime.now().astimezone().isoformat(timespec="seconds")}',
+            f'gases: {", ".join(labels)}',
+            f'lag column applied: '
+            f'{self.lag_column_template.format(prefix="<gas>")}',
+            '',
+            'PWBOPT settings behind these decisions:',
+            f'  reliable (S1) when the 95% HDI is below {self.hdi_thresh:.2f} s',
+            f'  accepted (S2) when within {self.dev_thresh:.2f} s of the '
+            f'preceding optimal lag',
+            f'  detections wider than {self.hdi_prefilter:.2f} s are dropped '
+            f'before selection',
+            f'  longest carry: {carry_txt}',
+            '',
+        ]
+        written = summary[summary['status'].astype(str).eq('ok')] \
+            if 'status' in summary.columns else summary
+        for _, r in written.iterrows():
+            out.append(str(r.get('period', '?')))
+            for label in labels:
+                pfx = label.lower()
+                lag = r.get(f'{pfx}_lag_applied_s', np.nan)
+                rec = r.get(f'{pfx}_applied_records', np.nan)
+                shift = (f'{lag:+.2f} s ({int(rec):+d} rec)'
+                         if lag == lag and rec == rec else 'not applied')
+                out.append(f'  {label.ljust(width)}  {shift.rjust(20)}  '
+                           f'{r.get(f"{pfx}_lag_reason", "")}')
+            out.append('')
+
+        skipped = summary[summary['status'].astype(str).ne('ok')] \
+            if 'status' in summary.columns else summary.iloc[0:0]
+        if len(skipped):
+            out.append('PERIODS WITH NO OUTPUT FILE (no lag needed)')
+            for _, r in skipped.iterrows():
+                out.append(f'  {r.get("period", "?")}  {r.get("status", "")}')
+            out.append('')
+
+        out.append('HOW THE APPLIED LAGS WERE DECIDED')
+        for label in labels:
+            pfx = label.lower()
+            col = f'{pfx}_lag_source'
+            if col not in written.columns or not len(written):
+                continue
+            tally = written[col].astype(str).value_counts().to_dict()
+            detail = '  '.join(f'{k}={v}' for k, v in sorted(tally.items()))
+            out.append(f'  {label.ljust(width)}  {detail}')
+        try:
+            path.write_text('\n'.join(out) + '\n', encoding='utf-8')
+        except Exception:
+            # A failed report must never abort the run.
+            pass
 
     def _write_summary_and_plots(self, summary: DataFrame) -> None:
         """Write the summary CSV and (when enabled) the batch overview plots.
@@ -2396,6 +2596,8 @@ class PerFilePipeline:
             # File locked (e.g. open in Excel) — leave the checkpoint as the
             # best available snapshot rather than aborting the run.
             warn(f'could not write summary CSV (locked?): {summary_csv}')
+
+        self._write_decisions_report(summary, detect_dir)
 
         # Companion data dictionary: a Markdown file describing every column of
         # the summary CSV (general + per-gas), so the CSV is self-documenting.
@@ -2530,6 +2732,9 @@ class PerFilePipeline:
             ('hdi_prefilter', self.hdi_prefilter,
              'Drop detections with an HDI range above this (s) before '
              'PWBOPT runs; 0 = off.'),
+            ('max_carry', self.max_carry,
+             'Longest S3 carry in periods; None = unlimited (the published '
+             'behaviour).'),
             ('lag_column_template', self.lag_column_template,
              'Which PWBOPT lag column is removed in phase 2 (default the '
              'pre-filtered, gap-filled best lag).'),
@@ -2607,7 +2812,11 @@ class PerFilePipeline:
             f"    plots_summary/      batch-level overview figures ({plots_note})\n"
             "    detect_and_remove_tlag_summary.csv           one row per chunk:\n"
             "                        detected lag, HDI, reliability, PWBOPT\n"
-            "                        columns, applied records (written by the CLI)\n"
+            "                        columns, and the lag actually applied\n"
+            "                        ({gas}_lag_applied_s -- read that one)\n"
+            "    detect_and_remove_tlag_decisions.txt         start here: the\n"
+            "                        lag applied to each output file and why,\n"
+            "                        in plain language, one block per file\n"
             "    detect_and_remove_tlag_summary_columns.md    data dictionary:\n"
             "                        describes every column of the summary CSV\n"
             "    detect_and_remove_tlag_checkpoint.csv        phase-1 snapshot\n"
@@ -2819,6 +3028,15 @@ class PerFilePipeline:
         if summary.empty:
             return summary
         donor_of = {g: d for g, d in self.lag_fallback.items() if d and d != g}
+        # Naming a donor and leaving the carry unbounded is a common way to get
+        # nothing: the gas's own lag is preferred as long as it may travel, and
+        # without a limit it travels the whole series in both directions.
+        if donor_of and self.max_carry is None:
+            warn(f'lag donors are set ({", ".join(f"{g} from {d}" for g, d in donor_of.items())}) '
+                 f'but --max-carry is not, so a gas reaches every period with '
+                 f'its own lag however stale, and will borrow only if it never '
+                 f'detects anywhere in the run. Set --max-carry to hand the '
+                 f'periods beyond that reach to the donor instead.')
         donors: dict = {}   # resolved final series, for gases others borrow from
         for label in resolve_lag_fallback(self.lag_fallback, self.scalars):
             pfx = label.lower()
@@ -2832,7 +3050,8 @@ class PerFilePipeline:
 
             # Standard PWBOPT (S1/S2/S3 directly on the raw mode lag)
             std = PwbBatchDetection.apply_pwbopt(
-                tlag, hdi, self.hdi_thresh, self.dev_thresh)
+                tlag, hdi, self.hdi_thresh, self.dev_thresh,
+                max_carry=self.max_carry)
             summary[f'{pfx}_pwbopt_s_std'] = std['pwbopt_s'].to_numpy()
             summary[f'{pfx}_flag_std'] = std['flag'].to_numpy()
 
@@ -2841,26 +3060,30 @@ class PerFilePipeline:
                 tlag_pf = PwbBatchDetection.apply_hdi_prefilter(
                     tlag, hdi, self.hdi_prefilter)
                 pf = PwbBatchDetection.apply_pwbopt(
-                    tlag_pf, hdi, self.hdi_thresh, self.dev_thresh)
-                summary[f'{pfx}_pwbopt_s_pf'] = pf['pwbopt_s'].to_numpy()
-                summary[f'{pfx}_flag_pf'] = pf['flag'].to_numpy()
+                    tlag_pf, hdi, self.hdi_thresh, self.dev_thresh,
+                    max_carry=self.max_carry)
             else:
-                summary[f'{pfx}_pwbopt_s_pf'] = std['pwbopt_s'].to_numpy()
-                summary[f'{pfx}_flag_pf'] = std['flag'].to_numpy()
+                pf = std
+            summary[f'{pfx}_pwbopt_s_pf'] = pf['pwbopt_s'].to_numpy()
+            summary[f'{pfx}_flag_pf'] = pf['flag'].to_numpy()
 
             # Fill leading/trailing NaN lags so every chunk has a usable
             # final value for downstream alignment. A gas listed in
             # lag_fallback borrows the donor's already-resolved series for
-            # whatever it could not determine itself.
+            # whatever it could not determine itself, period by period.
             donor_label = donor_of.get(label)
             donor = donors.get(donor_label)
             summary[f'{pfx}_tlag_final_s'] = PwbBatchDetection.fill_tlag_gaps(
                 summary[f'{pfx}_pwbopt_s_std'].to_numpy(),
                 tlag_s_raw=tlag, donor_s=donor,
+                accepted_s=std['accepted_s'].to_numpy(),
+                max_carry=self.max_carry,
             )
             final_pf, source = PwbBatchDetection.fill_tlag_gaps(
                 summary[f'{pfx}_pwbopt_s_pf'].to_numpy(),
                 tlag_s_raw=tlag, donor_s=donor, return_source=True,
+                accepted_s=pf['accepted_s'].to_numpy(),
+                max_carry=self.max_carry,
             )
             summary[f'{pfx}_tlag_final_pf_s'] = final_pf
             # Where each applied lag came from -- a borrowed lag is otherwise
@@ -2868,6 +3091,11 @@ class PerFilePipeline:
             summary[f'{pfx}_lag_source'] = [
                 f'from:{donor_label}' if v == 'donor' else (v or 'none')
                 for v in source]
+            # How stale the applied lag is, but only where it really is this
+            # gas's own carried value: a borrowed or back-filled lag did not
+            # travel from anywhere, so a number there would misread.
+            summary[f'{pfx}_carry_periods'] = np.where(
+                source == 'own', pf['carry_periods'].to_numpy(), np.nan)
             donors[label] = final_pf
         return summary
 
@@ -2997,6 +3225,13 @@ def _build_parser():
                    help='Pre-filter [s]: lags with HDI range above this are '
                         'set to NaN before PWBOPT (pre-filtered variant). '
                         'Set to 0 to disable.')
+    p.add_argument('--max-carry', type=int, default=None,
+                   help='Longest carry, in averaging periods, that PWBOPT S3 '
+                        'may use: a period with no usable detection takes the '
+                        'nearest optimal lag only if it is within this many '
+                        'periods, otherwise the lag expires and falls through '
+                        'to a donor gas or the median. Default: unlimited, '
+                        'which is the published behaviour.')
     p.add_argument('--lag-column-template', default='{prefix}_tlag_final_pf_s',
                    help='Which PWBOPT lag column to actually remove in phase '
                         '2. Use {prefix} for the lowercased scalar label. '
@@ -3148,6 +3383,7 @@ def _cli_main():
         hdi_thresh=args.hdi_thresh,
         dev_thresh=args.dev_thresh,
         hdi_prefilter=args.hdi_prefilter,
+        max_carry=args.max_carry,
         lag_column_template=args.lag_column_template,
         lws=args.lws,
         uws=args.uws,

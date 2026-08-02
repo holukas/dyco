@@ -568,6 +568,7 @@ _FIELDS = [
     ('hdithresh', 'HDI thresh', 'default 0.5  (S1: reliable if HDI range <)'),
     ('devthresh', 'Dev thresh', 'default 0.5  (S2: accept if within of prev)'),
     ('hdiprefilter', 'HDI prefilt', 'default 1.0  (drop lags HDI >; 0 = off)'),
+    ('maxcarry', 'Max carry', 'blank = unlimited  (periods a lag may travel)'),
     ('lagcol', 'Lag column', 'default {prefix}_tlag_final_pf_s  (lag removed)'),
     # --- File format (how each raw file is read) ---
     ('skiprows', 'Skip rows', 'default 0  (metadata lines before header row)'),
@@ -670,6 +671,7 @@ _VALIDATORS = {
     'hdithresh': [Function(_opt_num, 'a number of seconds')],
     'devthresh': [Function(_opt_num, 'a number of seconds')],
     'hdiprefilter': [Function(_opt_num, 'a number of seconds')],
+    'maxcarry': [Function(_opt_int, 'a whole number of periods, or blank')],
     'streg': [Function(_opt_regex, 'not a valid regular expression')],
 }
 
@@ -703,7 +705,8 @@ _DEFAULTS = {
 # PWB & chunking params that fall back to a default when left blank (see
 # _collect). The Reset button clears exactly these.
 _RESET_FIELDS = ['hz', 'chunk', 'minchunk', 'nboot', 'lagmax',
-                 'workers', 'hdithresh', 'devthresh', 'hdiprefilter']
+                 'workers', 'hdithresh', 'devthresh', 'hdiprefilter',
+                 'maxcarry']
 
 # Longer per-field explanations. Shown as a hover tooltip on the field and
 # its label, and echoed to the status line when the field gains focus, so
@@ -770,6 +773,12 @@ _HELP = {
     'hdiprefilter':
         'Pre-filter (seconds). Lags with an HDI range wider than this are '
         'dropped before PWBOPT (the pre-filtered variant). 0 disables it.',
+    'maxcarry':
+        'Longest carry, in averaging periods. A period with no usable '
+        'detection takes the nearest optimal lag only if it is within this '
+        'many periods; beyond that the lag expires and the period falls back '
+        'to a donor gas (Lag from) or the median. Blank = unlimited, which is '
+        'the published behaviour and can hand a lag to a period hours away.',
     'lagcol':
         'Which PWBOPT lag column is actually removed in phase 2. Default '
         '{prefix}_tlag_final_pf_s (pre-filtered, gap-filled "best" lag). Use '
@@ -926,6 +935,8 @@ def write_run_settings_yaml(output_dir, args, scalars: dict,
             'hdithresh': _fmt_win_num(args.hdi_thresh),
             'devthresh': _fmt_win_num(args.dev_thresh),
             'hdiprefilter': _fmt_win_num(args.hdi_prefilter),
+            'maxcarry': ('' if getattr(args, 'max_carry', None) is None
+                         else str(args.max_carry)),
             'lagcol': args.lag_column_template,
             'skiprows': str(args.skiprows),
             'extrarows': str(args.extra_rows),
@@ -1137,6 +1148,7 @@ class DetectRemoveTUI(App):
                 yield self._field('hdithresh')
                 yield self._field('devthresh')
                 yield self._field('hdiprefilter')
+                yield self._field('maxcarry')
                 yield self._field('lagcol')
                 yield Static('File format', classes='section')
                 yield self._field('skiprows')
@@ -2147,6 +2159,7 @@ class DetectRemoveTUI(App):
             hdi_thresh=float(g('hdithresh') or 0.5),
             dev_thresh=float(g('devthresh') or 0.5),
             hdi_prefilter=float(g('hdiprefilter') or 1.0),
+            max_carry=int(g('maxcarry')) if g('maxcarry') else None,
             lag_column_template=g('lagcol') or '{prefix}_tlag_final_pf_s',
             output_suffix=g('outsuffix') or 'auto',
             # File format

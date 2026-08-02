@@ -666,6 +666,46 @@ class TestPwbopt(unittest.TestCase):
         self.assertEqual(std['pwbopt_s'].iloc[1], 1.3)
         self.assertEqual(pf['pwbopt_s'].iloc[1], 1.0)
 
+    # ---- carry distance ----
+    def test_carry_periods_counts_how_far_a_lag_travelled(self):
+        # 0 where the period detected its own lag, n where it inherited one --
+        # 'own' in lag_source cannot tell those two apart on its own.
+        out = self._pwbopt([1.0, np.nan, np.nan, 2.0],
+                           [0.1, np.nan, np.nan, 0.1])
+        self.assertEqual(list(out['carry_periods']), [0, 1, 2, 0])
+
+    def test_accepted_holds_only_what_the_period_detected_itself(self):
+        out = self._pwbopt([1.0, np.nan, 2.0], [0.1, np.nan, 0.1])
+        acc = out['accepted_s'].to_numpy()
+        self.assertEqual(acc[0], 1.0)
+        self.assertTrue(np.isnan(acc[1]))     # carried, not detected here
+        self.assertEqual(acc[2], 2.0)
+        self.assertEqual(list(out['pwbopt_s']), [1.0, 1.0, 2.0])
+
+    def test_max_carry_expires_a_lag_that_travelled_too_far(self):
+        # Unbounded carry can hand a lag to a period hours away; with a limit
+        # the period is left for the donor or the median instead.
+        tlag = [1.0, np.nan, np.nan, np.nan]
+        hdi = [0.1, np.nan, np.nan, np.nan]
+        self.assertEqual(list(self._pwbopt(tlag, hdi)['pwbopt_s']), [1.0] * 4)
+        out = self._pwbopt(tlag, hdi, max_carry=2)
+        self.assertEqual(list(out['pwbopt_s'])[:3], [1.0, 1.0, 1.0])
+        self.assertTrue(np.isnan(out['pwbopt_s'].iloc[3]))
+        self.assertEqual(out['flag'].iloc[3], 'S3_expired')
+        self.assertTrue(np.isnan(out['carry_periods'].iloc[3]))
+
+    def test_an_expired_carry_is_no_longer_an_anchor_for_s2(self):
+        # S2 accepts a wide-HDI lag for sitting close to the preceding optimal.
+        # Once that optimal is too old to hand out, it is too old to justify
+        # accepting anything either -- otherwise the series drifts on evidence
+        # the carry limit just declared stale.
+        tlag = [1.0, np.nan, np.nan, 1.2]
+        hdi = [0.1, np.nan, np.nan, 3.0]
+        self.assertEqual(self._pwbopt(tlag, hdi)['flag'].iloc[3], 'S2_optimal')
+        out = self._pwbopt(tlag, hdi, max_carry=2)
+        self.assertEqual(out['flag'].iloc[3], 'S3_expired')
+        self.assertTrue(np.isnan(out['pwbopt_s'].iloc[3]))
+
     # ---- gap filling ----
     def test_fill_backfills_the_leading_gap(self):
         filled = self._fill([np.nan, np.nan, 2.0, 2.0])
@@ -731,6 +771,76 @@ class TestLagFromAnotherGas(unittest.TestCase):
             donor_s=donor, return_source=True)
         self.assertEqual(vals.tolist(), donor.tolist())
         self.assertEqual(list(src), ['donor'] * 4)
+
+    def test_the_gas_own_carried_lag_beats_the_donor(self):
+        # Two gases in one tube still have different delays, so borrowing
+        # trades a stale number for a biased one. The gas's own lag wins for
+        # as long as apply_pwbopt is willing to carry it.
+        from dyco.pwb import PwbBatchDetection
+        donor = np.array([8.0, 8.1, 8.2, 8.3])
+        accepted = np.array([3.0, np.nan, np.nan, np.nan])
+        carried = np.array([3.0, 3.0, 3.0, 3.0])
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            carried, tlag_s_raw=carried, donor_s=donor, accepted_s=accepted,
+            return_source=True)
+        self.assertEqual(vals.tolist(), [3.0, 3.0, 3.0, 3.0])
+        self.assertEqual(list(src), ['own'] * 4)
+
+    def test_the_donor_takes_over_once_the_carry_expires(self):
+        # The two settings work as a pair: max_carry says how long the gas's
+        # own lag stays good, lagfrom says what to use afterwards.
+        from dyco.pwb import PwbBatchDetection
+        tlag = [3.0, np.nan, np.nan, np.nan]
+        hdi = [0.1, np.nan, np.nan, np.nan]
+        out = PwbBatchDetection.apply_pwbopt(tlag, hdi, max_carry=1)
+        donor = np.array([8.0, 8.1, 8.2, 8.3])
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            out['pwbopt_s'].to_numpy(), tlag_s_raw=np.asarray(tlag, float),
+            donor_s=donor, accepted_s=out['accepted_s'].to_numpy(),
+            return_source=True)
+        self.assertEqual(vals.tolist(), [3.0, 3.0, 8.2, 8.3])
+        self.assertEqual(list(src), ['own', 'own', 'donor', 'donor'])
+
+    def test_the_gas_own_lag_reaches_backward_too_before_the_donor(self):
+        # A period before the gas's first detection takes that detection, just
+        # as a period after it would. Borrowing on one side and not the other
+        # would make the choice depend on which side of a detection a period
+        # happens to fall.
+        from dyco.pwb import PwbBatchDetection
+        donor = np.array([8.0, 8.1, 8.2])
+        accepted = np.array([np.nan, np.nan, 3.0])
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            accepted, tlag_s_raw=accepted, donor_s=donor, accepted_s=accepted,
+            return_source=True)
+        self.assertEqual(vals.tolist(), [3.0, 3.0, 3.0])
+        self.assertEqual(list(src), ['own'] * 3)
+
+    def test_the_whole_precedence_in_one_series(self):
+        # own detection -> own carried forward -> own filled backward -> donor,
+        # with max_carry bounding the gas's own reach in both directions.
+        from dyco.pwb import PwbBatchDetection
+        accepted = np.array([3.0, np.nan, np.nan, np.nan, 3.4])
+        carried = np.array([3.0, 3.0, np.nan, np.nan, 3.4])   # max_carry = 1
+        donor = np.array([8.0, 8.1, 8.2, 8.3, 8.4])
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            carried, tlag_s_raw=accepted, donor_s=donor, accepted_s=accepted,
+            max_carry=1, return_source=True)
+        self.assertEqual(vals.tolist(), [3.0, 3.0, 8.2, 3.4, 3.4])
+        self.assertEqual(list(src), ['own', 'own', 'donor', 'own', 'own'])
+
+    def test_an_unbounded_backward_fill_would_undo_the_carry_limit(self):
+        # Why the limit has to apply backward as well: the later detection
+        # would otherwise cover the whole stretch the forward carry was just
+        # forbidden to cross, and nothing would ever expire.
+        from dyco.pwb import PwbBatchDetection
+        accepted = np.array([3.0, np.nan, np.nan, np.nan, 3.4])
+        carried = np.array([3.0, 3.0, np.nan, np.nan, 3.4])
+        donor = np.array([8.0, 8.1, 8.2, 8.3, 8.4])
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            carried, tlag_s_raw=accepted, donor_s=donor, accepted_s=accepted,
+            return_source=True)          # max_carry not passed on
+        self.assertEqual(vals.tolist(), [3.0, 3.0, 3.4, 3.4, 3.4])
+        self.assertNotIn('donor', list(src))
 
     def test_without_a_donor_the_last_resort_is_the_median_of_rejected_lags(self):
         from dyco.pwb import PwbBatchDetection

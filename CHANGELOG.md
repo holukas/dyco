@@ -69,12 +69,29 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   `.7z`) is refused rather than quietly producing plain text under a name that promises otherwise
 - **A gas can take its lag from another gas**, for the periods where its own detection could not be
   trusted: `--scalar "N2O:n2o@lagfrom=CO2"`, or the **Lag from** field in the TUI, which starts with
-  every gas pointing at itself. Filled after PWBOPT and back-fill and before the median-of-raw last
-  resort, so a gas keeps every lag it can determine and borrows only what it cannot — period by
-  period, so a drifting donor lag is followed rather than averaged. Without it, a trace gas that
-  never detects reliably falls back to the median of detections PWBOPT has just rejected, which on
-  real noise is frequently a negative lag no tube can produce. Chains resolve donor-first; circular
-  ones are refused
+  every gas pointing at itself. A gas keeps every lag PWBOPT accepts for it (S1/S2) and every lag it
+  may still carry forward from an earlier period; past that it takes the donor's lag *for that same
+  period*. Own-lag-first at both tiers is deliberate — two gases down one tube have systematically
+  different delays, so borrowing swaps a stale number for a biased one, and `--max-carry` is what
+  says when staleness has become the bigger error. Without a donor, a trace gas that never detects
+  reliably falls back to the median of detections PWBOPT has just rejected, which on real noise is
+  frequently a negative lag no tube can produce. Chains resolve donor-first; circular ones are
+  refused. **Pair it with `--max-carry`**: with no carry limit a gas carries its own lag forever and
+  the donor reaches only the periods before its first detection — dyco warns when that happens
+- **`--max-carry N`** (**Max carry** in the TUI): the longest distance, in averaging periods, that
+  PWBOPT's S3 rule may carry a lag. The published rule is unbounded — one good half hour can supply
+  every later period in the run, however far away. Beyond the limit the lag expires (`S3_expired`)
+  and the period falls through to the donor gas or the median instead. `{gas}_carry_periods` reports
+  the distance for every period: `0` = detected in that period, `n` = carried `n` periods, empty =
+  came from somewhere else. Default unlimited, i.e. the published behaviour
+- **`{gas}_lag_applied_s` in the summary** — the lag that was actually removed, in seconds. The
+  summary carries six lag columns per gas and none of them said plainly which one reached the data;
+  this one is read back off the record shift, so it is true of the files on disk rather than of the
+  request. Alongside it, `{gas}_lag_reason` gives the decision in words
+- **`detect_and_remove_tlag_decisions.txt`** — one block per output file naming the lag applied to
+  each gas and why: detected here and reliable, accepted for continuity, carried *n* periods forward
+  from a named period, borrowed from a named gas, back-filled, or the median last resort. The
+  thresholds behind the decisions head the file, and a tally closes it
 - **`pwb-batch` and `apply-batch` now write `log.txt`** too, next to their results, the way
   `detect-remove` already did: run header, per-file lines, and the finish time
 - The `detect-remove` log header names a borrowed lag (`lag from CO2 where N2O has none`), so the
@@ -91,6 +108,10 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 
 ### Changed
 
+- **A period that produced no output file no longer gets a lag.** Short, duplicate and errored
+  chunks write nothing, so `{gas}_tlag_final_s`, `{gas}_tlag_final_pf_s`, `{gas}_carry_periods` and
+  `{gas}_lag_applied_s` are left empty for them and `{gas}_lag_source` reads `none`. A number in
+  those rows suggested something had been corrected there. The detection columns are untouched
 - **The TUI is now the recommended way to run dyco.** A detect-and-remove run takes around thirty
   settings; the TUI validates as you type, picks column names off a real file, and previews the run
   with a preflight check. The CLI is unchanged and remains the right choice for scripting

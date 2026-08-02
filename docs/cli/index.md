@@ -46,12 +46,34 @@ Say so per gas, with `@lagfrom=` (**Lag from** in the TUI):
 dyco detect-remove ... --scalar "CO2:CO2_DRY_[IRGA72-A]" --scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"
 ```
 
-N₂O keeps every lag it *can* determine for itself. Only the periods where it cannot take the CO₂ lag
-instead, and they take it period by period, so a donor lag that drifts is followed rather than
-flattened into a constant. The summary records the choice for every period in `{gas}_lag_source`
-(`own`, `from:CO2`, `median`), so a borrowed lag is never mistaken for a detected one.
+N₂O keeps every lag it *detects and PWBOPT accepts* (S1 or S2), and it keeps its own lag carried
+forward from an earlier period for as long as that lag is allowed to travel — see the carry limit
+below. Only past that does it take the CO₂ lag, **for that same period**, so a donor lag that drifts
+is followed rather than flattened into a constant. The summary records the choice for every period
+in `{gas}_lag_source` (`own`, `from:CO2`, `median`), so a borrowed lag is never mistaken for a
+detected one.
+
+The gas's own lag comes first at both tiers on purpose. Two gases down one tube still have different
+delays — a systematic 0.35 s between CH₄ and N₂O is ordinary — so borrowing swaps a stale number for
+a biased one. It is worth doing once the gas's own lag is old enough that staleness is the bigger
+error, and that is a judgement the carry limit expresses.
 
 Chains work (`CH4` from `N2O` from `CO2`); circular ones are rejected.
+
+## Limiting how far a lag may be carried
+
+PWBOPT's S3 rule gives a period with no usable detection the nearest earlier optimal lag, with no
+limit on the distance — one good half hour can supply the rest of a week. `--max-carry N`
+(**Max carry** in the TUI) caps it at N averaging periods. Beyond that the lag expires
+(`{gas}_flag_* = S3_expired`) and the period falls through to the donor gas, or to the median.
+
+`{gas}_carry_periods` reports the distance for every period: `0` where the lag was detected in that
+very period, `n` where it travelled `n` periods, empty where it came from somewhere else entirely.
+
+The default is unlimited, which is the published behaviour. It also means a donor is nearly idle:
+with no limit the gas carries its own lag forever and only the periods before its first detection
+are left to borrow. **`@lagfrom=` and `--max-carry` are meant to be set together**, and dyco warns
+when a donor is named without one.
 
 ## The two-step route
 
