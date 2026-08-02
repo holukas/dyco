@@ -43,10 +43,10 @@ dyco tui
 ```
 
 **This is the recommended way to run dyco.** A detect-and-remove run takes on
-the order of thirty settings — column names, file format, chunk length, search
-windows per gas, PWBOPT thresholds — and getting one of them wrong is easy on a
+the order of thirty settings: column names, file format, chunk length, search
+windows per gas, PWBOPT thresholds. Getting one of them wrong is easy on a
 command line and obvious in a form. The TUI validates as you type, scans your
-first file so you can pick column names from a list rather than typing bracketed
+first file so you can pick column names from a list instead of typing bracketed
 names by hand, and runs a preflight **Check** that reads a real file and reports
 what it found before anything is processed. It saves and reloads settings, and
 every run writes its configuration back out, so a run started in the TUI can be
@@ -56,12 +56,12 @@ repeated exactly.
 
 The TUI drives one command, `dyco detect-remove`, which is the whole job in one
 pass. That covers the normal case, including taking a weak gas's lag from a
-strong one — see [Taking a gas's lag from another gas](#taking-a-gass-lag-from-another-gas).
+strong one. See [Taking a gas's lag from another gas](#taking-a-gass-lag-from-another-gas).
 
-`dyco detect-remove` on the command line does everything the TUI does and is the
+The same command on the command line does everything the TUI does, and is the
 right choice for scripting or a scheduler. Every TUI run writes a
-`detect_remove_tui_settings.yaml` next to its results, which the TUI can reload —
-a convenient way to build a configuration interactively and then automate it.
+`detect_remove_tui_settings.yaml` next to its results, and the TUI can reload it.
+Build the configuration interactively, then automate the command.
 
 ## Command-line tools
 
@@ -82,15 +82,15 @@ dyco <command> --help   # options for one of them
 Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`,
 `dyco-pwb-batch`, `dyco-apply-batch`.
 
-Everything else in `dyco` — the file splitter, the flux detection limit, the
-covariance-maximization estimator — is a library API with no command of its own.
+Everything else in `dyco` is a library API with no command of its own: the file
+splitter, the flux detection limit, the covariance-maximization estimator.
 
 ### Taking a gas's lag from another gas
 
 A trace gas can be too noisy to locate its own lag. When that happens PWBOPT
-rejects the detections and the last resort is the *median of those same rejected
-numbers* — often a physically impossible negative lag. A reference gas travelling
-the same tube is a far better answer.
+rejects the detections, and the last resort is the *median of those same rejected
+numbers*, which on real data is often a negative lag no tube can produce. A
+reference gas travelling the same tube is a better answer.
 
 Say so per gas, with `@lagfrom=` (**Lag from** in the TUI):
 
@@ -98,18 +98,19 @@ Say so per gas, with `@lagfrom=` (**Lag from** in the TUI):
 dyco detect-remove ... --scalar "CO2:CO2_DRY_[IRGA72-A]" --scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"
 ```
 
-N<sub>2</sub>O keeps every lag it *can* determine. Only the periods it cannot
-take the CO<sub>2</sub> lag — period by period, so a drifting donor lag is
-followed rather than averaged into a constant. The summary records the choice
-per period in `{gas}_lag_source` (`own`, `from:CO2`, `median`), so a borrowed lag
-is never mistaken for a detected one.
+N<sub>2</sub>O keeps every lag it *can* determine for itself. Only the periods
+where it cannot take the CO<sub>2</sub> lag instead, and they take it period by
+period, so a donor lag that drifts is followed rather than flattened into a
+constant. The summary records the choice for every period in
+`{gas}_lag_source` (`own`, `from:CO2`, `median`), so a borrowed lag is never
+mistaken for a detected one.
 
 Chains work (`CH4` from `N2O` from `CO2`); circular ones are rejected.
 
-The two-step route is still there for cases this does not cover — `pwb-batch` to
+The two-step route is still there for cases this does not cover: `pwb-batch` to
 detect, then `apply-batch`, where `--scalar LABEL:column` reads the lag of one
 gas and shifts the column of another. It also applies when your files are already
-split into averaging periods by other software, so there is nothing for
+split into averaging periods by other software, leaving nothing for
 `detect-remove` to chunk.
 
 ### A complete `detect-remove` command
@@ -137,8 +138,9 @@ Reading it in groups:
 
 Output lands in two subfolders: `1_lag_detection/` (the summary CSV, a column dictionary, checkpoints,
 and diagnostic plots if you pass `--save-plots`) and `2_lag_removed/` (the corrected chunks, ready to
-be the input directory of the next step). A `detect_remove_tui_settings.yaml` is written alongside
-them, which `dyco tui` can load. That is a convenient way to inspect or re-run what a command line did.
+be the input directory of the next step). A `log.txt` at the root records what ran and what it
+decided. A `detect_remove_tui_settings.yaml` is written alongside
+them, which `dyco tui` can load, so a command line can be inspected or re-run from the form.
 
 ### Input file formats
 
@@ -155,7 +157,7 @@ scan a file to show you its columns first.
 | `--na-values` / `--na-rep` | What counts as missing on the way in, what is written for it on the way out. |
 | `--lineterm` | `auto` reproduces the input's CRLF or LF. Force it with `\r\n` or `\n`. |
 | `--file-pattern` | Which files to read. Compression is transparent: `.gz`, `.bz2`, `.xz` and `.zip` are read as the text they contain. |
-| `--output-suffix` | The extension the written chunks carry. Give the whole thing (`.csv`, `.csv.gz`, `.dat.zip`), just the text format (`csv` — writes plain text, dropping any compression), or just the compression (`zip` — keeps the input's text format, so `file1.csv` gives `file1.csv.zip`). `auto` (default) reuses the input's own extension. dyco decompresses the input and compresses the output from these extensions alone. This is what `{suffix}` in the name template expands to. |
+| `--output-suffix` | The extension the written chunks carry. Give the whole thing (`.csv`, `.csv.gz`, `.dat.zip`), just the text format (`csv`, which writes plain text and drops any compression), or just the compression (`zip`, which keeps the input's text format, so `file1.csv` gives `file1.csv.zip`). `auto` (default) reuses the input's own extension. dyco decompresses the input and compresses the output from these extensions alone. This is what `{suffix}` in the name template expands to. |
 
 Two limits worth knowing. This path reads **delimited text only**; Parquet is read by
 `dyco.files.read_raw_data`, which serves the file splitter, not this pipeline. And it needs **no
@@ -181,10 +183,10 @@ lag is known in advance and can be checked.
 
 ```mermaid
 flowchart TD
-    RAW["Raw EC file<br/>unrotated, CSV or CSV.GZ<br/>--input-dir, --file-pattern"]
+    RAW["Raw EC file<br/>unrotated delimited text, plain or compressed<br/>--input-dir, --file-pattern"]
     RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30"]
 
-    subgraph P1["Phase 1 — detect (nothing is written yet)"]
+    subgraph P1["Phase 1: detect (nothing is written yet)"]
         direction TB
         ROT["Double rotation<br/>in memory only, never reaches disk"]
         PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC"]
@@ -197,20 +199,34 @@ flowchart TD
 
     EST --> OPT{"PWBOPT<br/>all chunks together, in time order"}
     OPT -->|"S1: HDI narrower than --hdi-thresh"| KEEP["trust the chunk's own lag"]
-    OPT -->|"S2 / S3: HDI too wide"| SUB["substitute a reliable neighbouring lag"]
+    OPT -->|"S2: close to the last trusted lag"| KEEP
+    OPT -->|"S3: neither"| SUB["carry the last trusted lag forward"]
 
-    subgraph P2["Phase 2 — remove"]
+    KEEP --> GAP
+    SUB --> GAP
+
+    subgraph P3["Still no lag? fill the gap, best source first"]
+        direction TB
+        GAP{"any period still without a lag"}
+        GAP -->|"the gas has a lag elsewhere"| BFILL["back-fill from its own first trusted lag"]
+        GAP -->|"--scalar ...@lagfrom=CO2"| DONOR["take that period's lag from the other gas"]
+        GAP -->|"nothing else left"| MED["median of this gas's raw detections<br/>(all of them rejected, a last resort)"]
+    end
+
+    BFILL --> APPLY
+    DONOR --> APPLY
+    MED --> APPLY
+
+    subgraph P2["Phase 2: remove"]
         direction TB
         APPLY["Shift each scalar in the UNROTATED chunk<br/>by round(tlag * hz) records"]
-        WRITE["Write one file per chunk<br/>header rows and column order intact"]
+        WRITE["Write one file per chunk<br/>header rows and column order intact<br/>--output-suffix picks .csv / .csv.gz / .zip"]
         APPLY --> WRITE
     end
 
-    KEEP --> APPLY
-    SUB --> APPLY
-
     WRITE --> OUT["2_lag_removed/<br/>lag-compensated raw files<br/>-> flux software, lag maximization OFF"]
-    EST -.-> CSV["1_lag_detection/<br/>summary CSV, checkpoints,<br/>plots if --save-plots"]
+    EST -.-> CSV["1_lag_detection/<br/>summary CSV incl. {gas}_lag_source,<br/>checkpoints, plots if --save-plots"]
+    WRITE -.-> LOG["log.txt<br/>what ran, and what it decided"]
 ```
 
 Detection and removal are separate phases because PWBOPT cannot decide anything about one chunk until
@@ -240,19 +256,19 @@ smoothed peak wins. **`T_SONIC` is required.**
 `dyco-detect-remove` works in two phases over fixed-length chunks, because a multi-hour raw file is
 the wrong granularity for lag detection: both the rotation angles and the tube delay drift over hours.
 
-**Phase 1 — detect.** Each chunk is read, double-rotated in memory, and passed to the PWB detector.
+**Phase 1, detect.** Each chunk is read, double-rotated in memory, and passed to the PWB detector.
 Nothing is written yet. Rotation happens in memory only; the rotated data never reach disk.
 
 **PWBOPT.** With every chunk's raw detection in hand, the S1/S2/S3 decision rule (Vitale et al. 2024,
 Section 2.3) runs across the whole sequence in temporal order. A chunk with a wide HDI has an
 untrustworthy mode lag, and PWBOPT replaces it with a neighbouring reliable one rather than accepting
-a spurious value. This is why detection and removal are separate phases — the rule needs the full
+a spurious value. That is why detection and removal are separate phases: the rule needs the full
 sequence before it can decide anything.
 
-**Phase 2 — remove.** Each scalar in the **unrotated** chunk is shifted by `round(tlag * hz)` rows,
+**Phase 2, remove.** Each scalar in the **unrotated** chunk is shifted by `round(tlag * hz)` rows,
 and the chunk is written out as its own file with the original header rows and column order intact.
-A 6-hour input file yields up to twelve 30-minute output files. Gzipped input
-is read and written transparently: a `.csv.gz` in gives `.gz` chunks out.
+A 6-hour input file yields up to twelve 30-minute output files. Compressed input
+is read transparently, and `--output-suffix` decides how the chunks are written.
 
 Chunk boundaries snap to the wall-clock grid (:00 / :30) when the file start time can be parsed, so
 downstream software bins them correctly. A file starting off-grid produces a shorter leading chunk.
@@ -269,15 +285,15 @@ dyco-detect-remove --scalar "CH4:ch4" --scalar "H2O:h2o@lag=30;uws=25" --lws 0 -
 ```
 
 A positive-only window keeps only physical tube delays (a closed-path delay is always > 0). A
-long-inlet gas such as H<sub>2</sub>O can use a wider window than the dry gases in the same run —
-necessary because EddyPro applies a single lag setting to all gases downstream. Keep the expected lag
+long-inlet gas such as H<sub>2</sub>O can use a wider window than the dry gases in the same run,
+which matters because EddyPro applies a single lag setting to all gases downstream. Keep the expected lag
 near the middle of the window; detections pinned to a boundary are unreliable and are discarded.
 
 ### Input requirements
 
 PWB detection needs **wind-rotation-corrected** high-frequency data. `dyco-detect-remove` handles
 this itself. If you use `dyco-pwb-batch` on pre-split files, they must already be rotated (double
-rotation or planar fit, e.g. EddyPro "Advanced" rotated output) — a non-zero mean `W` corrupts the
+rotation or planar fit, e.g. EddyPro "Advanced" rotated output). A non-zero mean `W` corrupts the
 cross-correlation.
 
 ## Other tools
@@ -296,7 +312,7 @@ from dyco.split import FileSplitterMulti
 
 ### Wind rotation
 
-`WindDoubleRotation` and `reynolds_decomposition` — double rotation for sonic anemometer tilt
+`WindDoubleRotation` and `reynolds_decomposition`: double rotation for sonic anemometer tilt
 correction, and turbulent departures `x' = x - mean(x)`.
 
 ```python
@@ -319,7 +335,7 @@ Detecting the lag between the turbulent departures of measured wind and the scal
 central step in calculating eddy covariance ecosystem fluxes. When covariance maximization fails to
 find a clear peak, flux software falls back to a constant nominal lag. But both finding a clear peak
 and choosing a reliable default are hard for compounds with low signal-to-noise ratio such as
-N<sub>2</sub>O — and one static default produces poor results when the raw data contain systematic
+N<sub>2</sub>O. One static default also produces poor results when the raw data contain systematic
 time shifts.
 
 `dyco` assists flux processing software for exactly these compounds. It offers:
@@ -328,10 +344,10 @@ time shifts.
   rather than silently accepted, and a decision rule that substitutes a trustworthy neighbouring lag
   when a period's own detection cannot be trusted
 - lags detected on a high-SNR *reference* gas used for a low-SNR *target* measured by the same
-  analyzer, where the target cannot determine its own — see
+  analyzer, where the target cannot determine its own. See
   [Taking a gas's lag from another gas](#taking-a-gass-lag-from-another-gas)
-- dynamic compensation across raw files, so a lag that drifts — from an unsynchronized instrument
-  clock, say — is followed period by period instead of averaged away
+- dynamic compensation across raw files, so a lag that drifts (from an unsynchronized instrument
+  clock, say) is followed period by period instead of averaged away
 
 The output is lag-removed files usable directly in flux calculation software.
 
@@ -367,7 +383,7 @@ records CO<sub>2</sub>. Air sampled by the analyzer takes time to travel from th
 measurement cell, so the gas signal lags the wind. Covariance maximization handles CO<sub>2</sub> well
 but mostly fails for N<sub>2</sub>O, whose cross-correlation function is noisy, giving noisy fluxes.
 Since N<sub>2</sub>O has adsorption/desorption characteristics similar to CO<sub>2</sub>, both need
-roughly the same travel time — so `dyco` can detect lags on CO<sub>2</sub> and remove them from
+roughly the same travel time, so `dyco` can detect lags on CO<sub>2</sub> and remove them from
 N<sub>2</sub>O. Once the tube delay is out of the files, the remaining wind-to-N<sub>2</sub>O lag sits
 near zero, which makes a small window or a constant lag viable during flux calculation.
 
