@@ -74,6 +74,10 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   never detects reliably falls back to the median of detections PWBOPT has just rejected, which on
   real noise is frequently a negative lag no tube can produce. Chains resolve donor-first; circular
   ones are refused
+- **`pwb-batch` and `apply-batch` now write `log.txt`** too, next to their results, the way
+  `detect-remove` already did: run header, per-file lines, and the finish time
+- The `detect-remove` log header names a borrowed lag (`lag from CO2 where N2O has none`), so the
+  per-chunk lines cannot show a gas matching its donor without saying why
 - `{gas}_lag_source` in the summary: `own`, `from:CO2` or `median` per period, so a borrowed lag is
   never mistaken for a detected one
 - The TUI title bar shows the version, read from package metadata rather than hardcoded
@@ -125,6 +129,10 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   window, so the paper's `hz/2 + 1` was unusable at 10 Hz (= 6). Even widths now follow zoo's
   `align="center"` convention, putting the extra sample after the centre, and a window wider than
   the series returns all-NaN instead of a shape error
+
+- **`dyco apply-batch` crashed on a legacy Windows console** before doing any work: the Rich progress
+  spinner defaults to braille characters, which cp1252 cannot encode, so the run died with
+  `UnicodeEncodeError` instead of starting. All three CLIs now use the ASCII spinner
 
 - **The TUI's column scan and preflight check produced garbage on compressed input.** Both used a
   plain `open()`, so a `.csv.gz` was decoded as text: five replacement-character "column names"

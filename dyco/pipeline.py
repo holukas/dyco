@@ -3196,7 +3196,14 @@ def _cli_main():
         f'U={args.col_u!r}  V={args.col_v!r}  W={args.col_w!r}  '
         f'T_SONIC={args.col_tsonic!r}')
     for label, col in scalars.items():
-        out(f'[dim]scalar:[/dim]  [bold]{label}[/bold]  <- {col!r}')
+        borrow = lag_fallback.get(label)
+        # A borrowed lag changes the numbers the run produces, so the header
+        # has to say so -- otherwise the per-chunk lines show a gas matching
+        # its donor with no indication why.
+        src = (f'   [dim]lag from[/dim] [bold]{borrow}[/bold] '
+               f'[dim]where {label} has none[/dim]'
+               if borrow and borrow != label else '')
+        out(f'[dim]scalar:[/dim]  [bold]{label}[/bold]  <- {col!r}{src}')
     out(f'[dim]PWBOPT:[/dim]  hdi-thresh {args.hdi_thresh} s    '
         f'dev-thresh {args.dev_thresh} s    '
         f'hdi-prefilter {args.hdi_prefilter} s')
@@ -3242,7 +3249,10 @@ def _cli_main():
         console=console,
     )
     workers = Progress(
-        SpinnerColumn(),
+        # 'line' is ASCII (-\|/). The default 'dots' spinner is braille,
+        # which a legacy Windows console (cp1252) cannot encode -- it
+        # crashed dyco apply-batch outright.
+        SpinnerColumn('line'),
         BarColumn(bar_width=18),
         TextColumn('{task.description}'),
         console=console,

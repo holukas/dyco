@@ -683,6 +683,18 @@ def _cli_main():
                                TimeElapsedColumn, TimeRemainingColumn)
     console = _Console(log_path=False)
 
+    # Static lines go to screen and to log.txt; the animated progress
+    # display only to screen.
+    log_lines: list = []
+
+    def out(markup: str = '') -> None:
+        console.print(markup)
+        try:
+            from rich.text import Text as _RichText
+            log_lines.append(_RichText.from_markup(markup).plain)
+        except Exception:
+            log_lines.append(str(markup))
+
     args = _build_parser().parse_args()
 
     input_dir = Path(args.input_dir)
@@ -741,7 +753,20 @@ def _cli_main():
 
     msg = (f'PWB lag application  {total} files  '
            f'{applier.n_workers} workers  -> {args.output_dir}')
-    console.print(f'\n[bold]{msg}[/bold]\n')
+    out(f'\n[bold]{msg}[/bold]\n')
+    from datetime import datetime as _dt
+    _now = lambda: _dt.now().astimezone().isoformat(timespec="seconds")
+    out(f'[dim]started:[/dim] {_now()}')
+    out(f'[dim]input :[/dim]  {input_dir}')
+    out(f'[dim]output:[/dim]  {args.output_dir}')
+    out(f'[dim]lags  :[/dim]  {results_csv}  '
+        f'[dim](column {args.lag_column_template})[/dim]')
+    for label, col in scalars.items():
+        out(f'[dim]scalar:[/dim]  lag of [bold]{label}[/bold] '
+            f'-> column {col!r}')
+    out(f'[dim]params:[/dim]  hz {args.hz}    skiprows {args.skiprows}    '
+        f'extra-rows {args.extra_rows}')
+    out()
 
     def _fmt(row, gas):
         pfx = gas.lower()
@@ -758,7 +783,10 @@ def _cli_main():
                 f'[{lag_color}]{v:+.2f}[/{lag_color}]')
 
     prog = Progress(
-        SpinnerColumn(),
+        # 'line' is ASCII (-\|/). The default 'dots' spinner is braille,
+        # which a legacy Windows console (cp1252) cannot encode -- it
+        # crashed dyco apply-batch outright.
+        SpinnerColumn('line'),
         TextColumn('[progress.description]{task.description}'),
         BarColumn(bar_width=40),
         MofNCompleteColumn(),
@@ -785,12 +813,20 @@ def _cli_main():
 
         summary = applier.run(on_progress=_cb)
 
-    console.print(f'\n[green]Done — {len(summary)} files.[/green]')
+    out(f'\n[green]Done — {len(summary)} files.[/green]')
 
     # Always write a summary CSV next to the output dir
     summary_csv = Path(args.output_dir) / 'apply_tlag_summary.csv'
     summary.to_csv(summary_csv, index=False)
-    print(f'Summary saved to: {summary_csv}')
+    out(f'Summary saved to: {summary_csv}')
+    out(f'[dim]finished:[/dim] {_now()}')
+
+    log_path = Path(args.output_dir) / 'log.txt'
+    try:
+        log_path.write_text(chr(10).join(log_lines) + chr(10), encoding='utf-8')
+    except Exception:
+        pass        # never let log-saving fail the run
+    print(f'Log saved to: {log_path}')
 
 
 if __name__ == '__main__':

@@ -2894,6 +2894,18 @@ def _cli_main():
                                TimeElapsedColumn, TimeRemainingColumn)
     console = _Console(log_path=False)
 
+    # Same arrangement as the detect-remove CLI: static lines go to screen
+    # and to log.txt, the animated progress display only to screen.
+    log_lines: list = []
+
+    def out(markup: str = '') -> None:
+        console.print(markup)
+        try:
+            from rich.text import Text as _RichText
+            log_lines.append(_RichText.from_markup(markup).plain)
+        except Exception:
+            log_lines.append(str(markup))
+
     args = _build_parser().parse_args()
 
     input_dir = Path(args.input_dir)
@@ -2940,7 +2952,22 @@ def _cli_main():
     msg = (f'PWB batch detection  {len(files)} files  '
            f'{det.n_workers} workers  -> {args.output_dir}')
 
-    console.print(f'\n[bold]{msg}[/bold]\n')
+    out(f'\n[bold]{msg}[/bold]\n')
+    from datetime import datetime as _dt
+    _now = lambda: _dt.now().astimezone().isoformat(timespec="seconds")
+    out(f'[dim]started:[/dim] {_now()}')
+    out(f'[dim]input :[/dim]  {input_dir}  '
+        f'[dim]({len(files)} files, pattern {args.file_pattern!r})[/dim]')
+    out(f'[dim]output:[/dim]  {args.output_dir}')
+    out(f'[dim]wind  :[/dim]  W={args.col_w!r}  T_SONIC={args.col_tsonic!r}')
+    for label, col in scalars.items():
+        out(f'[dim]scalar:[/dim]  [bold]{label}[/bold]  <- {col!r}')
+    out(f'[dim]params:[/dim]  hz {args.hz}    lag-max {args.lag_max} s    '
+        f'n-boot {args.n_bootstrap}    block {args.block_length} s')
+    out(f'[dim]PWBOPT:[/dim]  hdi-thresh {args.hdi_thresh} s    '
+        f'dev-thresh {args.dev_thresh} s    '
+        f'hdi-prefilter {args.hdi_prefilter} s')
+    out()
 
     def _fmt(row, gas):
         pfx = gas.lower()
@@ -2953,7 +2980,10 @@ def _cli_main():
         return f'{gas}=[bold]{v:.2f}s[/bold] HDI=[{hdi_color}]{h:.2f}[/{hdi_color}]'
 
     prog = Progress(
-        SpinnerColumn(),
+        # 'line' is ASCII (-\|/). The default 'dots' spinner is braille,
+        # which a legacy Windows console (cp1252) cannot encode -- it
+        # crashed dyco apply-batch outright.
+        SpinnerColumn('line'),
         TextColumn('[progress.description]{task.description}'),
         BarColumn(bar_width=40),
         MofNCompleteColumn(),
@@ -2976,7 +3006,7 @@ def _cli_main():
 
         results = det.run(on_progress=_cb)
 
-    console.print(f'\n[green]Done — {len(results)} periods.[/green]')
+    out(f'\n[green]Done — {len(results)} periods.[/green]')
 
     # PWBOPT post-processing
     for label in scalars:
@@ -3017,7 +3047,15 @@ def _cli_main():
 
     out_csv = Path(args.output_dir) / 'tlag_results.csv'
     results.to_csv(out_csv, index=False)
-    print(f'Results saved to: {out_csv}')
+    out(f'Results saved to: {out_csv}')
+    out(f'[dim]finished:[/dim] {_now()}')
+
+    log_path = Path(args.output_dir) / 'log.txt'
+    try:
+        log_path.write_text(chr(10).join(log_lines) + chr(10), encoding='utf-8')
+    except Exception:
+        pass        # never let log-saving fail the run
+    print(f'Log saved to: {log_path}')
 
 
 if __name__ == '__main__':
