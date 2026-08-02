@@ -245,6 +245,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
 from pandas import DataFrame
+from scipy.fft import irfft as _irfft, next_fast_len, rfft as _rfft
 from scipy.signal import correlate as _signal_correlate, detrend as _detrend, lfilter
 from scipy.stats import gaussian_kde
 
@@ -1044,8 +1045,9 @@ class PreWhiteningBootstrap:
         starts = self._rng.integers(0, n_starts, size=(N_B, n_blocks_per_sample))
         offsets = np.arange(L)
         idx = (starts[:, :, np.newaxis] + offsets[np.newaxis, np.newaxis, :])
+        # Starts top out at n-L and offsets at L-1, so no index can exceed n-1
+        # and the trailing partial block is handled by truncating to n columns.
         idx = idx.reshape(N_B, -1)[:, :n]
-        idx = np.minimum(idx, n - 1)  # guard the final partial block
 
         x_boot = x_pw[idx]
         y_boot = y_pw[idx]
@@ -1102,27 +1104,52 @@ class PreWhiteningBootstrap:
         N_B, N = X.shape
         lag_max = self._lag_max_records
 
-        X_c = X - X.mean(axis=1, keepdims=True)
-        Y_c = Y - Y.mean(axis=1, keepdims=True)
-
         # Only lags in [-lag_max, +lag_max] are kept, so circular wraparound is
         # harmless as long as n_fft >= N + lag_max (the contaminating terms fall
-        # outside the linear-correlation support). This is half the size of the
-        # full 2*N-1 zero-pad and gives identical values in the kept window.
-        n_fft = 1 << (N + lag_max - 1).bit_length()
+        # outside the linear-correlation support). That bound is tight, so take
+        # the smallest 5-smooth length above it rather than the next power of
+        # two: for a 30-min 20 Hz chunk that is 36288 instead of 65536, and the
+        # transform is the single most expensive thing dyco does.
+        n_fft = next_fast_len(N + lag_max)
 
-        FX = np.fft.rfft(X_c, n=n_fft, axis=1)
-        FY = np.fft.rfft(Y_c, n=n_fft, axis=1)
+        def _centre_padded(A: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            """Centre A into a zero-padded (N_B, n_fft) buffer; return it + row SS.
 
-        ccf_full = np.fft.irfft(FY * np.conj(FX), n=n_fft, axis=1)
+            Centring, zero-padding and the sum of squares each want a full pass
+            over ~30 MB. Writing the centred values straight into the padded
+            buffer folds three passes into one and saves the copy the FFT would
+            otherwise make to pad. einsum computes the row sums of squares
+            without materialising A**2.
 
-        norm = np.sqrt((X_c ** 2).sum(axis=1) * (Y_c ** 2).sum(axis=1))
-        norm = np.where(norm == 0.0, 1.0, norm)
-        ccf_full /= norm[:, np.newaxis]
+            Gathering the bootstrap blocks directly into this buffer looks like
+            the next step, but is not: ``np.take`` into a strided view drops off
+            numpy's fast path and costs more (21 ms) than the plain advanced-index
+            gather plus this pass (15 ms).
+            """
+            buf = np.zeros((N_B, n_fft), dtype=np.float64)
+            centred = buf[:, :N]
+            np.subtract(A, A.mean(axis=1, keepdims=True), out=centred)
+            return buf, np.einsum('ij,ij->i', centred, centred)
 
+        X_pad, ss_x = _centre_padded(X)
+        Y_pad, ss_y = _centre_padded(Y)
+
+        FX = _rfft(X_pad, axis=1)
+        FY = _rfft(Y_pad, axis=1)
+
+        FY *= np.conj(FX)
+        ccf_full = _irfft(FY, n=n_fft, axis=1, overwrite_x=True)
+
+        # Slice first, then normalise: only 2*lag_max+1 of the n_fft columns
+        # survive, so dividing the whole array is ~90x wasted work.
         neg = ccf_full[:, n_fft - lag_max:]
         pos = ccf_full[:, :lag_max + 1]
-        return np.concatenate([neg, pos], axis=1)
+        ccf = np.concatenate([neg, pos], axis=1)
+
+        norm = np.sqrt(ss_x * ss_y)
+        norm = np.where(norm == 0.0, 1.0, norm)
+        ccf /= norm[:, np.newaxis]
+        return ccf
 
     # ------------------------------------------------------------------
     # Private: cross-correlation and cross-covariance

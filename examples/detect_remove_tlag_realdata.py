@@ -31,9 +31,9 @@ and needs no special handling - the pipeline takes column names as given.
 Run time
 --------
 This is real work, not a toy: PWB runs a block-bootstrap per gas per chunk, so
-expect roughly a minute for the two bundled chunks. ``n_bootstrap`` is lowered
-from the paper's default here to keep the example tolerable; raise it for
-production use.
+expect something like ten seconds for the two bundled chunks. ``n_bootstrap`` is
+lowered from the paper's default here to keep the example tolerable; raise it
+for production use.
 
 Output goes to a temporary directory that is removed at the end. Set the
 ``DYCO_OUT`` environment variable to a real path to keep the results instead.
