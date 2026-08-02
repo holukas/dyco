@@ -248,6 +248,39 @@ class TestPwbPerGasWindow(unittest.TestCase):
         self.assertIn(f'v{version("dyco")}', header)
         self.assertIn('dyco', header)
 
+    def test_tui_lagfrom_field_seeds_each_gas_to_itself(self):
+        # The default has to be "own lag only", i.e. today's behaviour: a field
+        # that silently pointed a gas somewhere else would change results.
+        try:
+            import asyncio
+            from dyco.tui import DetectRemoveTUI
+            from textual.widgets import Input
+        except Exception:
+            self.skipTest('textual TUI not importable')
+
+        async def scenario():
+            app = DetectRemoveTUI(demo=False)
+            async with app.run_test(size=(140, 60)) as pilot:
+                await pilot.pause()
+                scal = app.query_one('#scalars', Input)
+                lf = lambda: app.query_one('#lagfrom', Input).value
+                scal.value = 'CO2:co2,N2O:n2o'
+                await pilot.pause()
+                seeded = lf()
+                # a choice the user has made survives a new gas arriving
+                app.query_one('#lagfrom', Input).value = 'CO2:CO2,N2O:CO2'
+                scal.value = 'CO2:co2,N2O:n2o,CH4:ch4'
+                await pilot.pause()
+                kept = lf()
+                scal.value = 'CO2:co2'
+                await pilot.pause()
+                return seeded, kept, lf()
+
+        seeded, kept, dropped = asyncio.run(scenario())
+        self.assertEqual(seeded, 'CO2:CO2,N2O:N2O')
+        self.assertEqual(kept, 'CO2:CO2,N2O:CO2,CH4:CH4')
+        self.assertEqual(dropped, 'CO2:CO2')
+
     def test_tui_win_field_autosync(self):
         try:
             import asyncio
@@ -571,6 +604,100 @@ class TestPwbopt(unittest.TestCase):
         # Better an explicit NaN (skipped: lag_nan) than a fabricated lag.
         filled = self._fill([np.nan, np.nan], tlag_s_raw=[np.nan, np.nan])
         self.assertTrue(np.isnan(filled).all())
+
+
+class TestLagFromAnotherGas(unittest.TestCase):
+    """A gas can take its lag from another gas measured through the same tube.
+
+    Only where its own detection could not be trusted. Without this, a trace
+    gas that never detects reliably falls back to the median of the very
+    detections PWBOPT rejected -- a number, not an answer.
+    """
+
+    def test_the_donor_order_puts_the_source_gas_first(self):
+        from dyco.pipeline import resolve_lag_fallback
+        scalars = {'CO2': 'a', 'N2O': 'b', 'CH4': 'c'}
+        # a gas pointing at itself is the default and means "own lag only"
+        self.assertEqual(resolve_lag_fallback(
+            {'CO2': 'CO2', 'N2O': 'N2O'}, scalars), ['CO2', 'N2O', 'CH4'])
+        # a chain resolves deepest-first
+        self.assertEqual(resolve_lag_fallback(
+            {'N2O': 'CH4', 'CH4': 'CO2'}, scalars), ['CO2', 'CH4', 'N2O'])
+
+    def test_an_unknown_or_circular_source_is_rejected(self):
+        from dyco.pipeline import resolve_lag_fallback
+        scalars = {'CO2': 'a', 'N2O': 'b'}
+        with self.assertRaises(ValueError) as ctx:
+            resolve_lag_fallback({'N2O': 'SF6'}, scalars)
+        self.assertIn('SF6', str(ctx.exception))
+        with self.assertRaises(ValueError) as ctx:
+            resolve_lag_fallback({'N2O': 'CO2', 'CO2': 'N2O'}, scalars)
+        self.assertIn('circular', str(ctx.exception))
+
+    def test_the_donor_fills_only_what_the_gas_could_not_determine(self):
+        from dyco.pwb import PwbBatchDetection
+        donor = np.array([8.0, 8.1, 8.2, 8.3])
+        # own lag known from period 2 on; back-fill covers 0 and 1
+        own = np.array([np.nan, np.nan, 3.0, 3.0])
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            own, tlag_s_raw=own, donor_s=donor, return_source=True)
+        self.assertEqual(vals.tolist(), [3.0, 3.0, 3.0, 3.0])
+        self.assertEqual(list(src), ['own'] * 4)
+        # nothing of its own anywhere -> the donor, period by period
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            np.full(4, np.nan), tlag_s_raw=np.array([2., 7., -3., 9.]),
+            donor_s=donor, return_source=True)
+        self.assertEqual(vals.tolist(), donor.tolist())
+        self.assertEqual(list(src), ['donor'] * 4)
+
+    def test_without_a_donor_the_last_resort_is_the_median_of_rejected_lags(self):
+        from dyco.pwb import PwbBatchDetection
+        vals, src = PwbBatchDetection.fill_tlag_gaps(
+            np.full(4, np.nan), tlag_s_raw=np.array([2., 7., -3., 9.]),
+            return_source=True)
+        self.assertEqual(vals.tolist(), [4.5] * 4)
+        self.assertEqual(list(src), ['median'] * 4)
+
+    def test_the_spec_parser_reads_lagfrom(self):
+        from dyco.pipeline import parse_scalar_spec
+        self.assertEqual(parse_scalar_spec('N2O:n2o@lagfrom=CO2'),
+                         ('N2O', 'n2o', {'lagfrom': 'CO2'}))
+        with self.assertRaises(ValueError):
+            parse_scalar_spec('N2O:n2o@lagfrom=')
+
+    def test_an_undetectable_gas_borrows_end_to_end(self):
+        from dyco.pipeline import PerFilePipeline
+        rng = np.random.default_rng(5)
+        n = 4800
+        w = rng.standard_normal(n)
+        df = pd.DataFrame({
+            'u': rng.standard_normal(n), 'v': rng.standard_normal(n), 'w': w,
+            'ts': 0.8 * w + 0.2 * rng.standard_normal(n),
+            # CO2 is the wind delayed by 1.5 s; N2O is pure noise
+            'co2': np.r_[np.zeros(30), w[:-30]] + 0.05 * rng.standard_normal(n),
+            'n2o': rng.standard_normal(n),
+        })
+        with TemporaryDirectory() as ind, TemporaryDirectory() as out:
+            src = Path(ind) / 'site_202401010000.csv'
+            with open(src, 'w', encoding='utf-8', newline='') as fh:
+                fh.write(','.join(df.columns) + chr(10))
+                df.to_csv(fh, index=False, header=False,
+                          lineterminator=chr(10))
+            summary = PerFilePipeline(
+                Path(ind), Path(out), 'u', 'v', 'w', 'ts',
+                {'CO2': 'co2', 'N2O': 'n2o'}, hz=20, lag_max_s=5.0,
+                n_bootstrap=19, chunk_seconds=60, min_chunk_seconds=30,
+                sep=',', extra_rows=0, n_workers=1, file_pattern='*.csv',
+                lag_fallback={'CO2': 'CO2', 'N2O': 'CO2'},
+                random_state=42).run()
+
+        co2 = summary['co2_tlag_final_pf_s'].to_numpy(dtype=float)
+        n2o = summary['n2o_tlag_final_pf_s'].to_numpy(dtype=float)
+        # N2O's own detections are junk, so every period takes the CO2 lag --
+        # per period, so a drifting donor lag is followed rather than averaged.
+        np.testing.assert_allclose(n2o, co2)
+        self.assertEqual(set(summary['n2o_lag_source']), {'from:CO2'})
+        self.assertEqual(set(summary['co2_lag_source']), {'own'})
 
 
 class TestPwboptFinalLags(unittest.TestCase):

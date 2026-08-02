@@ -2476,7 +2476,9 @@ class PwbBatchDetection:
             pwbopt_s,
             tlag_s_raw=None,
             fallback: float | None = None,
-    ) -> np.ndarray:
+            donor_s=None,
+            return_source: bool = False,
+    ):
         """
         Fill NaN values in a PWBOPT lag series so every averaging period has
         a usable time lag for flux covariance calculation.
@@ -2487,9 +2489,16 @@ class PwbBatchDetection:
 
         1. **Backward fill** — propagates the first reliable lag backward to
            cover the leading NaN periods.
-        2. **Median of raw lags** — if the entire series is NaN (no S1/S2
-           detection at all), the median of all raw detected lags is used.
-        3. **Explicit fallback** — constant value used as last resort (e.g.
+        2. **Another gas's lag** — *donor_s*, the final lag series of the gas
+           named by ``lagfrom``. A trace gas whose own cross-correlation is too
+           noisy to trust anywhere gets nothing from steps 1 and 3 but the
+           median of detections PWBOPT has just rejected; a reference gas
+           measured through the same tube is a far better answer. Only gaps are
+           filled, so the gas's own trustworthy lags always win.
+        3. **Median of raw lags** — if the entire series is still NaN, the
+           median of all raw detected lags is used. This is a last resort: the
+           lags being averaged are exactly the ones judged unreliable.
+        4. **Explicit fallback** — constant value used as last resort (e.g.
            the nominal tube-delay for the gas/site).
 
         Args:
@@ -2499,24 +2508,45 @@ class PwbBatchDetection:
                 are already NaN (rejected at detection time), so they do not
                 pollute the median.
             fallback: Constant lag in seconds used as last resort.
+            donor_s: Final lag series of another gas, same length. Fills what
+                this gas could not determine itself.
+            return_source: Also return a per-period label saying where each
+                lag came from (``'own'``, ``'donor'``, ``'median'``,
+                ``'fallback'``, ``''`` for none). A borrowed lag is otherwise
+                indistinguishable from a detected one in the results.
 
         Returns:
             Array of the same length as *pwbopt_s*, NaN-free when a finite
-            value can be found through any of the three strategies.
+            value can be found through any of the strategies -- or a
+            ``(values, source)`` tuple when *return_source* is set.
         """
         result = pd.Series(np.asarray(pwbopt_s, dtype=float))
+        source = np.where(result.notna(), 'own', '').astype(object)
+
         result = result.bfill()
+        source[np.asarray(result.notna()) & (source == '')] = 'own'
+
+        if result.isna().any() and donor_s is not None:
+            donor = pd.Series(np.asarray(donor_s, dtype=float))
+            missing = np.asarray(result.isna())
+            result = result.fillna(donor)
+            source[missing & np.asarray(result.notna())] = 'donor'
 
         if result.isna().any() and tlag_s_raw is not None:
             raw = np.asarray(tlag_s_raw, dtype=float)
             median_raw = np.nanmedian(raw) if np.any(~np.isnan(raw)) else np.nan
             if np.isfinite(median_raw):
+                missing = np.asarray(result.isna())
                 result = result.fillna(median_raw)
+                source[missing] = 'median'
 
         if result.isna().any() and fallback is not None:
+            missing = np.asarray(result.isna())
             result = result.fillna(fallback)
+            source[missing] = 'fallback'
 
-        return result.to_numpy()
+        values = result.to_numpy()
+        return (values, source) if return_source else values
 
     @staticmethod
     def apply_hdi_prefilter(

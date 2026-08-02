@@ -66,6 +66,16 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
     `file1.csv.zip`, not `file1.zip`
   `auto` (the default) reuses the input's own extension. A compression dyco cannot write (`.zst`,
   `.7z`) is refused rather than quietly producing plain text under a name that promises otherwise
+- **A gas can take its lag from another gas**, for the periods where its own detection could not be
+  trusted: `--scalar "N2O:n2o@lagfrom=CO2"`, or the **Lag from** field in the TUI, which starts with
+  every gas pointing at itself. Filled after PWBOPT and back-fill and before the median-of-raw last
+  resort, so a gas keeps every lag it can determine and borrows only what it cannot — period by
+  period, so a drifting donor lag is followed rather than averaged. Without it, a trace gas that
+  never detects reliably falls back to the median of detections PWBOPT has just rejected, which on
+  real noise is frequently a negative lag no tube can produce. Chains resolve donor-first; circular
+  ones are refused
+- `{gas}_lag_source` in the summary: `own`, `from:CO2` or `median` per period, so a borrowed lag is
+  never mistaken for a detected one
 - The TUI title bar shows the version, read from package metadata rather than hardcoded
 - A test suite: `tests/`, 130 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
   the pre-whitening chain to the numbers RFlux v3.2.0 produces on the same input — unit-root

@@ -487,6 +487,7 @@ _FIELDS = [
     ('nboot', 'Bootstraps', 'default 99  (PWB replicates, paper value)'),
     ('lagmax', 'Lag max s', 'default 10.0  (seeds each gas window below)'),
     ('winranges', 'Win s', 'per-gas LABEL:[lower,upper]  (⟳ re-seeds from Lag max)'),
+    ('lagfrom', 'Lag from', 'whose lag each gas uses where it has none  (N2O:CO2)'),
     # --- PWBOPT (best-lag selection across chunks) ---
     ('hdithresh', 'HDI thresh', 'default 0.5  (S1: reliable if HDI range <)'),
     ('devthresh', 'Dev thresh', 'default 0.5  (S2: accept if within of prev)'),
@@ -525,7 +526,7 @@ _COL_PICK_FIELDS = ['col_u', 'col_v', 'col_w', 'col_tsonic', 'scalars']
 
 # The per-gas window field gets a ⟳ button that re-seeds every gas window to the
 # symmetric [-Lag max, +Lag max] default (e.g. after editing Lag max s).
-_WIN_FIELDS = ['winranges']
+_WIN_FIELDS = ['winranges', 'lagfrom']
 
 # Per-gas window text format: LABEL:[lower,upper] entries, comma-separated. The
 # inner brackets carry their own comma, so split with a regex, not str.split.
@@ -659,6 +660,15 @@ _HELP = {
               'gas window in "Win s" with [-this, +this]; once a gas has a '
               'window there, that window is used and this value is ignored for '
               'it. The ⟳ button re-seeds all windows from this. Default 10.',
+    'lagfrom':
+        'Whose lag each gas uses for the periods where its own detection could '
+        'not be trusted, as GAS:SOURCE pairs. A gas pointing at itself '
+        '(N2O:N2O, the default) only ever uses its own. N2O:CO2 means: keep '
+        'every trustworthy N2O lag, and wherever there is none, take the CO2 '
+        'lag for that period. That is the usual answer for a trace gas sharing '
+        'a tube with a strong one -- without it those periods fall back to the '
+        'median of detections PWBOPT has already rejected. The summary records '
+        'the choice per period in {gas}_lag_source.',
     'winranges':
         'Per-gas lag search window, one LABEL:[lower,upper] (seconds) per gas, '
         'auto-filled from your Scalars + Lag max. The lag is searched only '
@@ -763,6 +773,28 @@ def _load_settings() -> dict:
         return {}
 
 
+def parse_lag_from(text: str) -> dict:
+    """Parse ``'N2O:CO2,CH4:CO2'`` into ``{'N2O': 'CO2', 'CH4': 'CO2'}``."""
+    out: dict = {}
+    for piece in (text or '').split(','):
+        piece = piece.strip()
+        if not piece:
+            continue
+        if ':' not in piece:
+            raise ValueError(f'expected GAS:SOURCE, got {piece!r}')
+        gas, src = piece.split(':', 1)
+        gas, src = gas.strip(), src.strip()
+        if not gas or not src:
+            raise ValueError(f'expected GAS:SOURCE, got {piece!r}')
+        out[gas] = src
+    return out
+
+
+def format_lag_from(pairs: dict) -> str:
+    """Render ``{'N2O': 'CO2'}`` as ``'N2O:CO2'``."""
+    return ','.join(f'{gas}:{src}' for gas, src in pairs.items())
+
+
 def _winranges_from_cli(scalars: dict, per_gas_lag: dict,
                         global_lws, global_uws) -> str:
     """Rebuild the TUI 'Win s' field from a CLI run's per-gas windows.
@@ -788,7 +820,8 @@ def _winranges_from_cli(scalars: dict, per_gas_lag: dict,
 
 
 def write_run_settings_yaml(output_dir, args, scalars: dict,
-                            per_gas_lag: dict) -> str | None:
+                            per_gas_lag: dict,
+                            lag_fallback: dict | None = None) -> str | None:
     """Drop a TUI-loadable settings YAML into a CLI run's output folder.
 
     Mirrors the App's ``_settings_dict`` schema (``_FIELD_IDS`` + ``_SWITCHES``)
@@ -809,6 +842,8 @@ def write_run_settings_yaml(output_dir, args, scalars: dict,
             'minchunk': _fmt_win_num(args.min_chunk_seconds),
             'nboot': str(args.n_bootstrap),
             'lagmax': _fmt_win_num(args.lag_max),
+            'lagfrom': format_lag_from(
+                {lbl: (lag_fallback or {}).get(lbl, lbl) for lbl in scalars}),
             'winranges': _winranges_from_cli(scalars, per_gas_lag,
                                              args.lws, args.uws),
             'hdithresh': _fmt_win_num(args.hdi_thresh),
@@ -960,6 +995,7 @@ class DetectRemoveTUI(App):
                 yield self._field('nboot')
                 yield self._field('lagmax')
                 yield self._field('winranges')
+                yield self._field('lagfrom')
                 yield Static('PWBOPT (best-lag selection)', classes='section')
                 yield self._field('hdithresh')
                 yield self._field('devthresh')
@@ -1112,6 +1148,27 @@ class DetectRemoveTUI(App):
         except ValueError:
             return 10.0
 
+    def _sync_lagfrom_field(self, reseed: bool = False) -> None:
+        """Reconcile the Lag-from field to the gases in Scalars.
+
+        A newly-typed gas starts pointing at itself, i.e. "use only my own
+        lag", which is the current behaviour and the safe default. Choices the
+        user has already made are kept unless ``reseed`` resets them all.
+        """
+        try:
+            inp = self.query_one('#lagfrom', Input)
+        except NoMatches:
+            return
+        try:
+            existing = {} if reseed else parse_lag_from(inp.value)
+        except ValueError:
+            return          # mid-typing; leave it alone
+        labels = self._scalar_labels()
+        pairs = {lbl: existing.get(lbl, lbl) for lbl in labels}
+        new_text = format_lag_from(pairs)
+        if new_text != inp.value:
+            inp.value = new_text
+
     def _sync_win_field(self, reseed: bool = False) -> None:
         """Reconcile the Win field to the gases in Scalars.
 
@@ -1136,6 +1193,7 @@ class DetectRemoveTUI(App):
     @on(Input.Changed, '#scalars')
     def _on_scalars_changed(self, event: Input.Changed) -> None:
         self._sync_win_field()
+        self._sync_lagfrom_field()
 
     @on(Button.Pressed, '.reseedbtn')
     def _on_reseed(self, event: Button.Pressed) -> None:
@@ -1932,6 +1990,7 @@ class DetectRemoveTUI(App):
             lag_max_s=float(g('lagmax') or 10.0),
             n_bootstrap=int(g('nboot') or 99),
             per_gas_lag=per_gas_lag,
+            lag_fallback=parse_lag_from(g('lagfrom')),
             chunk_seconds=float(g('chunk') or 1800),
             min_chunk_seconds=float(g('minchunk') or 300),
             n_workers=workers if workers > 0 else None,

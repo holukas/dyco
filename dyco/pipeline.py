@@ -552,6 +552,38 @@ def _chunk_row_slice(file_start: 'datetime | None', chunk_index: int,
 # PWBOPT lag selection — shared by the per-file path and PerFilePipeline
 # ---------------------------------------------------------------------------
 
+def resolve_lag_fallback(lag_fallback: dict | None, scalars: dict) -> list:
+    """Validate ``{gas: donor}`` and return the gases in donor-first order.
+
+    A gas may take its lag from another gas measured through the same tube,
+    which is the usual answer for a trace gas whose own cross-correlation is
+    too noisy to trust. The donor's own lags must be resolved first, so the
+    order matters; mapping a gas to itself means "use only my own", which is
+    the default and simply drops out.
+    """
+    fallback = {g: d for g, d in (lag_fallback or {}).items() if d and d != g}
+    unknown = ({g for g in fallback} | set(fallback.values())) - set(scalars)
+    if unknown:
+        raise ValueError(
+            f"lag_fallback references unknown gas label(s) {sorted(unknown)}; "
+            f"known scalars are {sorted(scalars)}.")
+
+    order: list = []
+    for gas in scalars:
+        chain = []
+        cur = gas
+        while cur is not None and cur not in order:
+            if cur in chain:
+                raise ValueError(
+                    f"lag_fallback is circular: "
+                    f"{' -> '.join(chain[chain.index(cur):] + [cur])}. "
+                    f"Every chain has to end at a gas that uses its own lag.")
+            chain.append(cur)
+            cur = fallback.get(cur)
+        order.extend(c for c in reversed(chain) if c not in order)
+    return order
+
+
 def _pwbopt_final_lags(
         rows: list,
         scalars: dict,
@@ -559,6 +591,7 @@ def _pwbopt_final_lags(
         dev_thresh: float,
         hdi_prefilter: float,
         lag_column_template: str,
+        lag_fallback: dict | None = None,
 ) -> dict:
     """Pick the per-chunk PWBOPT lag to remove, as ``{(chunk_index, label): lag_s}``.
 
@@ -575,7 +608,9 @@ def _pwbopt_final_lags(
     ordered = sorted(rows, key=lambda r: r.get('chunk_index', -1))
     cidx = [r.get('chunk_index') for r in ordered]
     out: dict = {}
-    for label in scalars:
+    donor_of = {g: d for g, d in (lag_fallback or {}).items() if d and d != g}
+    donors: dict = {}   # resolved final series, for gases others borrow from
+    for label in resolve_lag_fallback(lag_fallback, scalars):
         pfx = label.lower()
         tlag = np.array([float(r.get(f'{pfx}_tlag_s', np.nan)) for r in ordered],
                         dtype=float)
@@ -588,13 +623,16 @@ def _pwbopt_final_lags(
                 tlag_pf, hdi, hdi_thresh, dev_thresh)['pwbopt_s'].to_numpy()
         else:
             pf_pwbopt = std['pwbopt_s'].to_numpy()
+        donor = donors.get(donor_of.get(label))
         final_std = PwbBatchDetection.fill_tlag_gaps(
-            std['pwbopt_s'].to_numpy(), tlag_s_raw=tlag)
-        final_pf = PwbBatchDetection.fill_tlag_gaps(pf_pwbopt, tlag_s_raw=tlag)
+            std['pwbopt_s'].to_numpy(), tlag_s_raw=tlag, donor_s=donor)
+        final_pf = PwbBatchDetection.fill_tlag_gaps(
+            pf_pwbopt, tlag_s_raw=tlag, donor_s=donor)
         # Honour the requested column; default (and anything ending _pf_s) uses
         # the pre-filtered series, otherwise the standard PWBOPT series.
         col = lag_column_template.format(prefix=pfx)
         chosen = final_std if col.endswith('_tlag_final_s') else final_pf
+        donors[label] = chosen
         for k, ci in enumerate(cidx):
             out[(ci, label)] = float(chosen[k])
     return out
@@ -651,12 +689,15 @@ def parse_scalar_spec(token: str) -> tuple[str, str, dict]:
         H2O:h2o@lag=30                       # lag_max_s=30 for this gas
         H2O:h2o@lag=30;uws=25                # + asymmetric window upper bound
         H2O:h2o@lag=30;lws=0;uws=25;block=60 # all four, seconds
+        N2O:n2o@lagfrom=CO2                  # borrow CO2's lag where N2O has none
 
     The part after ``@`` is ``;``-separated ``key=value`` pairs. Keys: ``lag``
     / ``lag_max`` (lag_max_s), ``block`` (block_length_s), ``lws``, ``uws`` --
-    all in seconds. Returns ``(label, column, overrides)`` with *overrides*
-    keyed by the canonical ``PreWhiteningBootstrap`` argument names (empty when
-    there is no ``@`` part). Raises ``ValueError`` on a malformed token.
+    all in seconds -- plus ``lagfrom``, another gas's LABEL. Returns
+    ``(label, column, overrides)`` with the numeric *overrides* keyed by the
+    canonical ``PreWhiteningBootstrap`` argument names (empty when there is no
+    ``@`` part); ``lagfrom`` is returned under that name and is a string, not a
+    number. Raises ``ValueError`` on a malformed token.
     """
     main, _, spec = token.partition('@')
     if ':' not in main:
@@ -674,11 +715,18 @@ def parse_scalar_spec(token: str) -> tuple[str, str, dict]:
             raise ValueError(
                 f"per-gas option must be key=value, got {piece!r} in {token!r}")
         key, val = piece.split('=', 1)
+        if key.strip().lower() == 'lagfrom':
+            donor = val.strip()
+            if not donor:
+                raise ValueError(
+                    f"lagfrom needs a gas label, got nothing in {token!r}")
+            overrides['lagfrom'] = donor
+            continue
         canon = _GAS_SPEC_ALIASES.get(key.strip().lower())
         if canon is None:
             raise ValueError(
                 f"unknown per-gas option {key.strip()!r} in {token!r}; "
-                f"allowed: lag, block, lws, uws")
+                f"allowed: lag, block, lws, uws, lagfrom")
         try:
             overrides[canon] = float(val.strip())
         except ValueError as e:
@@ -767,6 +815,7 @@ def process_one_file(
         lws: float | None = None,
         uws: float | None = None,
         gas_lag_overrides: dict | None = None,
+        lag_fallback: dict | None = None,
         progress_queue=None,
 ) -> list:
     """Run the two-phase PWB pipeline on one (possibly multi-hour) input file.
@@ -999,7 +1048,7 @@ def process_one_file(
         # ============ PWBOPT: best lag per (chunk, gas) ==================
         final_lags = _pwbopt_final_lags(
             rows, scalars, hdi_thresh, dev_thresh, hdi_prefilter,
-            lag_column_template,
+            lag_column_template, lag_fallback,
         )
 
         # ============ PHASE 2: remove the best lag + write ===============
@@ -1661,6 +1710,12 @@ _SUMMARY_PERGAS_COLS = [
     ('{gas}_tlag_final_pf_s',
      "Final lag (s) from the PRE-FILTERED PWBOPT series after gap-filling. This "
      "is the pre-filtered, gap-filled best lag - removed by default."),
+    ('{gas}_lag_source',
+     "Where the applied lag came from: 'own' (this gas detected it, or carried "
+     "it across from its own neighbouring period), 'from:GAS' (borrowed from "
+     "another gas, see --scalar ...@lagfrom=), 'median' (last resort: the "
+     "median of this gas's raw detections, all of which PWBOPT rejected), or "
+     "'none'."),
 ]
 
 
@@ -1818,6 +1873,7 @@ class PerFilePipeline:
             lws: float | None = None,
             uws: float | None = None,
             per_gas_lag: dict | None = None,
+            lag_fallback: dict | None = None,
     ):
         """Set up the per-file detect-and-remove pipeline. See the class docstring."""
         self.input_dir = Path(input_dir)
@@ -1890,6 +1946,11 @@ class PerFilePipeline:
                     f"per_gas_lag[{lbl!r}] has unknown key(s) {sorted(bad)}; "
                     f"allowed: {sorted(allowed)}.")
         self.per_gas_lag = per_gas_lag
+
+        # {gas: donor gas} -- whose lag to use where a gas has none of its own.
+        # Validated here so a typo fails before any file is read.
+        self.lag_fallback = lag_fallback or {}
+        resolve_lag_fallback(self.lag_fallback, scalars)
 
         self._summary: DataFrame | None = None
         # Result-file paths, populated by run() -> _write_summary_and_plots.
@@ -2426,6 +2487,10 @@ class PerFilePipeline:
             ('block_length_s', self.block_length_s,
              'Bootstrap block length (s); long enough to contain the lag '
              '(paper floor 20 s).'),
+            ('lag_fallback', self.lag_fallback or '(each gas uses its own lag)',
+             'Whose lag a gas uses where it has none of its own, e.g. '
+             "{'N2O': 'CO2'}. Filled after PWBOPT and back-fill, before the "
+             'median-of-raw last resort.'),
             ('output_suffix', self.output_suffix,
              "Extension the written chunks carry, format and compression "
              "together ('.csv.gz'). 'auto' reuses the input's extension."),
@@ -2753,7 +2818,9 @@ class PerFilePipeline:
         """
         if summary.empty:
             return summary
-        for label in self.scalars:
+        donor_of = {g: d for g, d in self.lag_fallback.items() if d and d != g}
+        donors: dict = {}   # resolved final series, for gases others borrow from
+        for label in resolve_lag_fallback(self.lag_fallback, self.scalars):
             pfx = label.lower()
             tlag_col = f'{pfx}_tlag_s'
             hdi_col = f'{pfx}_hdi_range_s'
@@ -2782,15 +2849,26 @@ class PerFilePipeline:
                 summary[f'{pfx}_flag_pf'] = std['flag'].to_numpy()
 
             # Fill leading/trailing NaN lags so every chunk has a usable
-            # final value for downstream alignment.
+            # final value for downstream alignment. A gas listed in
+            # lag_fallback borrows the donor's already-resolved series for
+            # whatever it could not determine itself.
+            donor_label = donor_of.get(label)
+            donor = donors.get(donor_label)
             summary[f'{pfx}_tlag_final_s'] = PwbBatchDetection.fill_tlag_gaps(
                 summary[f'{pfx}_pwbopt_s_std'].to_numpy(),
-                tlag_s_raw=tlag,
+                tlag_s_raw=tlag, donor_s=donor,
             )
-            summary[f'{pfx}_tlag_final_pf_s'] = PwbBatchDetection.fill_tlag_gaps(
+            final_pf, source = PwbBatchDetection.fill_tlag_gaps(
                 summary[f'{pfx}_pwbopt_s_pf'].to_numpy(),
-                tlag_s_raw=tlag,
+                tlag_s_raw=tlag, donor_s=donor, return_source=True,
             )
+            summary[f'{pfx}_tlag_final_pf_s'] = final_pf
+            # Where each applied lag came from -- a borrowed lag is otherwise
+            # indistinguishable from a detected one in the results.
+            summary[f'{pfx}_lag_source'] = [
+                f'from:{donor_label}' if v == 'donor' else (v or 'none')
+                for v in source]
+            donors[label] = final_pf
         return summary
 
 
@@ -2991,6 +3069,7 @@ def _cli_main():
 
     scalars = {}
     per_gas_lag: dict = {}
+    lag_fallback: dict = {}
     for token in args.scalars:
         try:
             label, col, overrides = parse_scalar_spec(token)
@@ -2998,6 +3077,9 @@ def _cli_main():
             print(f'ERROR: {e}', file=sys.stderr)
             sys.exit(1)
         scalars[label] = col
+        donor = overrides.pop('lagfrom', None)
+        if donor:
+            lag_fallback[label] = donor
         if overrides:
             per_gas_lag[label] = overrides
 
@@ -3025,7 +3107,7 @@ def _cli_main():
         from dyco.tui import (
             write_run_settings_yaml)
         settings_yaml = write_run_settings_yaml(
-            output_dir, args, scalars, per_gas_lag)
+            output_dir, args, scalars, per_gas_lag, lag_fallback)
     except Exception:
         settings_yaml = None
 
@@ -3068,6 +3150,7 @@ def _cli_main():
         lws=args.lws,
         uws=args.uws,
         per_gas_lag=per_gas_lag,
+        lag_fallback=lag_fallback,
     )
 
     files = sorted(input_dir.glob(args.file_pattern))

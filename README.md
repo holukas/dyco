@@ -55,8 +55,8 @@ repeated exactly.
 `dyco tui --demo` explores the interface with no data at all.
 
 The TUI drives one command, `dyco detect-remove`, which is the whole job in one
-pass. That covers the normal case. The two-step route below is for when it does
-not — see [Detecting on one gas, applying to another](#detecting-on-one-gas-applying-to-another).
+pass. That covers the normal case, including taking a weak gas's lag from a
+strong one — see [Taking a gas's lag from another gas](#taking-a-gass-lag-from-another-gas).
 
 `dyco detect-remove` on the command line does everything the TUI does and is the
 right choice for scripting or a scheduler. Every TUI run writes a
@@ -85,27 +85,32 @@ Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`,
 Everything else in `dyco` — the file splitter, the flux detection limit, the
 covariance-maximization estimator — is a library API with no command of its own.
 
-### Detecting on one gas, applying to another
+### Taking a gas's lag from another gas
 
-`detect-remove` pairs every gas with its own detected lag. When that is not what
-you want, split the job: detect with `pwb-batch`, then apply with `apply-batch`,
-where the lag and the column it moves are named separately.
+A trace gas can be too noisy to locate its own lag. When that happens PWBOPT
+rejects the detections and the last resort is the *median of those same rejected
+numbers* — often a physically impossible negative lag. A reference gas travelling
+the same tube is a far better answer.
 
-In `--scalar LABEL:column`, the **label** picks which lag column to read out of
-`tlag_results.csv` and the **column** is the one that gets shifted. They need not
-be the same gas:
+Say so per gas, with `@lagfrom=` (**Lag from** in the TUI):
 
 ```bash
-dyco apply-batch --input-dir ./raw --output-dir ./aligned --results-csv ./tlag_results.csv --scalar "CO2:N2O_DRY_[QCL-C2]"
+dyco detect-remove ... --scalar "CO2:CO2_DRY_[IRGA72-A]" --scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"
 ```
 
-That reads the CO<sub>2</sub> lag and shifts the N<sub>2</sub>O column by it — the
-standard move for a gas whose own cross-correlation is too noisy to trust, since
-both travel the same tube. Repeat `--scalar` to drive several columns from one
-gas's lag.
+N<sub>2</sub>O keeps every lag it *can* determine. Only the periods it cannot
+take the CO<sub>2</sub> lag — period by period, so a drifting donor lag is
+followed rather than averaged into a constant. The summary records the choice
+per period in `{gas}_lag_source` (`own`, `from:CO2`, `median`), so a borrowed lag
+is never mistaken for a detected one.
 
-The same two steps also apply when your files are already split into averaging
-periods by other software, so there is nothing for `detect-remove` to chunk.
+Chains work (`CH4` from `N2O` from `CO2`); circular ones are rejected.
+
+The two-step route is still there for cases this does not cover — `pwb-batch` to
+detect, then `apply-batch`, where `--scalar LABEL:column` reads the lag of one
+gas and shifts the column of another. It also applies when your files are already
+split into averaging periods by other software, so there is nothing for
+`detect-remove` to chunk.
 
 ### A complete `detect-remove` command
 
@@ -322,9 +327,9 @@ time shifts.
 - a lag estimate with an explicit uncertainty interval, so unreliable detections can be identified
   rather than silently accepted, and a decision rule that substitutes a trustworthy neighbouring lag
   when a period's own detection cannot be trusted
-- lags detected on a high-SNR *reference* gas and applied to a low-SNR *target* measured by the same
-  analyzer, via the two-step route described under
-  [Detecting on one gas, applying to another](#detecting-on-one-gas-applying-to-another)
+- lags detected on a high-SNR *reference* gas used for a low-SNR *target* measured by the same
+  analyzer, where the target cannot determine its own — see
+  [Taking a gas's lag from another gas](#taking-a-gass-lag-from-another-gas)
 - dynamic compensation across raw files, so a lag that drifts — from an unsynchronized instrument
   clock, say — is followed period by period instead of averaged away
 
