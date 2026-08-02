@@ -24,7 +24,7 @@ flowchart TD
     EST --> OPT{"PWBOPT<br/>all chunks together, in time order"}
     OPT -->|"S1: HDI narrower than --hdi-thresh"| KEEP["trust the chunk's own lag"]
     OPT -->|"S2: close to the last trusted lag"| KEEP
-    OPT -->|"S3: neither"| SUB["carry the last trusted lag forward"]
+    OPT -->|"S3: neither"| SUB["carry the last trusted lag forward<br/>--max-carry bounds how far"]
 
     KEEP --> GAP
     SUB --> GAP
@@ -32,7 +32,7 @@ flowchart TD
     subgraph P3["Still no lag? fill the gap, best source first"]
         direction TB
         GAP{"any period still without a lag"}
-        GAP -->|"the gas has a lag elsewhere"| BFILL["back-fill from its own first trusted lag"]
+        GAP -->|"its own trusted lag is within reach"| BFILL["fill backward from it<br/>--max-carry bounds this too"]
         GAP -->|"--scalar ...@lagfrom=CO2"| DONOR["take that period's lag from the other gas"]
         GAP -->|"nothing else left"| MED["median of this gas's raw detections<br/>(all of them rejected, a last resort)"]
     end
@@ -130,6 +130,27 @@ Then, per chunk, in time order:
 `S3_unreliable`
 : Neither. The chunk's own lag is discarded and the last known optimal lag is carried forward.
 
+`S3_expired`
+: Neither, **and** the last optimal lag is further back than `--max-carry` periods, so it is no
+  longer offered. Only occurs when that limit is set; see below.
+
+### How far a lag may travel
+
+The carry in S3 is unbounded in the paper: once an optimal lag exists, every later period that has
+none inherits it, however distant. On a long run that means a single good half hour can supply days.
+
+`--max-carry N` (**Max carry** in the TUI) caps the distance at N averaging periods, in **both**
+directions — the forward carry above, and the backward fill below. Beyond it the period is left for
+a donor gas or the median instead.
+
+The limit has to cover both directions, or it does nothing. With detections either side of a long
+unusable stretch, an unbounded backward fill would cover the whole of it from the later detection —
+precisely the span the forward carry had just been forbidden to cross.
+
+`{gas}_carry_periods` reports the distance for every period: `0` where the lag was detected there,
+`n` where it travelled `n` periods, empty where it came from somewhere else. The default is
+unlimited, which is the published behaviour.
+
 :::{note}
 **One deliberate difference from the paper.** In `dyco`, an S2 acceptance *updates* the
 carry-forward reference, so a run of S2 chunks can drift away from the S1 lag that anchored them.
@@ -138,17 +159,30 @@ catalogued as low-severity in the `dyco/pwb.py` module docstring, alongside the 
 comparison against the reference R implementation.
 :::
 
-### Periods with nothing to carry forward
+### Periods still without a lag
 
-S3 carries a lag *forward*, so any period before the first S1 or S2 detection has nothing to inherit.
-Those are filled afterwards, best source first:
+S3 carries a lag *forward*, so a period before the gas's first S1 or S2 detection has nothing to
+inherit — and with `--max-carry` set, so does any period past the end of the carry's reach. Those are
+filled afterwards, best source first:
 
-1. **Back-fill** from the gas's own first trusted lag, if it has one anywhere in the sequence.
+1. **The gas's own lag, filled backward** from its next trusted detection, within `--max-carry`
+   periods.
 2. **A donor gas**, if you asked for one with `@lagfrom=`. Taken period by period, so a donor lag
    that drifts is followed rather than flattened into a constant.
 3. **The median of this gas's raw detections** — every one of which PWBOPT has just rejected. This is
    a last resort, and on real data it is often a negative lag that no tube can produce. If a gas
    lands here, give it a donor.
+
+So the full order of preference, per period, is: its own detection → its own lag carried forward →
+its own lag filled backward → the donor's lag for that period → the median.
+
+**The gas's own lag comes first in all three of its forms, and that is deliberate.** Two gases down
+one tube still have different delays — a systematic 0.35 s between CH₄ and N₂O is ordinary — so
+borrowing swaps a stale number for a biased one. Whether staleness has become the larger error is a
+judgement about your site, and `--max-carry` is where you express it. Which also means the two
+settings belong together: with no carry limit a gas reaches every period with its own lag, and a
+donor is only consulted for a gas that never detects at all. dyco warns when a donor is named without
+one.
 
 `{gas}_lag_source` in the summary records which of these produced each period's lag, so a borrowed or
 median-filled lag is never mistaken for a detected one.
@@ -158,6 +192,11 @@ median-filled lag is never mistaken for a detected one.
 `--lag-column-template` decides, and its default is `{prefix}_tlag_final_pf_s` — the **pre-filtered**
 PWBOPT column. The summary CSV carries the unfiltered variant alongside it, so both are available for
 comparison after the fact, but only one is applied to the data.
+
+To read a finished run, though, you want neither: **`{gas}_lag_applied_s`** is the lag that reached
+the data, measured back off the record shift, and `{gas}_lag_reason` says in words why that value was
+chosen. The same reasoning, one block per output file, is written to
+`detect_and_remove_tlag_decisions.txt`. See [What a run writes](output.md#the-summary-csv).
 
 ## Search windows are doing real work
 

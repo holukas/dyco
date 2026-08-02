@@ -91,8 +91,13 @@ Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`, `dy
 `dyco-apply-batch`.
 
 A gas too noisy to locate its own lag can borrow one from a reference gas in the same tube, per
-period, with `--scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"`. See
+period, with `--scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"` — paired with `--max-carry`, which says
+how long the gas's own lag stays good before borrowing is the better answer. See
 [Taking a gas's lag from another gas](https://dyco.readthedocs.io/en/latest/cli/index.html#taking-a-gas-s-lag-from-another-gas).
+
+Every run explains itself: `detect_and_remove_tlag_decisions.txt` names the lag applied to each
+output file and why it was chosen, and `{gas}_lag_applied_s` in the summary CSV is the lag that
+actually reached the data.
 
 > **Important:** downstream flux processing must run with time-lag maximization **disabled**. The lag
 > has already been removed.
@@ -135,7 +140,7 @@ flowchart TD
     EST --> OPT{"PWBOPT<br/>all chunks together, in time order"}
     OPT -->|"S1: HDI narrower than --hdi-thresh"| KEEP["trust the chunk's own lag"]
     OPT -->|"S2: close to the last trusted lag"| KEEP
-    OPT -->|"S3: neither"| SUB["carry the last trusted lag forward"]
+    OPT -->|"S3: neither"| SUB["carry the last trusted lag forward<br/>--max-carry bounds how far"]
 
     KEEP --> GAP
     SUB --> GAP
@@ -143,7 +148,7 @@ flowchart TD
     subgraph P3["Still no lag? fill the gap, best source first"]
         direction TB
         GAP{"any period still without a lag"}
-        GAP -->|"the gas has a lag elsewhere"| BFILL["back-fill from its own first trusted lag"]
+        GAP -->|"its own trusted lag is within reach"| BFILL["fill backward from it<br/>--max-carry bounds this too"]
         GAP -->|"--scalar ...@lagfrom=CO2"| DONOR["take that period's lag from the other gas"]
         GAP -->|"nothing else left"| MED["median of this gas's raw detections<br/>(all of them rejected, a last resort)"]
     end

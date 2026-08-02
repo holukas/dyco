@@ -8,6 +8,8 @@ A `dyco detect-remove` run fills `--output-dir` like this:
 1_lag_detection/    STEP 1 -- detect (diagnostics + results)
     plots/          per-chunk PWB diagnostic figures      (--save-plots)
     plots_summary/  batch-level overview figures          (--save-plots)
+    detect_and_remove_tlag_decisions.txt         start here: the lag applied to
+                                                 each output file, and why
     detect_and_remove_tlag_summary.csv           one row per chunk
     detect_and_remove_tlag_summary_columns.md    data dictionary for that CSV
     detect_and_remove_tlag_checkpoint.csv        phase-1 snapshot
@@ -33,6 +35,29 @@ file is called `tlag_results.csv`, which is what `apply-batch --results-csv` exp
 instead, so older notes, plots and result files may mean something different by "lag".
 :::
 
+## Which lag was applied, and why
+
+`detect_and_remove_tlag_decisions.txt` answers both, one block per written file:
+
+```text
+CH-CHA_202110080730.csv
+  CH4     +2.20 s (+44 rec)  detected here and reliable (S1): HDI 0.40 s < 0.50 s
+  N2O     +1.85 s (+37 rec)  nothing had been detected yet at this point in the run,
+                             so the lag was filled 2 period(s) back from
+                             CH-CHA_202110080900.csv, the first period that did
+
+CH-CHA_202110080800.csv
+  CH4     +2.20 s (+44 rec)  carried 1 period(s) forward from CH-CHA_202110080730.csv:
+                             HDI 2.70 s, wider than the 1.00 s prefilter
+  N2O     +1.85 s (+37 rec)  borrowed from CH4: HDI 9.15 s, wider than the 1.00 s
+                             prefilter, and no detection of its own within
+                             2 period(s) either side
+```
+
+The thresholds behind the decisions head the file, periods that produced no output file are listed
+at the foot, and a tally closes it. The same sentences are in the summary CSV as
+`{gas}_lag_reason`, if you would rather join them to the numbers.
+
 ## The summary CSV
 
 `detect_and_remove_tlag_summary.csv` has one row per chunk: the detected lag, its HDI, the
@@ -46,22 +71,36 @@ list in these docs could be. Read it first.
 
 The parts worth knowing before you open either file:
 
+`{gas}_lag_applied_s`
+: **The lag that was actually removed**, in seconds. Derived from the record shift the pipeline
+  made, so it describes the files on disk rather than what was asked for — and it is always a whole
+  number of records, which is why it can sit up to half a record from the requested lag. Six other
+  lag columns exist per gas; they are the working steps that led to this one.
+
+`{gas}_lag_reason`
+: Why that value was chosen, in words. The same text as in the decisions report above.
+
 `tlag_s`
 : The **raw** per-chunk detection, before PWBOPT. This is not necessarily what was removed. A
   wide-HDI chunk's raw lag can be spurious, which is the entire reason PWBOPT exists.
 
 `{gas}_tlag_final_pf_s`
 : The PWBOPT-optimised, pre-filtered, gap-filled lag — the default value of
-  `--lag-column-template`, and so by default **the column that was actually applied**. The data
+  `--lag-column-template`, and so by default the column that was *requested* for removal. The data
   dictionary flags whichever column your run used.
 
 `{gas}_lag_source`
-: Where the period's lag came from: `own` (the gas detected it), `from:CO2` (borrowed from a donor
-  gas), or `median` (the last-resort median of rejected detections). See
-  [PWBOPT](method.md#periods-with-nothing-to-carry-forward).
+: Where the period's lag came from: `own` (the gas detected it here, or carried it from one of its
+  own nearby periods), `from:CO2` (borrowed from a donor gas), or `median` (the last-resort median
+  of rejected detections). See [PWBOPT](method.md#periods-still-without-a-lag).
+
+`{gas}_carry_periods`
+: How far that lag travelled: `0` if it was detected in this very period, `n` if it came from `n`
+  periods away, empty if it came from somewhere other than the gas's own carry. `own` alone cannot
+  distinguish a fresh detection from an inherited one; this can.
 
 `{gas}_applied_records`
-: The shift in records. The applied lag in seconds is `{gas}_applied_records / hz`.
+: The shift in records, which is `{gas}_lag_applied_s * hz`.
 
 `status` and `{gas}_status`
 : Two different things. The row-level `status` is the chunk's fate — only `ok` rows produced an
@@ -70,9 +109,18 @@ The parts worth knowing before you open either file:
   otherwise fine chunk: `ok`, `skipped:lag_nan` (no finite PWBOPT lag to apply), or `pending` (the
   chunk never reached phase 2).
 
+:::{note}
+**Rows that wrote no file carry no lag.** For any row whose `status` is not `ok`, the final, applied
+and carry columns are left empty and `{gas}_lag_source` reads `none`. There is no data there to
+align, so a number in those columns would suggest a correction that never happened. The detection
+columns are untouched.
+:::
+
 :::{tip}
 A run where many periods show `median` in `{gas}_lag_source` is telling you that gas could not locate
-its own lag and had no donor. Give it one with `@lagfrom=`.
+its own lag and had no donor. Give it one with `@lagfrom=`, and set `--max-carry` alongside it —
+without a carry limit the gas keeps reaching every period with its own lag and the donor is never
+consulted.
 :::
 
 ## Diagnostic plots
