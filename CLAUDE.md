@@ -148,23 +148,23 @@ came from.
 
 ## Current Architecture
 
-~10,000 lines across 11 modules plus ~400 in `_vendor/`. Pipeline:
+~10,600 lines across 11 modules plus ~400 in `_vendor/`. Pipeline:
 **split into chunks → rotate → detect per chunk → PWBOPT across the sequence →
 shift and write**.
 
 | Module | LOC | Role |
 |---|---|---|
-| `dyco/pipeline.py` | 3,006 | `PerFilePipeline`, `process_one_file`. The primary workflow, and its own raw-file reader/writer |
-| `dyco/pwb.py` | 2,541 | `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. The detection method itself |
-| `dyco/tui.py` | 1,808 | Textual UI over the pipeline. `--demo` needs no data |
-| `dyco/apply_tlag.py` | 683 | `TlagApplier` — remove lags listed in an existing `tlag_results.csv` |
+| `dyco/pipeline.py` | 3,436 | `PerFilePipeline`, `process_one_file`. The primary workflow, and its own raw-file reader/writer |
+| `dyco/pwb.py` | 3,062 | `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. The detection method itself |
+| `dyco/tui.py` | 2,110 | Textual UI over the pipeline. `--demo` needs no data |
+| `dyco/apply_tlag.py` | 833 | `TlagApplier` — remove lags listed in an existing `tlag_results.csv` |
 | `dyco/split.py` | 524 | `FileSplitter`, `FileSplitterMulti` — divide a long raw file into averaging-period parts |
 | `dyco/detectionlimit.py` | 476 | `FluxDetectionLimit` — minimum detectable flux, read off the far tail of the cross-covariance function |
 | `dyco/maxcov.py` | 417 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it |
-| `dyco/files.py` | 195 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
+| `dyco/files.py` | 243 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
 | `dyco/rotation.py` | 138 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
-| `dyco/rawio.py` | 200 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
-| `dyco/cli.py` | 101 | Unified `dyco` dispatcher |
+| `dyco/rawio.py` | 240 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
+| `dyco/cli.py` | 125 | Unified `dyco` dispatcher |
 | `dyco/_vendor/` | ~400 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
 | `dyco/__init__.py` | 2 | A comment. **No public API is defined** |
 
@@ -237,6 +237,13 @@ reference implementation. Prefer that over inspection.
 - Two near-identical `add_data_stats` functions used to exist. Only
   `_vendor/filedetector.py:24` remains; `files.py`'s six-argument variant went
   with the v2 path.
+- **Every CLI writes `log.txt`** to its output folder: the run header, the
+  per-file/per-chunk lines, and the finish time. The animated progress display
+  is deliberately kept out of it.
+- **Textual tests must wait for the state they assert.** `Input.Changed` is
+  delivered through the message queue, so setting a value and calling
+  `pilot.pause()` once is a race -- `test_tui_win_field_autosync` failed about
+  one run in six that way. Use the `_settle` helper in `tests/test_pwb.py`.
 - **The TUI settings path is `~/.dyco/detect_remove_tui.yaml`.** An existing
   `~/.diive/` config from before the migration will not be found.
 - **Do not truncate pytest output.** Piping the suite through `tail -5` hides
@@ -273,7 +280,9 @@ running the code.
 - **Comments** — only WHY, not WHAT. Hidden constraints, workarounds,
   non-obvious logic.
 - **Console strings must be cp1252-safe** (Windows stdout): use ASCII `->`,
-  not `→`.
+  not `→`. This bites through libraries too: Rich's default spinner is braille,
+  and it crashed `dyco apply-batch` with `UnicodeEncodeError` before the run
+  started. All three CLIs pass `SpinnerColumn('line')`.
 
 ### Module docstring format
 

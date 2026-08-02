@@ -142,7 +142,7 @@ Reading it in groups:
 Output lands in two subfolders: `1_lag_detection/` (the summary CSV, a column dictionary, checkpoints,
 and diagnostic plots if you pass `--save-plots`) and `2_lag_removed/` (the corrected chunks, ready to
 be the input directory of the next step). A `log.txt` at the root records what ran and what it
-decided. A `detect_remove_tui_settings.yaml` is written alongside
+decided; `pwb-batch` and `apply-batch` write one beside their results too. A `detect_remove_tui_settings.yaml` is written alongside
 them, which `dyco tui` can load, so a command line can be inspected or re-run from the form.
 
 ### Input file formats
