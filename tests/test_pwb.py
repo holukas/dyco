@@ -38,6 +38,21 @@ class TestEcHires(unittest.TestCase):
         self.assertGreater(wr.u2.mean(), 0.0)
 
 
+async def _settle(pilot, read, want, tries: int = 25):
+    """Pause until ``read()`` returns ``want``, or give up and return it anyway.
+
+    Textual delivers ``Input.Changed`` through the message queue, so setting a
+    value and pausing once is a race: under load the handler has not always run
+    by the time the assertion looks. Polling makes the test wait for the state
+    it is actually asserting about, without weakening the assertion.
+    """
+    for _ in range(tries):
+        if read() == want:
+            break
+        await pilot.pause()
+    return read()
+
+
 class TestPwbPerGasWindow(unittest.TestCase):
     """Per-gas time-lag search windows for PWB (lws/uws + per_gas_lag)."""
 
@@ -265,16 +280,14 @@ class TestPwbPerGasWindow(unittest.TestCase):
                 scal = app.query_one('#scalars', Input)
                 lf = lambda: app.query_one('#lagfrom', Input).value
                 scal.value = 'CO2:co2,N2O:n2o'
-                await pilot.pause()
-                seeded = lf()
+                seeded = await _settle(pilot, lf, 'CO2:CO2,N2O:N2O')
                 # a choice the user has made survives a new gas arriving
                 app.query_one('#lagfrom', Input).value = 'CO2:CO2,N2O:CO2'
                 scal.value = 'CO2:co2,N2O:n2o,CH4:ch4'
-                await pilot.pause()
-                kept = lf()
+                kept = await _settle(pilot, lf, 'CO2:CO2,N2O:CO2,CH4:CH4')
                 scal.value = 'CO2:co2'
-                await pilot.pause()
-                return seeded, kept, lf()
+                dropped = await _settle(pilot, lf, 'CO2:CO2')
+                return seeded, kept, dropped
 
         seeded, kept, dropped = asyncio.run(scenario())
         self.assertEqual(seeded, 'CO2:CO2,N2O:N2O')
@@ -298,8 +311,8 @@ class TestPwbPerGasWindow(unittest.TestCase):
 
                 # Typing scalars seeds a symmetric window per gas from Lag max.
                 scal.value = 'CH4:ch4,N2O:n2o'
-                await pilot.pause()
-                self.assertEqual(win(), 'CH4:[-10,10],N2O:[-10,10]')
+                want = 'CH4:[-10,10],N2O:[-10,10]'
+                self.assertEqual(await _settle(pilot, win, want), want)
 
                 # Editing a window + changing Lag max + adding a gas: the edit is
                 # preserved, the new gas is seeded at the new Lag max.
@@ -307,20 +320,18 @@ class TestPwbPerGasWindow(unittest.TestCase):
                     'CH4:[-10,10],N2O:[-10,10],H2O:[0,25]'
                 app.query_one('#lagmax', Input).value = '15'
                 scal.value = 'CH4:ch4,N2O:n2o,H2O:h2o,CO2:co2'
-                await pilot.pause()
-                self.assertEqual(
-                    win(), 'CH4:[-10,10],N2O:[-10,10],H2O:[0,25],CO2:[-15,15]')
+                want = 'CH4:[-10,10],N2O:[-10,10],H2O:[0,25],CO2:[-15,15]'
+                self.assertEqual(await _settle(pilot, win, want), want)
 
                 # Removing a gas drops its window.
                 scal.value = 'CH4:ch4,H2O:h2o,CO2:co2'
-                await pilot.pause()
-                self.assertEqual(win(), 'CH4:[-10,10],H2O:[0,25],CO2:[-15,15]')
+                want = 'CH4:[-10,10],H2O:[0,25],CO2:[-15,15]'
+                self.assertEqual(await _settle(pilot, win, want), want)
 
                 # The reseed button rewrites all windows to the symmetric default.
                 app.query_one('#reseed_winranges', Button).press()
-                await pilot.pause()
-                self.assertEqual(
-                    win(), 'CH4:[-15,15],H2O:[-15,15],CO2:[-15,15]')
+                want = 'CH4:[-15,15],H2O:[-15,15],CO2:[-15,15]'
+                self.assertEqual(await _settle(pilot, win, want), want)
 
                 # _collect turns the Win field into per-gas lag params; the
                 # Scalars field stays a pure {label: column} map.
