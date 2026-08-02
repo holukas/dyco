@@ -110,6 +110,16 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   pointer to `dyco detect-remove` rather than a parse error
 - **TUI settings file moved** from `~/.diive/detect_remove_tui.yaml` to `~/.dyco/detect_remove_tui.yaml`.
   An existing settings file is not found until it is moved
+- **PWB detection is tuned around its one hot spot.** Profiling a 30-minute 20 Hz chunk puts ~96% of the
+  run inside the block bootstrap's batched cross-correlation, and ~3% in reading the raw file. The FFT is
+  now padded to `next_fast_len(N + lag_max)` instead of the next power of two — 36288 rather than 65536 for
+  that chunk, and the bulk of the gain. The CCF is normalised after being sliced to the kept lag window
+  rather than across the full transform, and centring, zero-padding and the sum of squares fold into a
+  single pass over the buffer. That takes one chunk-gas detection from 0.71 s to 0.41 s against the first
+  working implementation, and the bundled real-data example from about a minute to about ten seconds.
+  Results are bit-identical, checked across both unit-root branches, the real CH-LAE chunk, windowed and
+  unwindowed searches, 10 Hz, and chunks shorter than one bootstrap block. `scipy.fft` replaces
+  `numpy.fft`, and was already a dependency via `scipy.signal`
 - Python requirement raised to `>=3.12,<3.14` (was `>=3.11,<3.12`)
 - pandas requirement raised to `>=3.0.0` (was `>=2.2.3,<3.0.0`)
 - Build backend switched from `poetry-core` to `hatchling`; `uv` is now used for dependency management

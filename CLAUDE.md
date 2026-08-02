@@ -155,7 +155,7 @@ shift and write**.
 | Module | LOC | Role |
 |---|---|---|
 | `dyco/pipeline.py` | 3,436 | `PerFilePipeline`, `process_one_file`. The primary workflow, and its own raw-file reader/writer |
-| `dyco/pwb.py` | 3,062 | `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. The detection method itself |
+| `dyco/pwb.py` | 3,089 | `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. The detection method itself |
 | `dyco/tui.py` | 2,110 | Textual UI over the pipeline. `--demo` needs no data |
 | `dyco/apply_tlag.py` | 833 | `TlagApplier` — remove lags listed in an existing `tlag_results.csv` |
 | `dyco/split.py` | 524 | `FileSplitter`, `FileSplitterMulti` — divide a long raw file into averaging-period parts |
@@ -174,6 +174,75 @@ older notes, plots and result files may mean something different by "lag".
 **Never import from diive again.** If something is needed from there, copy it
 into `_vendor/` with a provenance note, or reimplement it. The cross-repo
 coupling is what broke dyco four ways, and it is deliberately gone.
+
+---
+
+## Performance
+
+**Everything that matters is in one function.** Profiling a 30-minute 20 Hz
+chunk puts ~96% of the run inside `pwb.py`'s `_batch_ccf_fft` — the block
+bootstrap's batched cross-correlation. Reading the raw file is ~3%. AR fitting,
+smoothing, the KDE mode and the HDI are rounding error. Profile before touching
+anything; the intuitive targets are all in that 4%.
+
+The optimisation pass on 2026-08-02 gave **~1.7x** on a quiet machine (0.708 s
+-> 0.409 s per chunk-gas, best of 7) and ~2.8x on the median. The gap widens
+under load because the old padding allocated nearly twice the memory. Three
+changes, all in `_batch_ccf_fft` and its caller:
+
+- **FFT length is `next_fast_len(N + lag_max)`, not the next power of two.**
+  For a 30-min 20 Hz chunk that is 36288 instead of 65536 — 1.8x less
+  transform, and the single biggest win. The `n_fft >= N + lag_max` bound is
+  *tight*: below it, circular wraparound contaminates the kept lag window. Do
+  not "simplify" this back to a bit-length shift.
+- **Slice, then normalise.** Only `2*lag_max+1` of the `n_fft` columns survive.
+- **Centring, zero-padding and the sum of squares fold into one pass** over the
+  ~30 MB buffer, which also drops the copy the FFT would make to pad.
+
+`scipy.fft` replaced `numpy.fft` here. It was already a dependency via
+`scipy.signal`, so this cost nothing.
+
+### Measured dead ends — do not re-attempt
+
+- **Gathering the bootstrap blocks straight into the padded FFT buffer.** Looks
+  like the obvious next step, and is a *regression*: 0.42 s -> 0.51 s.
+  `np.take` into a strided view drops off numpy's fast path and costs more
+  (21 ms) than a plain advanced-index gather plus the centring pass (15 ms). A
+  reused contiguous scratch is also slower (17.5 ms). The benchmark compared
+  four strategies whose output was identical; there is a note in the code.
+- **Threading the FFT** (`scipy.fft(workers=…)`). Flat from 1 to 8 threads —
+  the kernel is memory-bandwidth bound, not compute bound.
+- **Sharing bootstrap draws across the four combinations.** `cw`/`ct` share the
+  scalar series, so one forward FFT could be saved, but only by reusing the
+  same block indices. That correlates combinations that R draws independently
+  and breaks reproducibility. Deliberately not done.
+- **`np.minimum(idx, n-1)` in `_block_bootstrap`** was a no-op and is gone.
+  Block starts top out at `n-L` and offsets at `L-1`, so the largest index is
+  exactly `n-1` in every regime, including `n < L`. The trailing partial block
+  is handled by truncating to `n` columns. Do not re-add it "for safety".
+
+### Verifying an optimisation
+
+The reference tests pin R parity, but they do not pin *unchanged behaviour* —
+a perf change can pass them and still move results. Dump the full results
+(every reported field, all `n_bootstrap` peak lags, AR orders, HDI bounds)
+across a spread of configs before and after, and diff. The 2026-08-02 pass used
+19: both unit-root branches, the real CH-LAE chunk, windowed and unwindowed
+searches, odd block and smoothing widths, 10 Hz, and four short chunks spanning
+`n < L`. All three changes came out **bit-identical** — zero difference in 1338
+float values, not merely within tolerance. Aim for that; a change that only
+*nearly* matches deserves an explanation.
+
+### Still on the table
+
+Neither is urgent, and both are smaller than they look:
+
+- Per-chunk `pd.read_csv(skiprows=…)` re-decompresses everything ahead of it in
+  a gzipped file, and parses all columns when detection needs six. Real, but
+  ~50 ms against ~1.7 s of detection.
+- Importing `dyco.pwb` takes ~1.3 s, of which matplotlib is ~0.2 s, and every
+  worker pays it once per run under Windows spawn. Deferring the matplotlib
+  import would need the plotting methods reworked.
 
 ---
 
@@ -219,6 +288,11 @@ Worth carrying forward: nothing real has ever been caught by reading this code.
 The matplotlib breakage, the three gzip faults and all five defects from the
 RFlux comparison were found by *running* it — against real data, or against the
 reference implementation. Prefer that over inspection.
+
+The same held for speed. Every plausible-sounding target in the 2026-08-02 perf
+pass — the file reading, FFT threading, fusing the bootstrap gather — was worth
+nothing or worse, and the one that paid was a single constant. See
+**Performance** above; the rule is the same: measure rather than reason.
 
 ---
 
