@@ -146,8 +146,8 @@ class TestOutputSuffixIsIndependentOfInput(unittest.TestCase):
                 # an input with no format suffix can still be labelled on the way out
                 ('file1.gz', '.csv', 'file1_chunk00.csv'),
                 ('file1.gz', '.csv.zip', 'file1_chunk00.csv.zip'),
-                # plain in, compressed out; leading dot optional
-                ('file1.csv', 'csv.gz', 'file1_chunk00.csv.gz'),
+                # plain in, compressed out
+                ('file1.csv', '.csv.gz', 'file1_chunk00.csv.gz'),
                 ('file1.csv', '.dat', 'file1_chunk00.dat')]:
             with self.subTest(source=source, output_suffix=spec):
                 self.assertEqual(self._name(source, spec), expected)
@@ -156,21 +156,29 @@ class TestOutputSuffixIsIndependentOfInput(unittest.TestCase):
         # "output as zip" means zip the csv, not replace the .csv with .zip:
         # the text format comes from the input, the compression from the ask.
         for source, spec, expected in [
-                ('file1.csv', 'zip', 'file1_chunk00.csv.zip'),
-                ('file1.csv', 'gz', 'file1_chunk00.csv.gz'),
-                ('file1.dat', 'zip', 'file1_chunk00.dat.zip'),
-                ('file1.csv.gz', 'zip', 'file1_chunk00.csv.zip'),
+                ('file1.csv', '.zip', 'file1_chunk00.csv.zip'),
+                ('file1.csv', '.gz', 'file1_chunk00.csv.gz'),
+                ('file1.dat', '.zip', 'file1_chunk00.dat.zip'),
+                ('file1.csv.gz', '.zip', 'file1_chunk00.csv.zip'),
                 # and the reverse: naming the text format alone drops the
                 # compression, so a zipped input is written out plain
-                ('file1.csv.zip', 'csv', 'file1_chunk00.csv'),
+                ('file1.csv.zip', '.csv', 'file1_chunk00.csv'),
                 # nothing to keep in front when the input names no format
-                ('file1.gz', 'zip', 'file1_chunk00.zip')]:
+                ('file1.gz', '.zip', 'file1_chunk00.zip')]:
             with self.subTest(source=source, output_suffix=spec):
                 self.assertEqual(self._name(source, spec), expected)
 
+    def test_a_suffix_without_a_leading_dot_is_refused(self):
+        # One extension setting, written one way: '.csv' beside '.csv.gz'.
+        for spec in ('csv', 'csv.gz', 'zip'):
+            with self.subTest(output_suffix=spec):
+                with self.assertRaises(ValueError) as ctx:
+                    self._name('file1.csv.gz', spec)
+                self.assertIn('must start with a dot', str(ctx.exception))
+
     def test_a_compression_dyco_cannot_write_is_refused(self):
         # Accepting .zst would write plain text under a name promising zstd.
-        for spec in ('.csv.zst', 'zst', '.7z'):
+        for spec in ('.csv.zst', '.zst', '.7z'):
             with self.subTest(output_suffix=spec):
                 with self.assertRaises(ValueError) as ctx:
                     self._name('file1.csv.gz', spec)
@@ -361,6 +369,62 @@ class TestPipelineEndToEndCompressed(unittest.TestCase):
                                  [Path(f'x{suffix}').suffix] * 2)
                 self.assertAlmostEqual(float(summary['ch4_tlag_s'].iloc[0]),
                                        1.0, delta=0.3)
+
+
+class TestTheTuiPreflightPreviewsTheRealOutputName(unittest.TestCase):
+    """The 'first output file would be' line has to obey 'Output as'.
+
+    It did not: the preview called _chunk_filename without the suffix, so a
+    .csv.gz input was previewed as .csv.gz whatever the field said -- the one
+    place a user checks before committing to a run.
+    """
+
+    def _preflight_log(self, out_suffix: str) -> list:
+        import asyncio
+        from dyco.tui import DetectRemoveTUI
+        from textual.widgets import Input
+
+        async def scenario(in_dir: str, out_dir: str) -> list:
+            app = DetectRemoveTUI(demo=False)
+            async with app.run_test(size=(160, 60)) as pilot:
+                await pilot.pause()
+                for fid, val in [('input_dir', in_dir), ('output_dir', out_dir),
+                                 ('scalars', 'CH4:ch4'), ('extrarows', '0'),
+                                 ('filepattern', '*.csv.gz'), ('chunk', '60'),
+                                 ('outsuffix', out_suffix)]:
+                    app.query_one(f'#{fid}', Input).value = val
+                await pilot.pause()
+                app.action_check()
+                for _ in range(400):          # preflight runs off the UI thread
+                    await pilot.pause()
+                    if not app._busy:
+                        break
+                return list(app._logbuf)
+
+        with TemporaryDirectory() as ind, TemporaryDirectory() as outd:
+            _write_raw(Path(ind) / 'site_202401010000.csv.gz', _raw_frame(),
+                       extra_rows=0)
+            return asyncio.run(scenario(ind, outd))
+
+    def _preview(self, lines: list) -> str:
+        hits = [ln for ln in lines if 'first output file would be' in ln]
+        self.assertEqual(len(hits), 1, lines)
+        return hits[0]
+
+    def test_a_plain_output_is_previewed_plain_and_says_so(self):
+        lines = self._preflight_log('.csv')
+        self.assertTrue(self._preview(lines).endswith('.csv'),
+                        self._preview(lines))
+        self.assertTrue(
+            any('gz-compressed, output is written uncompressed' in ln
+                for ln in lines), lines)
+
+    def test_auto_is_previewed_as_the_input_and_says_nothing_changed(self):
+        lines = self._preflight_log('auto')
+        self.assertTrue(self._preview(lines).endswith('.csv.gz'),
+                        self._preview(lines))
+        self.assertTrue(any('compression unchanged: gz' in ln for ln in lines),
+                        lines)
 
 
 if __name__ == '__main__':

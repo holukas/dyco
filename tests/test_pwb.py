@@ -350,6 +350,77 @@ class TestPwbPerGasWindow(unittest.TestCase):
 
         asyncio.run(scenario())
 
+    def test_tui_status_line_keeps_the_tail_of_a_long_message(self):
+        # The status widget is height:1 and used to wrap, so 'settings saved
+        # to <long path>' showed the verb and clipped the path away.
+        try:
+            import asyncio
+            from dyco.tui import DetectRemoveTUI, StatusLine
+        except Exception:
+            self.skipTest('textual TUI not importable')
+
+        msg = 'settings saved to ' + '/very_long_folder_name' * 8 + '/cfg.yaml'
+
+        async def scenario():
+            app = DetectRemoveTUI(demo=True)
+            async with app.run_test(size=(200, 40)) as pilot:
+                await pilot.pause()
+                line = app.query_one('#status', StatusLine)
+                app._status(msg)
+                await pilot.pause()
+                shown = line.render().plain
+                width = line.size.width
+                # ...and it re-fits when the pane changes width (both sizes
+                # are in the two-column regime; narrower stacks the columns
+                # and gives the console the full width instead)
+                await pilot.resize_terminal(120, 40)
+                await pilot.pause()
+                return shown, width, line.render().plain, line.size.width
+
+        shown, width, narrow, narrow_width = asyncio.run(scenario())
+        for text, w in [(shown, width), (narrow, narrow_width)]:
+            self.assertGreater(w, 0)
+            self.assertLessEqual(len(text), w, text)
+            self.assertTrue(text.startswith('settings saved'), text)
+            self.assertTrue(text.endswith('cfg.yaml'), text)
+        self.assertLess(len(narrow), len(shown))
+
+    def test_tui_finished_block_names_what_was_written(self):
+        try:
+            import pandas as pd
+            from dyco.tui import _finished_lines
+        except Exception:
+            self.skipTest('textual TUI not importable')
+
+        summary = pd.DataFrame({
+            'parent': ['site_202401010000.csv.gz'] * 3,
+            'period': ['site_202401010000.csv', 'site_202401010030.csv',
+                       'site_202401010100.csv'],
+            'status': ['ok', 'ok', 'error'],
+        })
+        cfg = {'output_dir': '/out', 'data_subdir': '2_lag_removed',
+               'detect_subdir': '1_lag_detection'}
+
+        class _Pipeline:
+            summary_csv_path = '/out/1_lag_detection/summary.csv'
+            summary_plots_dir = None
+
+        text = '\n'.join(ln.plain for ln in
+                         _finished_lines(summary, cfg, _Pipeline(), 74.0, False))
+        self.assertIn('FINISHED', text)
+        self.assertIn('2/3 chunk(s) from 1 file(s)', text)
+        self.assertIn('1m 14s', text)
+        self.assertIn('2 x .csv', text)          # the extension actually written
+        self.assertIn('2_lag_removed', text)
+        self.assertIn('1_lag_detection', text)
+        self.assertIn('summary.csv', text)
+        self.assertNotIn('overview plots', text)  # no plots were written
+
+        stopped = '\n'.join(ln.plain for ln in
+                            _finished_lines(summary, cfg, _Pipeline(), 5.0, True))
+        self.assertIn('STOPPED', stopped)
+        self.assertIn('5.0 s', stopped)
+
     # ---- end-to-end: a per-gas window finds a lag a global one cannot ----
     def test_pipeline_per_gas_window_end_to_end(self):
         import numpy as np

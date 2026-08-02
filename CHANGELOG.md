@@ -59,12 +59,13 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   0.30/0.20 s, and the S1 reliability threshold is 0.5 s
 - `--output-suffix` on `dyco detect-remove` (**Output as** in the TUI): the extension the corrected
   chunks carry. Reading and writing follow from it, so compression never has to be stated separately.
-  Three ways to give it:
+  Three ways to give it, all with the leading dot:
   - the whole extension — `.csv`, `.csv.gz`, `.dat.zip`, `.txt` — used as written
-  - the text format alone — `csv` — which drops compression: `file1.csv.zip` gives `file1.csv`
-  - the compression alone — `zip` — which keeps the input's text format: `file1.csv` gives
+  - the text format alone — `.csv` — which drops compression: `file1.csv.zip` gives `file1.csv`
+  - the compression alone — `.zip` — which keeps the input's text format: `file1.csv` gives
     `file1.csv.zip`, not `file1.zip`
-  `auto` (the default) reuses the input's own extension. A compression dyco cannot write (`.zst`,
+  `auto` (the default) reuses the input's own extension. The dot is required, so a one-part
+  extension is written the same way as a two-part one. A compression dyco cannot write (`.zst`,
   `.7z`) is refused rather than quietly producing plain text under a name that promises otherwise
 - **A gas can take its lag from another gas**, for the periods where its own detection could not be
   trusted: `--scalar "N2O:n2o@lagfrom=CO2"`, or the **Lag from** field in the TUI, which starts with

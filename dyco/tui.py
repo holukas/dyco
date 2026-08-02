@@ -93,7 +93,8 @@ from textual.widgets.option_list import Option
 
 from dyco.pipeline import (
     _WHITESPACE_SEP, PerFilePipeline, parse_scalar_spec, window_to_lag_params)
-from dyco.rawio import normalise_output_suffix, read_preserved_lines
+from dyco.rawio import (compression_suffix, normalise_output_suffix,
+                        read_preserved_lines)
 
 
 def _opt_output_suffix(value: str) -> bool:
@@ -186,6 +187,26 @@ class PathInput(Input):
         event.stop()
 
 
+def _compression_note(src_name: str, out_name: str) -> tuple[str, bool]:
+    """State the input's compression against the output's, in words.
+
+    'Output as' sets the whole extension, so it silently decides compression
+    as well: '.csv' against a .csv.gz input writes plain text. Worth spelling
+    out in the preflight rather than leaving it to be read off the name.
+    Returns the sentence and whether the two differ.
+    """
+    src = compression_suffix(src_name)[1:]
+    out = compression_suffix(out_name)[1:]
+    if src == out:
+        return (f'compression unchanged: {out}' if out
+                else 'uncompressed in, uncompressed out'), False
+    if not out:
+        return f'input is {src}-compressed, output is written uncompressed', True
+    if not src:
+        return f'input is uncompressed, output is written {out}-compressed', True
+    return f'input is {src}-compressed, output is written {out}-compressed', True
+
+
 def _phase_label(phase: str) -> str:
     """User-facing verb for a pipeline phase.
 
@@ -212,6 +233,61 @@ _CYAN = '#7dcfff'
 _GREEN = '#9ece6a'
 _AMBER = '#e0af68'
 _RED = '#f7768e'
+
+
+def _tilde(path) -> str:
+    """Write a path under the home folder as ``~\\...``.
+
+    Purely to keep the one-row status line readable — the home prefix is the
+    least informative part of it.
+    """
+    s = str(path)
+    home = str(Path.home())
+    return f'~{s[len(home):]}' if s.startswith(home) else s
+
+
+def _elide_middle(text: str, width: int) -> str:
+    """Shorten text to `width` columns by dropping from the middle.
+
+    Status messages are mostly '<verb> <path>', where the tail (the file
+    name) carries as much as the head, so cropping the right-hand end is the
+    one thing that must not happen.
+    """
+    if width <= 0 or len(text) <= width:
+        return text
+    if width == 1:
+        return text[:1]
+    keep = width - 1  # room for the ellipsis
+    head = (keep + 1) // 2
+    tail = keep - head
+    return f'{text[:head]}…{text[len(text) - tail:]}' if tail else f'{text[:head]}…'
+
+
+class StatusLine(Static):
+    """One-row status text that elides instead of wrapping out of sight.
+
+    The widget is ``height: 1`` and a Static wraps by default, so a message
+    wider than the console pane pushed its tail -- the path -- onto a second
+    row that the height then clipped away. Keep the unformatted message and
+    re-fit it to the pane, including after a resize.
+    """
+
+    def __init__(self, msg: str = '', **kwargs) -> None:
+        super().__init__(f'[{_DIM}]{msg}[/]', **kwargs)
+        self._msg = msg
+        self._color = _DIM
+
+    def show(self, msg: str, color: str) -> None:
+        self._msg = msg
+        self._color = color
+        self._refit()
+
+    def on_resize(self) -> None:
+        self._refit()
+
+    def _refit(self) -> None:
+        self.update(f'[{self._color}]{_elide_middle(self._msg, self.size.width)}[/]')
+
 
 _CSS = """
 Screen { background: #1a1b26; color: #a9b1d6; }
@@ -263,7 +339,7 @@ Button#save { background: #2f334d; color: #c0caf5; }
 Button#quit { background: #2f334d; color: #c0caf5; }
 Button:disabled { color: #565f89; text-style: none; }
 
-#status { height: 1; color: #565f89; }
+#status { height: 1; color: #565f89; text-wrap: nowrap; }
 #progressrow { height: 1; }
 #phase { width: 9; content-align: left middle; }
 ProgressBar { width: 1fr; }
@@ -505,7 +581,8 @@ _FIELDS = [
     ('streg', 'Start regex', r'e.g. (\d{12})  — capture file start from name'),
     ('stfmt', 'Start format', 'e.g. %Y%m%d%H%M  (parses the captured text)'),
     ('ctmpl', 'Name tmpl', '{stem}_chunk{index:02d}{suffix}'),
-    ('outsuffix', 'Output as', 'auto = same as input  (or csv / zip / .csv.gz)'),
+    ('outsuffix', 'Output as',
+     'auto = same as input  (or .csv / .zip / .csv.gz — dot required)'),
     # --- Output layout ---
     ('detectsub', 'Detect dir', 'default 1_lag_detection  (diagnostics)'),
     ('datasub', 'Data dir', 'default 2_lag_removed  (corrected chunks)'),
@@ -943,6 +1020,66 @@ def _detect_line(stem: str, row: dict, scalars) -> Text:
     return t
 
 
+def _fmt_elapsed(seconds: float) -> str:
+    """Run duration in the largest unit that keeps it readable."""
+    if seconds < 60:
+        return f'{seconds:.1f} s'
+    m, s = divmod(int(round(seconds)), 60)
+    h, m = divmod(m, 60)
+    return f'{h}h {m:02d}m {s:02d}s' if h else f'{m}m {s:02d}s'
+
+
+def _finished_lines(summary, cfg: dict, pipeline, elapsed: float,
+                    cancelled: bool) -> list:
+    """The closing block: what was written, where, and how long it took.
+
+    The per-chunk lines scroll away and the summary block above reports only
+    lags, so without this a run ends without ever saying what landed on disk.
+    """
+    lines: list = []
+    n = 0 if summary is None else len(summary)
+    n_ok = (int((summary['status'] == 'ok').sum())
+            if n and 'status' in summary.columns else 0)
+    n_files = (summary['parent'].nunique()
+               if n and 'parent' in summary.columns else 0)
+
+    head = Text()
+    if cancelled:
+        head.append('── STOPPED ──  ', style=f'bold {_AMBER}')
+    else:
+        head.append('── FINISHED ──  ', style=f'bold {_GREEN}')
+    head.append(f'{n_ok}/{n} chunk(s) from {n_files} file(s) '
+                f'in {_fmt_elapsed(elapsed)}', style=_FG)
+    lines.append(head)
+
+    # The written extension is not the setting -- 'auto' and a bare
+    # compression both resolve against the input -- so read it off a name the
+    # run actually produced.
+    written = ''
+    if n and 'period' in summary.columns:
+        ok = (summary.loc[summary['status'] == 'ok', 'period']
+              if 'status' in summary.columns else summary['period'])
+        if len(ok):
+            written = ''.join(Path(str(ok.iloc[0])).suffixes)
+
+    out_dir = Path(cfg['output_dir'])
+    rows = [('aligned data',
+             f'{out_dir / cfg["data_subdir"]}'
+             + (f'   {n_ok} x {written}' if written else '')),
+            ('diagnostics', str(out_dir / cfg['detect_subdir']))]
+    if pipeline.summary_csv_path is not None:
+        rows.append(('summary', str(pipeline.summary_csv_path)))
+    if pipeline.summary_plots_dir is not None:
+        rows.append(('overview plots', str(pipeline.summary_plots_dir)))
+    width = max(len(label) for label, _ in rows)
+    for label, value in rows:
+        t = Text()
+        t.append(f'  {label.ljust(width)}  -> ', style=_DIM)
+        t.append(value, style=_CYAN)
+        lines.append(t)
+    return lines
+
+
 class DetectRemoveTUI(App):
     """Two-column Textual UI for the PWB detect+remove pipeline."""
 
@@ -1033,7 +1170,7 @@ class DetectRemoveTUI(App):
                     yield Button('Reset', id='reset')
                     yield Button('Quit', id='quit')
             with Vertical(id='console'):
-                yield Static('idle', id='status')
+                yield StatusLine('idle', id='status')
                 with Horizontal(id='progressrow'):
                     yield Static(f'[{_LAV}]detect[/]', id='phase')
                     yield ProgressBar(id='bar')
@@ -1371,7 +1508,7 @@ class DetectRemoveTUI(App):
             self.query_one('#output_dir', Input).value = '(demo)'
             self._status('demo mode — press Run (r)', _LAV)
         elif loaded:
-            self._status(f'settings loaded from {_SETTINGS_PATH}', _DIM)
+            self._status(f'settings loaded from {_tilde(_SETTINGS_PATH)}', _DIM)
         else:
             self._status('fill the form, then Run (r)', _DIM)
 
@@ -1628,8 +1765,11 @@ class DetectRemoveTUI(App):
             try:
                 name0, _ = _chunk_filename(
                     f0, 0, cfg['chunk_seconds'], cfg['chunk_name_template'],
-                    cfg['start_time_regex'], cfg['start_time_format'])
+                    cfg['start_time_regex'], cfg['start_time_format'],
+                    cfg['output_suffix'])
                 log(Text(f"✓ first output file would be: {name0}", style=_CYAN))
+                note, changed = _compression_note(f0.name, name0)
+                log(Text(f"  {note}", style=_AMBER if changed else _DIM))
             except Exception as e:
                 ok = False
                 log(Text(f"✗ chunk naming: {e}", style=_RED))
@@ -1738,7 +1878,7 @@ class DetectRemoveTUI(App):
             _SETTINGS_PATH.write_text(yaml.safe_dump(data, sort_keys=False),
                                       encoding='utf-8')
             if announce:
-                self._status(f'settings saved to {_SETTINGS_PATH}', _GREEN)
+                self._status(f'settings saved to {_tilde(_SETTINGS_PATH)}', _GREEN)
         except Exception as e:
             if announce:
                 self._status(f'could not save settings: {e}', _RED)
@@ -1761,7 +1901,7 @@ class DetectRemoveTUI(App):
 
     # ---- UI updates (always called via call_from_thread) ---------------
     def _status(self, msg: str, color: str = _DIM) -> None:
-        self.query_one('#status', Static).update(f'[{color}]{msg}[/]')
+        self.query_one('#status', StatusLine).show(msg, color)
 
     def _scan_status(self, msg: str) -> None:
         """Surface coarse pre-phase-1 progress (the up-front file scan).
@@ -1842,6 +1982,7 @@ class DetectRemoveTUI(App):
 
     # ---- real pipeline (worker thread) ---------------------------------
     def _real_impl(self, cfg: dict) -> None:
+        t_start = time.monotonic()
         try:
             pipeline = PerFilePipeline(**cfg)
             scalars = pipeline.scalars
@@ -1899,9 +2040,14 @@ class DetectRemoveTUI(App):
                     self._log_only,
                     Text(f'overview plots -> {pipeline.summary_plots_dir}',
                          style=_CYAN))
-            # Post-run summary block (counts, reliability, median lags).
+            # Post-run summary block (counts, reliability, median lags),
+            # then the closing block naming what was written and where.
             for ln in _summary_lines(summary, list(scalars), hz,
                                      cancelled=pipeline.cancelled):
+                self.call_from_thread(self._log_only, ln)
+            for ln in _finished_lines(summary, cfg, pipeline,
+                                      time.monotonic() - t_start,
+                                      pipeline.cancelled):
                 self.call_from_thread(self._log_only, ln)
             if pipeline.cancelled:
                 self.call_from_thread(

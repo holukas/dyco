@@ -75,7 +75,7 @@ e.g. EddyPro "Advanced" rotated output). A non-zero mean `W` corrupts the cross-
 | `--na-values` / `--na-rep` | What counts as missing on the way in, what is written for it on the way out. |
 | `--lineterm` | `auto` reproduces the input's CRLF or LF. Force it with `\r\n` or `\n`. |
 | `--file-pattern` | Which files to read. Compression is transparent: `.gz`, `.bz2`, `.xz` and `.zip` are read as the text they contain. |
-| `--output-suffix` | The extension the written chunks carry. Give the whole thing (`.csv`, `.csv.gz`, `.dat.zip`), just the text format (`csv`, which writes plain text and drops any compression), or just the compression (`zip`, which keeps the input's text format, so `file1.csv` gives `file1.csv.zip`). `auto` (default) reuses the input's own extension. |
+| `--output-suffix` | The extension the written chunks carry, dot included. Give the whole thing (`.csv`, `.csv.gz`, `.dat.zip`), just the text format (`.csv`, which writes plain text and drops any compression), or just the compression (`.zip`, which keeps the input's text format, so `file1.csv` gives `file1.csv.zip`). `auto` (default) reuses the input's own extension. A suffix without the leading dot is refused, so `.csv` is written the same way as `.csv.gz`. |
 
 Two limits worth knowing. This path reads **delimited text only**; Parquet is read by
 `dyco.files.read_raw_data`, which serves the file splitter, not this pipeline. And it needs **no

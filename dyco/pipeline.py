@@ -2924,7 +2924,9 @@ def _build_parser():
     p.add_argument('--output-suffix', default='auto',
                    help='Extension the written chunks carry, format and '
                         'compression together: .csv, .csv.gz, .dat.zip, .txt. '
-                        'auto (default) reuses the extension of the input '
+                        'The leading dot is required. Naming the compression '
+                        'alone (.gz) keeps the input text format in front of '
+                        'it. auto (default) reuses the extension of the input '
                         'file. The template placeholder {suffix} expands to '
                         'this.')
     p.add_argument('--wdt', type=int, default=5,

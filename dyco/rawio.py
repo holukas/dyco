@@ -71,12 +71,17 @@ AUTO_SUFFIX = 'auto'
 
 
 def normalise_output_suffix(spec: str) -> str:
-    """Validate a user-supplied output suffix and return it dot-prefixed.
+    """Validate a user-supplied output suffix and return it.
 
     Takes the whole extension the output files should carry, so one setting
-    covers both the text format and the compression: ``'.csv'``, ``'csv.gz'``,
-    ``'.dat.zip'``. A leading dot is optional. ``'auto'`` (the default) means
-    keep whatever the input used.
+    covers both the text format and the compression: ``'.csv'``,
+    ``'.csv.gz'``, ``'.dat.zip'``. ``'auto'`` (the default) means keep
+    whatever the input used.
+
+    The leading dot is required. A one-part extension is then written exactly
+    as a two-part one -- ``.csv`` beside ``.csv.gz`` -- rather than the
+    setting accepting ``csv`` for the first and never ``csv.gz`` for the
+    second without one.
 
     The format part is never interpreted -- dyco writes delimited text
     whatever it is called -- but the *compression* part has to be one that can
@@ -87,7 +92,9 @@ def normalise_output_suffix(spec: str) -> str:
     if not spec or spec.lower() == AUTO_SUFFIX:
         return AUTO_SUFFIX
     if not spec.startswith('.'):
-        spec = '.' + spec
+        raise ValueError(
+            f'output suffix {spec!r} must start with a dot: write '
+            f'{"." + spec!r} the way you would write {"." + spec + ".gz"!r}.')
     # Both forms have to be checked: Path('.zst').suffix is '' -- a name that
     # is nothing but a dotted word reads as a hidden file, not as a suffix.
     last = Path(spec).suffix.lower() or spec.lower()
@@ -121,8 +128,8 @@ def resolve_output_suffix(spec: str, input_path) -> str:
     Three shapes, each answering a different question:
 
     - a full extension (``'.csv.gz'``, ``'.dat'``) is used as given;
-    - a bare compression (``'zip'``, ``'gz'``) keeps the input's text format
-      in front of it, so ``file1.csv`` written as ``zip`` becomes
+    - a bare compression (``'.zip'``, ``'.gz'``) keeps the input's text format
+      in front of it, so ``file1.csv`` written as ``.zip`` becomes
       ``file1.csv.zip`` rather than ``file1.zip``;
     - ``'auto'`` reproduces the input's own extension -- ``file1.csv.gz`` gives
       ``'.csv.gz'``, ``file1.gz`` gives ``'.gz'``, ``file1.csv`` gives ``'.csv'``.
