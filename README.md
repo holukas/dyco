@@ -42,6 +42,9 @@ uv sync
 dyco tui
 ```
 
+![The dyco terminal UI](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/dyco_tui_v3.0.0.png)
+*Settings on the left, the run on the right. This is `dyco tui --demo`, which needs no data.*
+
 **This is the recommended way to run dyco.** A detect-and-remove run takes on
 the order of thirty settings: column names, file format, chunk length, search
 windows per gas, PWBOPT thresholds. Getting one of them wrong is easy on a
