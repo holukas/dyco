@@ -189,11 +189,13 @@ arbitrary metadata rows, preserve line endings and can write. Folding the first
 into the second is low priority — `files.py` has exactly one consumer, and the
 defect class that motivated it lived in the opening layer, which is now shared.
 
-**Release chores.** `CITATION.cff` needs its `version:` and a Zenodo DOI (the
-`doi:` field is commented out). The `CHANGELOG.md` heading is
-`## v3.0.0 | unreleased` — the date goes in at release, deliberately not before.
-Check `status.svg` still points somewhere valid. **The version in
-`pyproject.toml` is the user's; do not touch it.**
+**Release chores.** `CITATION.cff` now carries `version: 3.0.0` and the Zenodo
+concept DOI `10.5281/zenodo.4964067`, which resolves to the latest version and
+is the one to cite for all versions; its `date-released:` is still commented
+out. The `CHANGELOG.md` heading is `## v3.0.0 | unreleased` — both dates go in
+at release, deliberately not before. Check `status.svg` still points somewhere
+valid. **The version in `pyproject.toml` is the user's; do not touch it** — but
+`CITATION.cff` has to be kept in step with it.
 
 ---
 
@@ -313,8 +315,13 @@ commit messages, README prose, CHANGELOG entries.
 
 dyco is a **published, citable package**. `paper/paper.md` is a JOSS-format
 paper (*"DYCO: A Python package to dynamically detect and compensate for time
-lags in ecosystem time series"*, 2020) with `paper.bib`; `CITATION.cff` carries
-the author's ORCID.
+lags in ecosystem time series"*, dated 31 Jul 2020) with `paper.bib`;
+`CITATION.cff` carries the author's ORCID.
+
+**The paper describes `v1.1.2`** — released 16 Jun 2021 for that publication —
+i.e. the covariance-maximization method, which v3 removed. Anyone reading the
+paper and then this code is reading about two different algorithms; say so
+wherever the paper is cited.
 
 **Do not edit `paper/`** without explicit instruction — it is the published
 record. The newer pre-whitening block-bootstrap method has its own manuscript

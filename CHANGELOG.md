@@ -206,8 +206,9 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 Downstream flux processing must run with EC time-lag maximization **disabled** — the lag has already been
 removed.
 
-The published JOSS paper (`paper/`) describes the v1/v2 covariance-maximization method and is left as the
-historical record. The PWB method has its own publication (Vitale et al. 2024).
+The published JOSS paper (`paper/`) describes the covariance-maximization method as it stood in `v1.1.2`,
+the version released for that publication, and is left as the historical record. The PWB method has its own
+publication (Vitale et al. 2024).
 
 Vitale, D., Fratini, G., Helfter, C., Hörtnagl, L., et al., 2024. A pre-whitening with block-bootstrap
 cross-correlation procedure for temporal alignment of data sampled by eddy covariance systems. Environ.

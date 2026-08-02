@@ -2,6 +2,8 @@
 
 # **dyco** - dynamic lag compensation
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)
+
 `dyco` takes eddy covariance raw data files as input and produces lag-compensated raw data files as
 output, ready for flux calculation software such as EddyPro.
 
@@ -423,8 +425,10 @@ Observations RINGO (grant no. 730944).
 
 ## Notes
 
-A previous version of `dyco` was used in a publication in JOSS.
-[![DOI](status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/311300577.svg)](https://zenodo.org/badge/latestdoi/311300577)
+The JOSS paper describes `dyco` **v1.1.2**, the version released for that publication on 16 Jun 2021.
+It documents the covariance-maximization method, which was removed in v3 — what the paper describes is
+not what this version does. See `CHANGELOG.md`.
+[![DOI](status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)
 
 ## References
 
