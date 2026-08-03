@@ -52,6 +52,14 @@ myst_enable_extensions = [
     'deflist',
 ]
 
+# The PWB flowchart has more nodes than fit legibly in the content column, so
+# it needs to be readable at something other than the width Sphinx gives it.
+# Zoom pulls in d3 from a CDN; mermaid itself is already loaded that way, so
+# this adds no new class of dependency. The fullscreen button is on by default
+# and is the better route for readers who dislike scroll-to-zoom.
+mermaid_d3_zoom = True
+mermaid_height = '700px'
+
 # Lets one page link to a heading on another, e.g. (cli/detect-remove.md#io).
 myst_heading_anchors = 3
 
