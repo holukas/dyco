@@ -1,4 +1,7 @@
-![Logo](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/logo_dyco1_256px.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/logo_dyco3_lockup_dark.svg">
+  <img alt="dyco" src="https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/images/logo_dyco3_lockup.svg" width="420">
+</picture>
 
 # **dyco** - dynamic lag compensation
 
