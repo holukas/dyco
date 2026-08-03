@@ -2382,14 +2382,24 @@ class PerFilePipeline:
         # PWBOPT across ALL chunks in temporal order -> best lag per chunk.
         summary = self._apply_pwbopt_postprocessing(summary)
 
-        # If the user cancelled during detect, skip phase 2 entirely and
-        # return the partial detection summary (no files aligned).
-        if cancel_event is not None and cancel_event.is_set():
-            self._cancelled = True
-            summary = self._finalise_lag_columns(summary)
-            self._summary = summary
-            self._write_summary_and_plots(summary)
-            return summary
+        # Stopped during detect. PWBOPT has just chosen a lag for every chunk
+        # that did detect, so those chunks can still be aligned and written --
+        # skipping phase 2 outright left a run that had detected for hours
+        # with no usable data at all, only the summary. Phase 2 is the cheaper
+        # half (read, shift, write; no bootstrap), so the wait is bounded.
+        #
+        # The event is cleared so the align phase starts un-cancelled. That is
+        # deliberate: the caller's event means "stop the phase in flight", and
+        # setting it again (the TUI re-enables its Stop button) aborts phase 2
+        # too, keeping whatever it has already written.
+        stopped_in_detect = bool(cancel_event is not None
+                                 and cancel_event.is_set())
+        if stopped_in_detect:
+            cancel_event.clear()
+            n_alignable = int((summary['status'] == 'ok').sum()) \
+                if 'status' in summary.columns else 0
+            _status(f'detection stopped: aligning the {n_alignable} chunk(s) '
+                    f'detected so far (stop again to skip)')
 
         # ---- Resolve output-name collisions before writing --------------
         # Two real 'ok' chunks can map to the same output filename — typically
@@ -2488,8 +2498,12 @@ class PerFilePipeline:
                 summary.at[idx, 'status'] = 'error'
                 summary.at[idx, 'error'] = rr.get('write_error', '')
 
-        # Cancelled during the remove phase: some chunks aligned, some not.
-        self._cancelled = bool(cancel_event is not None and cancel_event.is_set())
+        # Stopped in either phase: some chunks aligned, some not. Either way
+        # the summary, the decisions report and the plots below cover
+        # everything that did complete.
+        self._cancelled = bool(
+            stopped_in_detect
+            or (cancel_event is not None and cancel_event.is_set()))
         summary = self._finalise_lag_columns(summary)
         self._summary = summary
         self._write_summary_and_plots(summary)
