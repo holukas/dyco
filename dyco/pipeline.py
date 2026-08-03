@@ -2366,6 +2366,7 @@ class PerFilePipeline:
             parent_to_idx=parent_to_idx, total_files=total_files,
             on_progress=on_progress, on_active=on_active,
             cancel_event=cancel_event,
+            chunk_estimates={f.name: n for f, n in file_chunk_counts.items()},
         )
 
         # Drop phantom past-EOF chunks dispatched by the padded estimate: they
@@ -2883,13 +2884,20 @@ class PerFilePipeline:
 
     def _run_pool(self, kwargs_list, worker_fn, total, phase,
                   checkpoint_path, parent_to_idx, total_files,
-                  on_progress, on_active, cancel_event=None) -> list:
+                  on_progress, on_active, cancel_event=None,
+                  chunk_estimates=None) -> list:
         """Dispatch one phase's chunk tasks; collect and checkpoint result rows.
 
         ``worker_fn`` is the picklable module-level worker (``_detect_worker``
         or ``_remove_worker``). Drains the progress queue in the main process,
         snapshots a checkpoint CSV after every completion, and forwards the
         ``on_progress`` / ``on_active`` callbacks tagged with ``phase``.
+
+        ``chunk_estimates`` maps input filename -> that file's honest chunk
+        estimate. Given it, the total reported to ``on_progress`` is revised
+        while the phase runs (see ``_revise_total``); without it the ``total``
+        argument is reported unchanged, which is right for phase 2, where the
+        write list is exact.
 
         ``cancel_event`` (a ``threading.Event``) lets a caller abort mid-phase:
         it is checked while draining; when set, pending futures are cancelled
@@ -2900,6 +2908,17 @@ class PerFilePipeline:
         rows: list[dict] = []
         active: dict = {}  # pid -> {'parent', 'chunk_index', 'chunk_period'}
         done = 0
+        # Two counters, because the pool dispatches more chunks than exist:
+        # ``done`` accounts for every task so the pool can tell when it is
+        # finished, ``done_real`` counts only the chunks the user is shown.
+        # Reporting ``done`` against a total that excludes phantoms drove the
+        # bar past 100% and the ETA to zero long before the run ended.
+        done_real = 0
+        # Filename -> index of its first past-EOF chunk, which is exactly that
+        # file's real chunk count. Files not in here have not revealed
+        # themselves yet and keep their up-front estimate.
+        eof_index: dict = {}
+        live_total = total
 
         def _checkpoint_save():
             """Persist current rows so an interrupted phase can be inspected.
@@ -2918,9 +2937,32 @@ class PerFilePipeline:
             except PermissionError:
                 pass  # file locked, just skip this snapshot
 
+        def _revise_total(row: dict) -> None:
+            """Correct the reported total from a past-EOF chunk's index.
+
+            A file's first phantom chunk index *is* its real chunk count, so
+            every phantom replaces one file's sampled estimate with a measured
+            value. Over a long run the total converges on the truth instead of
+            standing at whatever the up-front scan guessed.
+            """
+            nonlocal live_total
+            parent = row.get('parent', '')
+            ci = row.get('chunk_index')
+            if not chunk_estimates or parent not in chunk_estimates or ci is None:
+                return
+            known = eof_index.get(parent)
+            if known is not None and known <= ci:
+                return  # a lower phantom index already pinned this file
+            eof_index[parent] = ci
+            live_total = (
+                sum(eof_index.values())
+                + sum(n for name, n in chunk_estimates.items()
+                      if name not in eof_index)
+            )
+
         def _handle_event(ev: dict):
             """Apply one queue event: update active set, append row, fan out."""
-            nonlocal done
+            nonlocal done, done_real
             pid = ev.get('pid')
             kind = ev['event']
             if kind == 'start':
@@ -2939,9 +2981,20 @@ class PerFilePipeline:
                 _checkpoint_save()
                 # Phantom past-EOF chunks (from the padded estimate) are kept
                 # for pool accounting but hidden from the user-facing log/bar;
-                # run() drops them from the summary afterwards.
-                if on_progress is not None and row.get('status') != 'empty:eof':
-                    on_progress(done, total, row, phase)
+                # run() drops them from the summary afterwards. They still
+                # carry information: where a file really ends.
+                if row.get('status') == 'empty:eof':
+                    _revise_total(row)
+                else:
+                    done_real += 1
+                    if on_progress is not None:
+                        # Clamp: a file holding more chunks than its sample
+                        # suggested would report past the total for the few
+                        # chunks before its own past-EOF marker lands and
+                        # corrects it. Having completed N chunks is itself
+                        # proof that at least N exist.
+                        on_progress(done_real, max(live_total, done_real),
+                                    row, phase)
                 if on_active is not None:
                     on_active(active, phase)
 
@@ -3570,8 +3623,9 @@ def _cli_main():
 
     summary = None
     # Tracks the active phase so the overall bar resets (new total) when
-    # phase 1 (detect) hands off to phase 2 (remove).
-    phase_state = {'phase': None}
+    # phase 1 (detect) hands off to phase 2 (remove), and the total last shown
+    # so a mid-phase revision can be applied without resetting the bar.
+    phase_state = {'phase': None, 'total': None}
 
     def _phase_tag(phase: str) -> str:
         # 'remove' = remove the time LAG (align scalar to wind), not any file;
@@ -3587,10 +3641,17 @@ def _cli_main():
                 # 'remove'; the two phases have different row schemas.
                 if phase != phase_state['phase']:
                     phase_state['phase'] = phase
+                    phase_state['total'] = total_chunks
                     overall.reset(overall_id, total=total_chunks)
                     overall.update(
                         overall_id,
                         description=f'[cyan]{mode}[/cyan] {_phase_tag(phase)}')
+                elif total_chunks != phase_state['total']:
+                    # The estimate was revised. Update the target only: reset()
+                    # would throw away the throughput history the ETA is built
+                    # from, and the ETA is the thing being corrected here.
+                    phase_state['total'] = total_chunks
+                    overall.update(overall_id, total=total_chunks)
                 chunk_short = _short_period(row.get('period', ''))
                 parent_short = _short_period(row.get('parent', ''))
                 # Show source (6 h) file then chunk, so each line is
