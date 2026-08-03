@@ -1,0 +1,6 @@
+# Raw example data is a byte-exact fixture: the CZ-Lnz file ends its header
+# row CRLF and its 18000 data rows LF, and core.autocrlf would rewrite all of
+# them on checkout. Line endings are part of what these files demonstrate, so
+# the raw inputs are stored as-is. Result tables (*.csv) are ordinary text.
+examples/data/*.txt -text
+examples/data/*.gz -text
