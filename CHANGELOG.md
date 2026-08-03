@@ -105,6 +105,23 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   12 significant digits. Three cases: two synthetic, one per branch of the unit-root test, and the
   bundled **real** CH-LAE half hour, where AR orders reach 133 / 87 / 312 against the synthetic
   cases' 1 to 5. Fixtures and the R script that produced the frozen values are in `tests/data/`
+- A second bundled raw file, `examples/data/CZ-Lnz_202208180700_QCL.txt`: one 10 Hz half hour in
+  which CH<sub>4</sub>, N<sub>2</sub>O and H<sub>2</sub>O all detect reliably at once. That is rare
+  in the source record, 33 periods out of 8199, and none of those fall between 09:00 and 16:00,
+  because daytime mixing flattens the N<sub>2</sub>O signal
+- Two worked examples in the documentation, each following one bundled file from raw input to
+  output. `docs/example-irga-20hz.md` covers 20 Hz with compressed input, three header rows, no
+  timestamp column at all, and one file that becomes two averaging periods.
+  `docs/example-qcl-10hz.md` covers the harder case: three gases, one of which almost never detects
+  on its own, and a tube delay that changes mid-record. Both also say what the writer changes on the
+  way through, since neither output is byte-identical to its input
+- `preview_docs.ps1`, which builds the documentation and opens it, or serves it with live reload
+  (`-Watch`). `-Strict` matches Read the Docs' `fail_on_warning` and `-Clean` forces a full rebuild,
+  which is needed because a stale cached environment makes `sphinx-build` report "no targets are out
+  of date" after an edit. Sphinx runs through `uv run --with-requirements`, so the docs toolchain
+  stays out of the project environment and out of `uv.lock`
+- The PWB flowchart zooms and pans, and has a fullscreen button. It carries more nodes than fit
+  legibly in the content column
 
 ### Changed
 
@@ -146,6 +163,16 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 - pandas requirement raised to `>=3.0.0` (was `>=2.2.3,<3.0.0`)
 - Build backend switched from `poetry-core` to `hatchling`; `uv` is now used for dependency management
 - New dependencies: `numpy`, `polars`, `pyarrow`, `textual`, `pyyaml`
+- **Stopping a run now writes the chunks it had already detected.** Stop used to skip phase 2
+  outright, so a run that had detected for hours before the user pressed it left a summary, a
+  decisions report and plots, but not one lag-corrected file. PWBOPT runs before the cancellation is
+  checked, so every chunk that detected already has a chosen lag, and those chunks are now aligned
+  and written. Phase 2 is the cheap half, no bootstrap, so the wait after pressing Stop is bounded by
+  what was detected rather than by what was queued. Stop now cancels the phase in flight rather than
+  the run: pressing it again during alignment skips that too and keeps whatever it has written, and
+  the TUI re-enables its button to say so. One caveat, PWBOPT sees a truncated sequence in a stopped
+  run, so a period that a complete run would have back-filled from a later detection may instead
+  carry an earlier lag or fall back to the median. A stopped run's output is provisional
 
 ### Fixed
 
@@ -249,6 +276,16 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   (`_open_text` / `_open_binary` / `_open_text_write`). Regression tests in
   `tests/test_rawio_gzip.py` write the same content plain and gzipped and require
   identical results end to end
+
+- **The progress bar filled to 100% long before the run ended, and the ETA sat at zero.** Phase 1
+  dispatches more chunks than a file holds, at least one extra per file, so a sampling error in the
+  row-count estimate can never drop a trailing chunk; the extras land past EOF and are discarded. The
+  completion counter counted those phantoms while the total it was compared against did not. Phantoms
+  read nothing and finish almost instantly, so they front-run the real work: on a four-file run the
+  bar reached 100% on the very first real chunk and stayed there for the rest of the run. The display
+  now counts only real chunks, and the total is revised while the phase runs, since a file's first
+  past-EOF chunk index is exactly that file's chunk count. Detection, lag selection and the written
+  files were never affected; this was the display alone
 
 ### Removed
 
