@@ -58,6 +58,14 @@ delays — a systematic 0.35 s between CH₄ and N₂O is ordinary — so borrow
 a biased one. It is worth doing once the gas's own lag is old enough that staleness is the bigger
 error, and that is a judgement the carry limit expresses.
 
+**Pick a donor that behaves like the recipient.** H₂O is not interchangeable with the dry gases here.
+It adsorbs onto and desorbs from the tube wall, so its lag runs longer than the flow-through delay and
+shifts with humidity and the state of the tube, while CO₂, CH₄ and N₂O travel with the flow. H₂O is
+also, routinely, the gas that detects *most* reliably in a run — which is exactly what makes it the
+tempting donor and the wrong one. Handing its lag to an inert gas transplants a wall-interaction delay
+onto a gas that has none, and biases the flux that comes out. Let inert gases donate to inert gases,
+and keep a sticky donor for a sticky recipient.
+
 Chains work (`CH4` from `N2O` from `CO2`); circular ones are rejected.
 
 ## Limiting how far a lag may be carried

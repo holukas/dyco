@@ -315,6 +315,13 @@ nothing or worse, and the one that paid was a single constant. See
   every column "missing" from a file whose columns were all there. pandas
   strips those quotes on the data rows, so the header has to agree with it.
   Fixed 2026-08-03 against real CZ-Lnz QCL files.
+- **Never donate a sticky gas's lag to an inert one** via `@lagfrom=`. H2O
+  adsorbs and desorbs on the tube wall, so its lag runs longer than the
+  flow-through delay and moves with humidity and tube age; CO2, CH4 and N2O
+  ride the flow. H2O is frequently the *most reliable* detector in a dataset,
+  which makes it the tempting donor and the wrong one — the borrowed
+  wall-interaction delay biases the recipient's flux. Match donor to recipient
+  by behaviour, not by detection rate.
 - **Two raw-file *parsers* still exist**: `files.py` (parquet, column
   reconciliation) and `pipeline.py` (metadata rows, line endings, writing). See
   **Open** above. Only the opening layer was unified.

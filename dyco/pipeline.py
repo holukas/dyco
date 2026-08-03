@@ -700,6 +700,18 @@ def parse_scalar_spec(token: str) -> tuple[str, str, dict]:
     canonical ``PreWhiteningBootstrap`` argument names (empty when there is no
     ``@`` part); ``lagfrom`` is returned under that name and is a string, not a
     number. Raises ``ValueError`` on a malformed token.
+
+    .. warning::
+
+       **Do not donate a sticky gas's lag to an inert one.** H2O adsorbs onto
+       and desorbs from the intake tube wall, so its lag is longer than the
+       flow-through delay and swings with humidity and tube age. CO2, CH4 and
+       N2O travel with the flow. H2O is often the gas that detects most
+       reliably, which makes ``N2O:n2o@lagfrom=H2O`` a tempting shortcut and a
+       wrong one: it transplants a wall-interaction delay onto a gas that has
+       none, biasing the flux. Donate between gases of like behaviour --
+       another inert gas for an inert one (``N2O:n2o@lagfrom=CO2``), and a
+       sticky donor only for a sticky recipient.
     """
     main, _, spec = token.partition('@')
     if ':' not in main:
@@ -3131,7 +3143,13 @@ def _build_parser():
                         'an optional per-gas time-lag window after "@" as '
                         '";"-separated key=value pairs (seconds): lag (lag_max), '
                         'block, lws, uws -- e.g. "H2O:h2o@lag=30;uws=25" gives '
-                        'a long-inlet gas a wider window than the dry gases.')
+                        'a long-inlet gas a wider window than the dry gases. '
+                        '"lagfrom=LABEL" makes this gas borrow another\'s lag '
+                        'for periods it has none of its own. Donate only '
+                        'between gases that behave alike: H2O sticks to the '
+                        'tube wall and lags longer than the flow, so it must '
+                        'NOT be the donor for CO2, CH4 or N2O even when it is '
+                        'the gas that detects best.')
     # --- PWB parameters ---
     p.add_argument('--hz', type=int, default=20,
                    help='Sampling frequency in Hz.')
