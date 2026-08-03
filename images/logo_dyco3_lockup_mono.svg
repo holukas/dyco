@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336 90" width="336" height="90" role="img" aria-label="dyco">
+  <title>dyco</title>
+  <defs>
+    <clipPath id="dycoT"><rect x="0" y="0" width="100" height="46"/></clipPath>
+    <clipPath id="dycoB"><rect x="0" y="52" width="100" height="48"/></clipPath>
+    <clipPath id="dycoOT"><rect x="0" y="0" width="240" height="44"/></clipPath>
+    <clipPath id="dycoOB"><rect x="0" y="51" width="240" height="49"/></clipPath>
+  </defs>
+  <g transform="translate(-4.111 -3.389) scale(1.02778)">
+  <g clip-path="url(#dycoT)"><circle cx="60" cy="50" r="36" fill="#15171C"/></g>
+  <g clip-path="url(#dycoB)"><circle cx="40" cy="50" r="36" fill="#15171C"/></g>
+  </g>
+  <g transform="translate(118.556 -2.0)">
+  <g fill="none" stroke="#15171C" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="30" cy="48" r="22"/>
+    <path d="M52 8 V70"/>
+    <path d="M68 26 L83 62"/>
+    <path d="M98 26 L76 78 Q72 88 62 86"/>
+    <path d="M146.35 33.28 A22 22 0 1 0 146.35 62.72"/>
+  </g>
+  <g fill="none" stroke-width="12" stroke-linecap="round">
+    <g clip-path="url(#dycoOT)"><circle cx="189" cy="48" r="22" stroke="#15171C"/></g>
+    <g clip-path="url(#dycoOB)"><circle cx="181" cy="48" r="22" stroke="#15171C"/></g>
+  </g>
+  </g>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="dyco">
+  <title>dyco</title>
+  <defs>
+    <clipPath id="dycoT"><rect x="0" y="0" width="100" height="46"/></clipPath>
+    <clipPath id="dycoB"><rect x="0" y="52" width="100" height="48"/></clipPath>
+  </defs>
+  <g clip-path="url(#dycoT)"><circle cx="60" cy="50" r="36" fill="#F2B24E"/></g>
+  <g clip-path="url(#dycoB)"><circle cx="40" cy="50" r="36" fill="#EDECE6"/></g>
+</svg>
