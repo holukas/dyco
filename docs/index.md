@@ -42,6 +42,7 @@ went and why.
 
 install
 tui
+example-irga-20hz
 example-qcl-10hz
 ```
 
