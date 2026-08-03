@@ -42,6 +42,7 @@ went and why.
 
 install
 tui
+example-qcl-10hz
 ```
 
 ```{toctree}
