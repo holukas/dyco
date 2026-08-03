@@ -159,6 +159,29 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
   dispatch and for the same reason; a separator inside a quoted field no longer splits it either.
   Found on real CZ-Lnz QCL files
 
+- **A literal `Inf` in a data column killed the averaging period.** Loggers write them — the CZ-Lnz
+  QCL record carries four `-Inf` in one H₂O column. An infinite concentration is not a measurement,
+  but nothing treated it as missing: it is not a string `--na-values` can match (and `argparse`
+  refuses `-Inf` as a value outright, reading the leading dash as an option name), it survives the
+  `-9999` filtering, and `na.approx` interpolating a gap adjacent to one *spreads* it into the gap —
+  four values became fourteen. It then surfaced far downstream as `array must not contain infs or
+  NaNs` out of scipy's `detrend`, naming neither the column nor the period. Non-finite values are now
+  folded into NaN on read, so they are interpolated across like any other gap, and `{gas}_n_valid`
+  counts only usable records. A column of nothing but `Inf` takes the same `no_data` path as an empty
+  one
+
+- **A gas missing for a whole averaging period killed the entire file.** An analyser offline for a
+  period writes its fill value down the whole column — about one period in eight of the CZ-Lnz QCL
+  record this was found on. `_na_approx` handed the empty column to `np.interp`, which raised *array
+  of sample points is empty*; the error surfaced at file level, so one dead gas took every other gas
+  and every chunk of that file with it, and nothing was written. An empty column now means what it
+  says: there is no lag to find and none to apply, since shifting it would move nothing. The gas is
+  skipped for that period, `{gas}_n_valid` records how many records were present, and
+  `{gas}_lag_source` reads `no_data`. That marking survives PWBOPT deliberately — S3 carry and
+  `@lagfrom=` exist to fill periods whose detection was *rejected* and cannot otherwise tell those
+  apart from periods that had no data to detect in. Other gases in the same period, and periods
+  where the gas is only partly missing, are unaffected
+
 - **The PWB raw cross-covariance was read off the differenced series.** When the Breitung
   variance-ratio test rejects stationarity, all three series are first-differenced before AR
   fitting — but the differenced arrays were then also used for the raw cross-covariance, which R

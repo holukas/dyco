@@ -1159,6 +1159,7 @@ def _empty_detect_row(scalars: dict, period: str, parent: str,
         r[f'{pfx}_cov_pwb'] = np.nan
         r[f'{pfx}_ar_order'] = np.nan
         r[f'{pfx}_best_combination'] = ''
+        r[f'{pfx}_n_valid'] = np.nan
         r[f'{pfx}_applied_records'] = np.nan
         r[f'{pfx}_status'] = 'pending'
     return r
@@ -1332,9 +1333,22 @@ def detect_one_chunk(
         # ---- Detect (PWB on rotated W per scalar) -----------------------
         for gi, (label, col_name) in enumerate(scalars.items()):
             pfx = label.lower()
+            gas_series = df_chunk[col_name].astype(float)
+            # Counts *usable* records: inf is as unusable as NaN, and a column
+            # of nothing but inf has to reach the no-data path below rather
+            # than PWB, which would reject it.
+            n_valid = int(np.isfinite(gas_series.to_numpy(dtype=float)).sum())
+            row[f'{pfx}_n_valid'] = n_valid
+            if n_valid == 0:
+                # Analyser offline for the whole period: the column is -9999
+                # end to end. There is no lag to detect and none to apply --
+                # shifting an empty column would move nothing anyway. Left as
+                # NaN so PWBOPT sees no detection, and masked again after
+                # PWBOPT so no neighbour's lag is carried or borrowed into it.
+                continue
             pwb_df = pd.DataFrame({
                 'W_rot': wr.w2.reset_index(drop=True),
-                label: df_chunk[col_name].astype(float).reset_index(drop=True),
+                label: gas_series.reset_index(drop=True),
                 'T_SONIC': df_chunk[col_tsonic].astype(float).reset_index(drop=True),
             })
             seed = (None if random_state is None
@@ -1690,6 +1704,11 @@ _SUMMARY_PERGAS_COLS = [
      "T_SONIC, scalar AR), 'tc' (scalar x T_SONIC, T_SONIC AR). Strong fluxes "
      "usually win on cw/wc; weak trace gases may fall back to the T_SONIC "
      "pair."),
+    ('{gas}_n_valid',
+     "How many records of this gas are present (not missing) in the chunk. "
+     "0 means the analyser was offline for the whole period: no lag is "
+     "detected, none is carried or borrowed in, and the column is written "
+     "through untouched."),
     ('{gas}_applied_records',
      "Number of records the scalar column was shifted by in phase 2 = "
      "round(applied_lag_s * hz). The applied lag in seconds = this / hz "
@@ -1724,8 +1743,9 @@ _SUMMARY_PERGAS_COLS = [
      "Where the applied lag came from: 'own' (this gas detected it, or carried "
      "it across from its own neighbouring period), 'from:GAS' (borrowed from "
      "another gas, see --scalar ...@lagfrom=), 'median' (last resort: the "
-     "median of this gas's raw detections, all of which PWBOPT rejected), or "
-     "'none'."),
+     "median of this gas's raw detections, all of which PWBOPT rejected), "
+     "'no_data' (the gas is missing for the whole period, so no lag was needed "
+     "or applied), or 'none'."),
     ('{gas}_carry_periods',
      "How far the applied lag travelled: 0 = detected in this very period, n = "
      "carried across n periods from the nearest period that did detect it. "
@@ -1761,6 +1781,10 @@ def _lag_reason(summary, i: int, pfx: str, hdi_thresh: float,
         return f'no file written for this period ({status}) - no lag needed'
 
     source = str(row.get(f'{pfx}_lag_source', 'none'))
+    if source == 'no_data':
+        return ('every record of this gas is missing in this period - no lag '
+                'needed, and none applied')
+
     flag = str(row.get(f'{pfx}_flag_pf', ''))
     hdi = row.get(f'{pfx}_hdi_range_s', np.nan)
     carry = row.get(f'{pfx}_carry_periods', np.nan)
@@ -3100,6 +3124,22 @@ class PerFilePipeline:
             # travel from anywhere, so a number there would misread.
             summary[f'{pfx}_carry_periods'] = np.where(
                 source == 'own', pf['carry_periods'].to_numpy(), np.nan)
+            # A period in which this gas has no data at all needs no lag: the
+            # analyser was offline, the column is empty, and shifting it would
+            # move nothing. PWBOPT cannot tell that apart from a period whose
+            # detection was merely rejected, so it carries or borrows a lag
+            # into it like any other gap. Blank those out again -- but only in
+            # the applied columns, not in `donors[label]`, since a gas that
+            # *does* have data in that period can still legitimately borrow
+            # this gas's interpolated lag for it.
+            n_valid_col = f'{pfx}_n_valid'
+            if n_valid_col in summary.columns:
+                no_data = (summary[n_valid_col].to_numpy(dtype=float) == 0)
+                if no_data.any():
+                    summary.loc[no_data, f'{pfx}_tlag_final_s'] = np.nan
+                    summary.loc[no_data, f'{pfx}_tlag_final_pf_s'] = np.nan
+                    summary.loc[no_data, f'{pfx}_lag_source'] = 'no_data'
+                    summary.loc[no_data, f'{pfx}_carry_periods'] = np.nan
             donors[label] = final_pf
         return summary
 

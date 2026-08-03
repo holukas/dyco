@@ -21,7 +21,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
 | Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 7 more, 143 total |
+| Tests | `tests/test_pwb.py` + 10 more, 198 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -136,7 +136,7 @@ not published yet. **Do not touch the version again; the user owns it.**
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 143 passed
+uv run pytest tests/ -q                                  # 198 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -315,6 +315,23 @@ nothing or worse, and the one that paid was a single constant. See
   every column "missing" from a file whose columns were all there. pandas
   strips those quotes on the data rows, so the header has to agree with it.
   Fixed 2026-08-03 against real CZ-Lnz QCL files.
+- **Non-finite is missing.** Loggers write literal `Inf`/`-Inf` into data
+  columns (CZ-Lnz H2O does). `--na-values` cannot catch it — argparse won't
+  even accept `-Inf` as a value — and `na.approx` *spreads* it into any gap
+  beside it before scipy's `detrend` finally rejects the array, naming neither
+  column nor period. `pwb._finite_or_nan` folds inf into NaN at the point the
+  columns are read; `{gas}_n_valid` counts finite records only, so an all-`Inf`
+  column takes the same `no_data` path as an empty one.
+- **A gas missing for a whole period gets no lag, and that has to survive
+  PWBOPT.** An offline analyser writes its fill value down the entire column
+  (~1 period in 8 on CZ-Lnz). There is nothing to detect and nothing to shift,
+  so detection is skipped, `{gas}_n_valid` is 0 and `{gas}_lag_source` is
+  `no_data`. PWBOPT's S3 carry and `@lagfrom=` fill periods whose detection was
+  *rejected* and cannot distinguish those from periods with no data, so they
+  would happily carry a lag into an empty column — the mask that stops them is
+  applied to the summary columns only, **not** to `donors[label]`, because a
+  gas that does have data may still legitimately borrow this gas's
+  interpolated lag for that period.
 - **Never donate a sticky gas's lag to an inert one** via `@lagfrom=`. H2O
   adsorbs and desorbs on the tube wall, so its lag runs longer than the
   flow-through delay and moves with humidity and tube age; CO2, CH4 and N2O
@@ -344,12 +361,12 @@ nothing or worse, and the one that paid was a single constant. See
 
 ## Testing
 
-`tests/` holds **143 tests plus 117 subtests**, seeded by diive's
+`tests/` holds **198 tests plus 120 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 143 passed, 117 subtests
+uv run pytest tests/ -q     # 198 passed, 120 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving

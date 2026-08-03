@@ -280,6 +280,21 @@ _SMOOTH_WIDTH_CCF = 13
 _SMOOTH_WIDTH_CCOV = 3
 
 
+def _finite_or_nan(x: np.ndarray) -> np.ndarray:
+    """Replace inf and -inf with NaN, leaving everything else alone.
+
+    A logger can write ``-Inf`` into a data column -- the CZ-Lnz QCL record
+    does -- and an infinite concentration is not a measurement, so it belongs
+    with the other missing values. Nothing else treats it as one: it is not a
+    string ``--na-values`` can match, it survives the ``-9999`` filtering, and
+    ``na.approx`` interpolating a gap that sits next to one *spreads* it into
+    the gap (four values in one CZ-Lnz half hour became fourteen). It then
+    surfaces far downstream as ``array must not contain infs or NaNs`` out of
+    scipy's ``detrend``, naming neither the column nor the period.
+    """
+    return np.where(np.isfinite(x), x, np.nan)
+
+
 def _na_approx(x: np.ndarray) -> np.ndarray:
     """
     Linear interpolation of NaN, matching R's zoo::na.approx(na.rm=FALSE).
@@ -291,6 +306,11 @@ def _na_approx(x: np.ndarray) -> np.ndarray:
     """
     nans = np.isnan(x)
     if not nans.any():
+        return x
+    if nans.all():
+        # Nothing to interpolate from. np.interp raises "array of sample points
+        # is empty" here, which says nothing about which column was empty; the
+        # callers check for an all-NaN series and report it themselves.
         return x
     idx = np.arange(len(x))
     out = x.copy()
@@ -721,9 +741,24 @@ class PreWhiteningBootstrap:
            cross-covariance at the selected lag (R: cov_pwb = ccf_mcw[peak_ref]).
         """
         # ---- Step 1: load, interpolate NaN, align ----
-        w_raw = _na_approx(self.df[self.var_w].values.astype(float))
-        s_raw = _na_approx(self.df[self.var_scalar].values.astype(float))
-        t_raw = _na_approx(self.df[self.var_tsonic].values.astype(float))
+        # An entirely missing column is a normal state of a raw record -- an
+        # analyser offline for a whole averaging period writes -9999 down the
+        # column. There is no lag to find, and saying which column is empty
+        # beats letting it surface as a numpy error from deep inside the AR
+        # fit. Callers that process many periods should skip the gas for this
+        # period rather than treat it as a failure.
+        columns = {}
+        for name in (self.var_w, self.var_scalar, self.var_tsonic):
+            x = _finite_or_nan(self.df[name].to_numpy(dtype=float))
+            if np.isnan(x).all():
+                raise ValueError(
+                    f"column '{name}' is empty for {self.segment_name}: every "
+                    f"record is missing, so no time lag can be detected")
+            columns[name] = x
+
+        w_raw = _na_approx(columns[self.var_w])
+        s_raw = _na_approx(columns[self.var_scalar])
+        t_raw = _na_approx(columns[self.var_tsonic])
         valid = ~np.isnan(w_raw) & ~np.isnan(s_raw) & ~np.isnan(t_raw)
 
         w = w_raw[valid]
