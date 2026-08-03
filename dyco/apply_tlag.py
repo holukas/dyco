@@ -195,6 +195,7 @@ _WHITESPACE_SEP = r'\s+'
 from dyco.rawio import (
     open_text_write as _open_text_write,
     read_preserved_lines as _read_preserved_lines,
+    split_header_line,
 )
 
 
@@ -279,13 +280,9 @@ def _apply_tlag_file_worker(args: tuple) -> dict:
         preserved_lines = _read_preserved_lines(Path(input_path), n_preserved)
 
         header_line = preserved_lines[header_idx].rstrip('\n').rstrip('\r')
-        # Tokenize header by the same separator used for the data. For the
-        # regex whitespace sentinel, fall back to ``str.split()`` (which
-        # collapses any whitespace run).
-        if sep == _WHITESPACE_SEP:
-            header_cols = header_line.split()
-        else:
-            header_cols = [c.strip() for c in header_line.split(sep)]
+        # Tokenize header by the same separator used for the data, honouring
+        # any quoting the logger applied to the column names.
+        header_cols = split_header_line(header_line, sep)
 
         df = pd.read_csv(
             input_path,

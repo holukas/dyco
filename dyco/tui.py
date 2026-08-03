@@ -94,7 +94,7 @@ from textual.widgets.option_list import Option
 from dyco.pipeline import (
     _WHITESPACE_SEP, PerFilePipeline, parse_scalar_spec, window_to_lag_params)
 from dyco.rawio import (compression_suffix, normalise_output_suffix,
-                        read_preserved_lines)
+                        read_preserved_lines, split_header_line)
 
 
 def _opt_output_suffix(value: str) -> bool:
@@ -135,8 +135,7 @@ def _scan_columns(input_dir: str, file_pattern: str, skiprows: int,
     n_pre = skiprows + 1 + extra_rows
     head = read_preserved_lines(f0, n_pre)
     line = head[skiprows].rstrip('\r\n')
-    cols = (line.split() if sep == _WHITESPACE_SEP
-            else [c.strip() for c in line.split(sep)])
+    cols = split_header_line(line, sep)
     return f0, files, cols
 
 
@@ -1721,8 +1720,7 @@ class DetectRemoveTUI(App):
         misconfiguration is caught in well under a second instead of after a
         long run. ``cfg`` was already collected on the UI thread.
         """
-        from dyco.pipeline import (
-            _WHITESPACE_SEP as _WS, _chunk_filename, _count_data_rows)
+        from dyco.pipeline import _chunk_filename, _count_data_rows
 
         def log(line):
             self.call_from_thread(self._log_only, line)
@@ -1745,8 +1743,7 @@ class DetectRemoveTUI(App):
             n_pre = skiprows + 1 + extra
             head = read_preserved_lines(f0, n_pre)
             header_line = head[skiprows].rstrip('\r\n')
-            cols = (header_line.split() if sep == _WS
-                    else [c.strip() for c in header_line.split(sep)])
+            cols = split_header_line(header_line, sep)
             log(Text(f"✓ first file {f0.name}: {len(cols)} columns parsed "
                      f"(skiprows={skiprows}, extra-rows={extra})", style=_GREEN))
             # List every column so the exact (bracketed) names can be copied

@@ -308,6 +308,13 @@ nothing or worse, and the one that paid was a single constant. See
   `apply_tlag.py` and `tui.py` each grew their own `open()` calls, and each
   broke on compressed input independently — the TUI's silently, returning
   mojibake column names. If you add a reader, go through `rawio`.
+- **Header splitting is `rawio.split_header_line`'s job**, for the same
+  reason. The header row was split on the raw separator in six places across
+  four modules, none of which stripped quotes, so a logger that writes
+  `"TIMESTAMP","u","CH4"` produced columns named `"u"` and every run died with
+  every column "missing" from a file whose columns were all there. pandas
+  strips those quotes on the data rows, so the header has to agree with it.
+  Fixed 2026-08-03 against real CZ-Lnz QCL files.
 - **Two raw-file *parsers* still exist**: `files.py` (parquet, column
   reconciliation) and `pipeline.py` (metadata rows, line endings, writing). See
   **Open** above. Only the opening layer was unified.

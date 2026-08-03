@@ -149,6 +149,16 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 
 ### Fixed
 
+- **A quoted column-name row made every column look missing.** Loggers commonly write the header as
+  `"TIMESTAMP","u","CH4"` and the data rows bare. `pandas` strips those quotes when it parses the
+  data, but dyco split the header on the separator alone — in six places across `pipeline.py`,
+  `apply_tlag.py` and `tui.py`, none of which stripped quotes — so the frame was labelled `"u"`,
+  quote characters included, and no `--col-u` or `--scalar` name a user would think to pass could
+  match. Every such file failed with `columns missing` while every column was in fact present.
+  Header splitting now lives in one place, `rawio.split_header_line`, alongside the compression
+  dispatch and for the same reason; a separator inside a quoted field no longer splits it either.
+  Found on real CZ-Lnz QCL files
+
 - **The PWB raw cross-covariance was read off the differenced series.** When the Breitung
   variance-ratio test rejects stationarity, all three series are first-differenced before AR
   fitting — but the differenced arrays were then also used for the raw cross-covariance, which R

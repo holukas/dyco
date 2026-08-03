@@ -22,9 +22,11 @@ Part of the dyco package: https://github.com/holukas/dyco
 """
 
 import bz2
+import csv
 import gzip
 import io
 import lzma
+import re
 import zipfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -245,3 +247,37 @@ def read_preserved_lines(path, n: int) -> list:
     raise ValueError(
         f'{Path(path).name} has only {len(lines)} line(s) but --skiprows / '
         f'--extra-rows ask for {n} header line(s) before the data.')
+
+
+def _strip_quotes(field: str) -> str:
+    """Remove one matched pair of surrounding double quotes."""
+    if len(field) >= 2 and field[0] == '"' and field[-1] == '"':
+        return field[1:-1]
+    return field
+
+
+def split_header_line(header_line: str, sep: str) -> list:
+    r"""Split a column-name header row into field names, honouring quotes.
+
+    Loggers routinely quote header fields (``"TIMESTAMP","u","CH4"``) while
+    leaving the data rows bare. pandas strips those quotes when it parses the
+    data, so a header split on the separator alone labels the frame ``'"u"'``
+    and no ``--col-u`` or ``--scalar`` name a user would think to pass could
+    ever match -- the run dies with every column "missing" from a file whose
+    columns are all present. Matching pandas here is the whole point: these
+    names label the frame pandas returns for the same file.
+
+    *sep* is either a single literal character (``,``, ``\t``) or a regex such
+    as the ``\s+`` whitespace sentinel. Single characters go through ``csv``,
+    which also keeps a separator that appears inside a quoted field from
+    splitting it. Regex separators are split with ``re`` and unquoted
+    afterwards, mirroring what pandas' python engine does.
+    """
+    if len(sep) == 1:
+        row = next(csv.reader([header_line], delimiter=sep,
+                              skipinitialspace=True), [])
+        return [field.strip() for field in row]
+    # ``.strip()`` first so a leading/trailing whitespace run does not yield
+    # empty edge fields, matching the ``str.split()`` this replaced.
+    return [_strip_quotes(field.strip())
+            for field in re.split(sep, header_line.strip())]

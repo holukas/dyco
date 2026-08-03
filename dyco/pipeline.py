@@ -255,6 +255,7 @@ from dyco.rawio import (  # noqa: E402
     open_text_write as _open_text_write,
     read_preserved_lines as _read_preserved_lines,
     resolve_output_suffix as _resolve_output_suffix,
+    split_header_line,
     data_suffix as _data_suffix,
     strip_compression as _strip_compression,
 )
@@ -283,10 +284,7 @@ def _read_raw_file(
     preserved_lines = _read_preserved_lines(input_path, n_preserved)
 
     header_line = preserved_lines[header_idx].rstrip('\n').rstrip('\r')
-    if sep == _WHITESPACE_SEP:
-        header_cols = header_line.split()
-    else:
-        header_cols = [c.strip() for c in header_line.split(sep)]
+    header_cols = split_header_line(header_line, sep)
 
     df = pd.read_csv(
         input_path,
@@ -1246,10 +1244,7 @@ def detect_one_chunk(
         preserved_lines = _read_preserved_lines(input_path, n_preserved)
 
         header_line = preserved_lines[skiprows].rstrip('\n').rstrip('\r')
-        if sep == _WHITESPACE_SEP:
-            header_cols = header_line.split()
-        else:
-            header_cols = [c.strip() for c in header_line.split(sep)]
+        header_cols = split_header_line(header_line, sep)
 
         # ---- Read only this chunk's data slice ---------------------------
         try:
@@ -1470,10 +1465,7 @@ def remove_one_chunk(
         # ---- Read preserved header + this chunk's slice ------------------
         preserved_lines = _read_preserved_lines(input_path, n_preserved)
         header_line = preserved_lines[skiprows].rstrip('\n').rstrip('\r')
-        if sep == _WHITESPACE_SEP:
-            header_cols = header_line.split()
-        else:
-            header_cols = [c.strip() for c in header_line.split(sep)]
+        header_cols = split_header_line(header_line, sep)
 
         df_chunk = pd.read_csv(
             input_path,
