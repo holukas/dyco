@@ -1115,6 +1115,9 @@ class DetectRemoveTUI(App):
         self._cancel_event = None       # threading.Event for the active run
         self._last_output_dir = None    # output dir of the last run (for Open)
         self._busy = False           # a run/check is in progress
+        # Stop was pressed during detection, so the align phase that follows
+        # it should offer the button again (see action_stop / ui_update).
+        self._stop_requested = False
 
     # ---- layout: title / [settings | console] / footer ----------------
     def compose(self) -> ComposeResult:
@@ -1453,11 +1456,22 @@ class DetectRemoveTUI(App):
 
     # ---- Stop ----------------------------------------------------------
     def action_stop(self) -> None:
-        """Cancel the running pipeline (finishing in-flight chunks)."""
+        """Cancel the running phase (finishing in-flight chunks).
+
+        Stopping during detection does not end the run: the chunks already
+        detected are then aligned and written, so a long run leaves usable
+        data behind. `ui_update` re-enables this button when that phase
+        starts, and pressing it again skips the alignment too.
+        """
         if self._busy and self._cancel_event is not None:
             self._cancel_event.set()
             self.query_one('#stop', Button).disabled = True
-            self._status('stopping… (finishing in-flight chunks)', _AMBER)
+            if self._phase == 'detect':
+                self._stop_requested = True
+                self._status('stopping detection… then aligning what was '
+                             'detected', _AMBER)
+            else:
+                self._status('stopping… (finishing in-flight chunks)', _AMBER)
 
     @on(Button.Pressed, '#stop')
     def _on_stop(self) -> None:
@@ -1625,6 +1639,7 @@ class DetectRemoveTUI(App):
             self._cancel_event = threading.Event()
             self._controls_running(True)
             self._phase = None
+            self._stop_requested = False
             self._status('running…', _BLUE)
             threading.Thread(target=self._demo_impl, daemon=True).start()
             return
@@ -1649,6 +1664,7 @@ class DetectRemoveTUI(App):
         self._cancel_event = threading.Event()
         self._controls_running(True)
         self._phase = None
+        self._stop_requested = False
         # Overwrite guard: note pre-existing output so a re-run into the wrong
         # folder is not silently destructive.
         existing = self._count_existing_output(cfg)
@@ -1938,6 +1954,14 @@ class DetectRemoveTUI(App):
             tag = _LAV if phase == 'detect' else _CYAN
             self.query_one('#phase', Static).update(
                 f'[{tag}]{_phase_label(phase)}[/]')
+            if self._stop_requested and phase != 'detect':
+                # Detection was stopped and the pipeline moved on to align
+                # what it had. Offer the button back so this phase can be
+                # skipped too.
+                self._stop_requested = False
+                self.query_one('#stop', Button).disabled = False
+                self._status('aligning the chunks detected so far — '
+                             'stop again to skip', _AMBER)
         bar.update(total=total, progress=done)
         if line is not None:
             # Prefix every console line with a wall-clock timestamp, matching
