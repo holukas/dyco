@@ -419,10 +419,16 @@ commit messages, README prose, CHANGELOG entries.
 
 ## Publication Status
 
-dyco is a **published, citable package**. `paper/paper.md` is a JOSS-format
-paper (*"DYCO: A Python package to dynamically detect and compensate for time
-lags in ecosystem time series"*, dated 31 Jul 2020) with `paper.bib`;
-`CITATION.cff` carries the author's ORCID.
+dyco is a **published, citable package**. The citation is:
+
+> Hörtnagl, L., (2021). DYCO: A Python package to dynamically detect and
+> compensate for time lags in ecosystem time series. *Journal of Open Source
+> Software*, 6(62), 2575, https://doi.org/10.21105/joss.02575
+
+Single author, 2021 — not "Hörtnagl et al. (2020)". The `date: 31 Jul 2020` in
+`paper/paper.md` is the submission date, not the publication year. That source
+lives in `paper/` with `paper.bib`; `CITATION.cff` carries the same reference as
+`preferred-citation`, plus the author's ORCID.
 
 **The paper describes `v1.1.2`** — released 16 Jun 2021 for that publication —
 i.e. the covariance-maximization method, which v3 removed. Anyone reading the

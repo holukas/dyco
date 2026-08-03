@@ -10,3 +10,16 @@ version: 3.0.0
 doi: 10.5281/zenodo.4964067
 # date-released: 2017-12-18
 url: "https://github.com/holukas/dyco"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Hörtnagl"
+    given-names: "Lukas"
+    orcid: "https://orcid.org/0000-0002-5569-0761"
+  title: "DYCO: A Python package to dynamically detect and compensate for time lags in ecosystem time series"
+  journal: "Journal of Open Source Software"
+  year: 2021
+  volume: 6
+  issue: 62
+  start: 2575
+  doi: 10.21105/joss.02575

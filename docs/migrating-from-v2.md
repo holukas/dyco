@@ -31,7 +31,7 @@ trusted at all.
 
 ## The published paper describes v1.1.2
 
-[Hörtnagl et al. (2020)](https://doi.org/10.21105/joss.02575) documents the covariance-maximization
+[Hörtnagl (2021)](https://doi.org/10.21105/joss.02575) documents the covariance-maximization
 method, in the version released for that publication on 16 Jun 2021. If you arrived here from the
 paper, the algorithm described there is the one this page is about migrating *away* from.
 

@@ -17,7 +17,7 @@ Start with [the terminal UI](tui.md), or run `dyco detect-remove` on the
 :::{warning}
 **The JOSS paper does not describe this version.**
 
-[Hörtnagl et al. (2020)](https://doi.org/10.21105/joss.02575) describes `dyco` **v1.1.2**, released
+[Hörtnagl (2021)](https://doi.org/10.21105/joss.02575) describes `dyco` **v1.1.2**, released
 for that publication on 16 Jun 2021. It documents the covariance-maximization method, which v3
 removed. Anyone reading the paper and then this documentation is reading about two different
 algorithms. `pip install dyco==2.0.3` still carries the old method; see
@@ -66,9 +66,15 @@ migrating-from-v2
 
 ## Citing dyco
 
-The Zenodo concept DOI [10.5281/zenodo.4964067](https://doi.org/10.5281/zenodo.4964067) resolves to
-the latest version and is the one to cite for all versions. `CITATION.cff` in the repository carries
-the full metadata.
+Cite the paper:
+
+> Hörtnagl, L., (2021). DYCO: A Python package to dynamically detect and compensate for time lags in
+> ecosystem time series. *Journal of Open Source Software*, 6(62), 2575,
+> <https://doi.org/10.21105/joss.02575>
+
+To cite a particular release of the software, the Zenodo concept DOI
+[10.5281/zenodo.4964067](https://doi.org/10.5281/zenodo.4964067) resolves to the latest version and
+is the one to use for all versions. `CITATION.cff` in the repository carries the full metadata.
 
 ## Acknowledgements
 

@@ -210,6 +210,16 @@ This work was supported by the Swiss National Science Foundation SNF (ICOS CH, g
 20FI21_148992, 20FI20_173691) and the EU project Readiness of ICOS for Necessities of integrated Global
 Observations RINGO (grant no. 730944).
 
+## Citing dyco
+
+> Hörtnagl, L., (2021). DYCO: A Python package to dynamically detect and compensate for time lags in
+> ecosystem time series. *Journal of Open Source Software*, 6(62), 2575,
+> https://doi.org/10.21105/joss.02575
+
+To cite a particular release of the software, use the Zenodo concept DOI
+[10.5281/zenodo.4964067](https://doi.org/10.5281/zenodo.4964067), which resolves to the latest
+version. `CITATION.cff` carries the full metadata.
+
 ## Notes
 
 The JOSS paper describes `dyco` **v1.1.2**, the version released for that publication on 16 Jun 2021.
