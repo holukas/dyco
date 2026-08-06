@@ -1,12 +1,31 @@
 [project]
 name = "dyco"
 version = "3.0.0"
-description = "Dynamic lag compensation"
+description = "Dynamic lag compensation for eddy covariance raw data"
 authors = [
     { name = "Lukas Hörtnagl", email = "lukas.hoertnagl@usys.ethz.ch" }
 ]
 readme = "README.md"
+license = { text = "GPL-3.0" }
 requires-python = ">=3.12,<3.14"
+keywords = [
+    "eddy covariance",
+    "time lag",
+    "flux",
+    "micrometeorology",
+    "greenhouse gases",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
 dependencies = [
     "pandas>=3.0.0,<4.0.0",
     "numpy>=2.2.0,<3.0.0",
@@ -20,6 +39,27 @@ dependencies = [
     "textual>=8.2.7",
     "pyyaml>=6.0.2",
 ]
+
+# The documentation build, and the one place its dependencies are stated. An extra rather than a
+# dependency group, because that is what Read the Docs can install: it resolves `.[docs]` with pip,
+# and a PEP 735 group is not reachable from a path install. `uv sync --extra docs` locally reads the
+# same list from the same lockfile.
+[project.optional-dependencies]
+docs = [
+    "sphinx>=8.1",
+    "myst-parser>=4.0",
+    # The command reference is generated from the argparse parsers rather than copied.
+    "sphinx-argparse>=0.5",
+    "sphinxcontrib-mermaid>=1.0",
+    "furo>=2024.8.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/holukas/dyco"
+Repository = "https://github.com/holukas/dyco"
+Documentation = "https://dyco.readthedocs.io"
+Changelog = "https://github.com/holukas/dyco/blob/main/CHANGELOG.md"
+Issues = "https://github.com/holukas/dyco/issues"
 
 [project.scripts]
 # Unified front door; dispatches to every workflow below.
@@ -37,6 +77,27 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["dyco"]
+
+# Without this hatchling ships every file git does not ignore, which is ~11 MB: the v1 figures in
+# `images/`, the published `paper/`, and the raw example data. None of that is needed to build or
+# check an installed `dyco`, and all of it is a clone away.
+#
+# `tests/` is kept so the sdist can be tested by whoever repackages it -- a downstream packager
+# with no test suite has no way to tell a broken build from a working one. It carries the 3 MB
+# 10 Hz fixture the suite reads, which is most of the sdist and is the price of that.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/dyco",
+    "/docs",
+    "/tests",
+    "/examples/*.py",
+    "/CHANGELOG.md",
+    "/CITATION.cff",
+    "/CONTRIBUTING.md",
+    "/LICENSE",
+    "/README.md",
+    "/.readthedocs.yaml",
+]
 
 [dependency-groups]
 dev = [
