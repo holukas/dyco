@@ -88,7 +88,10 @@ dyco detect-remove --input-dir ./data --output-dir ./dyco_out --file-pattern "*.
 ```
 
 That takes about 8 seconds for the two chunks. `examples/detect_remove_tlag_realdata.py` runs the
-same settings through `PerFilePipeline` if you would rather call the library.
+same file through `PerFilePipeline` if you would rather call the library. It is not quite the same
+run: the script gives H₂O the wider window but leaves the bootstrap block at the global 20 s, so its
+second chunk comes out at 8.60 s rather than the 8.25 s below. Which is itself the point of the
+`block=60` above.
 
 ## What the run found
 
@@ -103,6 +106,11 @@ CO₂'s HDI of 0.00 s in the first chunk is the strongest result the method can 
 interval has collapsed onto a single value, so the bootstrap replicates agree to the record. The AR
 order there is 299, which means the filter removed a lot of autocorrelation and the peak was still
 clean.
+
+Worth noticing in `{gas}_best_combination`: all four detections won on a **sonic temperature**
+pairing (`tc` or `ct`), not on the gas against vertical wind. That is expected for a weak trace gas
+and less so for CO₂ over a forest in July. It is a good reminder that the `T_SONIC` requirement is
+not there only for the difficult gases.
 
 :::{note}
 `--wdt` sets the smoothing width applied to each bootstrap CCF before its peak is read. The default
