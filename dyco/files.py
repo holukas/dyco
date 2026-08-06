@@ -17,51 +17,38 @@
 
 """
 
-import datetime as dt
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from diive.core.io.files import load_parquet
+
+from dyco._vendor.fileio import read_parquet
+
+# Compression suffixes pandas infers on its own. A file named `x.csv.gz` has
+# Path.suffix == '.gz', so dispatching on that alone rejects every compressed
+# file - which is what happened until v3, even though `FileSplitterMulti` writes
+# `.csv.gz` when compress_splits=True and its output could not be read back.
+_COMPRESSION_SUFFIXES = {'.gz', '.gzip', '.bz2', '.zip', '.xz', '.zst', '.zstd', '.tar'}
 
 
-def read_segment_lagtimes_file(filepath):
+def data_suffix(filepath) -> str:
+    """Return the format-bearing suffix of *filepath*, ignoring compression.
+
+    ``'raw.csv'`` and ``'raw.csv.gz'`` both give ``'.csv'``. Returns ``''`` for a
+    name with no usable suffix.
     """
-    Read file.
-
-    Reading segment covariances and lag search results for each segment.
-    Can be used for all text files for which the .read_csv args are valid.
-
-    Parameters
-    ----------
-    filepath: str
-
-    Returns
-    -------
-    pandas DataFrame
-
-    """
-    # parse = lambda x: dt.datetime.strptime(x, '%Y%m%d%H%M%S')
-    found_lags_df = pd.read_csv(filepath,
-                                skiprows=None,
-                                header=0,
-                                # names=header_cols_list,
-                                # na_values=-9999,
-                                encoding='utf-8',
-                                delimiter=',',
-                                # mangle_dupe_cols=True,
-                                # keep_date_col=False,
-                                parse_dates=False,
-                                # date_parser=parse,
-                                index_col=0,
-                                dtype=None,
-                                engine='c')
-    return found_lags_df
+    suffixes = [s.lower() for s in Path(filepath).suffixes]
+    while suffixes and suffixes[-1] in _COMPRESSION_SUFFIXES:
+        suffixes.pop()
+    return suffixes[-1] if suffixes else ''
 
 
 def read_raw_data(filepath, data_timestamp_format):
     """
     Read raw data files
+
+    Compressed files are handled: `.csv.gz` and friends read the same as a plain
+    `.csv`, because pandas infers the compression from the name. Only the format
+    suffix decides how the file is parsed.
 
     Parameters
     ----------
@@ -75,16 +62,19 @@ def read_raw_data(filepath, data_timestamp_format):
     pandas DataFrame that contains raw data from the file in filepath
     """
 
-    file_ext = Path(filepath).suffix
+    file_ext = data_suffix(filepath)
 
     if file_ext == '.csv':
         data_df = read_raw_data_csv(filepath, data_timestamp_format)
 
     elif file_ext == '.parquet':
-        data_df = load_parquet(filepath, output_middle_timestamp=False, sanitize_timestamp=False)
+        data_df = read_parquet(filepath)
 
     else:
-        raise Exception('File extension must be ".csv" or ".parquet"')
+        raise ValueError(
+            f"Cannot read {Path(filepath).name}: the format suffix must be '.csv' or "
+            f"'.parquet', optionally followed by a compression suffix such as '.gz'. "
+            f"Detected format suffix: {file_ext!r}.")
 
     return data_df
 
@@ -141,44 +131,6 @@ def read_raw_data_csv(filepath, data_timestamp_format):
                           nrows=None)
 
     return data_df
-
-
-def add_data_stats(df, true_resolution, filename, files_overview_df, found_records, fnm_date_format):
-    """
-    Collect additional info about raw data file
-
-    Parameters
-    ----------
-    df: pandas DataFrame
-        Raw data from the file.
-    true_resolution: float
-        Time resolution of the raw data records in seconds, e.g. 0.05 for 20 Hz data.
-    filename: str
-        Filename of the raw data file, without extension.
-    files_overview_df: pandas DataFrame
-        Overview of all raw data files, with stats.
-    found_records: int
-        Number of records in the raw data file.
-    fnm_date_format: str
-        Datetime format of the datetime info in the raw data filename.
-
-    Returns
-    -------
-    pandas DataFrame with additional info for current raw data file
-    """
-    # Detect overall frequency
-    data_duration = found_records * true_resolution
-    data_freq = np.float64(found_records / data_duration)
-
-    idx = dt.datetime.strptime(filename, fnm_date_format)  # Use filename datetime info as index
-
-    files_overview_df.loc[idx, 'first_record'] = df.index[0]
-    files_overview_df.loc[idx, 'last_record'] = df.index[-1]
-    files_overview_df.loc[idx, 'file_duration'] = (df.index[-1] - df.index[0]).total_seconds()
-    files_overview_df.loc[idx, 'found_records'] = found_records
-    files_overview_df.loc[idx, 'data_freq'] = data_freq
-
-    return files_overview_df
 
 
 def generate_missing_cols(header_cols_df, more_data_cols_than_header_cols, num_missing_header_cols):

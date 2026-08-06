@@ -1,113 +1,125 @@
 """
-    DYCO Dynamic Lag Compensation
-    Copyright (C) 2020-2025 Lukas Hörtnagl
+CLI: UNIFIED `dyco` COMMAND
+============================
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+One entry point that dispatches to every dyco workflow::
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    dyco detect-remove ...   split, detect and remove in one pass  (primary)
+    dyco tui ...             the same pipeline behind a terminal UI
+    dyco pwb-batch ...       detect only, across pre-split files
+    dyco apply-batch ...     remove lags from an existing results CSV
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+Each delegates to the entry point that backs the standalone ``dyco-*`` console
+script, which keeps working unchanged - this module only adds a single
+discoverable front door. Delegation rewrites ``sys.argv`` rather than
+re-declaring each sub-parser, so the delegated parsers stay the one definition
+of their own options and ``dyco detect-remove --help`` prints exactly what
+``dyco-detect-remove --help`` does.
 
+[BREAKING, v3] The covariance-maximization method is gone, and with it the v2
+CLI. Up to v2 the top-level command took short flags (``-lsw``, ``-lsi``,
+``-lsf`` ...) directly and drove that method. Pre-whitening block-bootstrap
+replaces it: use ``dyco detect-remove``. There is no flag-for-flag mapping - the
+two methods take different parameters. The old spellings are still recognized
+here, only so an old command line gets a pointer instead of a parse error.
+
+Part of the dyco package: https://github.com/holukas/dyco
 """
 
-import argparse
-from pathlib import Path
+import sys
+
+# Subcommand -> (module, entry function, prog name for --help, one-line summary).
+# The module is imported lazily so that, for example, `dyco detect-remove` does
+# not pull in Textual.
+_DELEGATED = {
+    'detect-remove': ('dyco.pipeline', '_cli_main', 'dyco-detect-remove',
+                      'Split raw files into chunks, detect the lag per chunk, remove it. Primary.'),
+    'tui': ('dyco.tui', '_tui_main', 'dyco-detect-remove-tui',
+            'Terminal UI over detect-remove. --demo needs no input data.'),
+    'pwb-batch': ('dyco.pwb', '_cli_main', 'dyco-pwb-batch',
+                  'Detect lags only, across many already-split files.'),
+    'apply-batch': ('dyco.apply_tlag', '_cli_main', 'dyco-apply-batch',
+                    'Remove lags listed in an existing tlag_results.csv.'),
+}
+
+def _usage() -> str:
+    lines = ['dyco - dynamic lag compensation', '',
+             'usage: dyco <command> [options]', '', 'commands:']
+    width = max(len(k) for k in _DELEGATED)
+    for name, (_, _, _, summary) in _DELEGATED.items():
+        lines.append(f'  {name:<{width}}  {summary}')
+    lines += ['', 'Run `dyco <command> --help` for a command\'s options.',
+              '', 'Each command is also available standalone:',
+              '  dyco-detect-remove, dyco-detect-remove-tui, dyco-pwb-batch, dyco-apply-batch']
+    return '\n'.join(lines)
 
 
-def validate_args(args):
-    """Check validity of optional args"""
-    if args.limitnumfiles < 0:
-        raise argparse.ArgumentTypeError("LIMITNUMFILES must be 0 or a positive integer.")
-    if args.lsnumiter < 1:
-        raise argparse.ArgumentTypeError("LSNUMITER must be > 1.")
-    if (args.lspercthres < 0.1) | (args.lspercthres > 1):
-        raise argparse.ArgumentTypeError("LSPERCTHRES must be between 0.1 and 1.")
-    if args.lssegmentduration > args.fileduration:  # todo
-        raise argparse.ArgumentTypeError("LSSEGMENTDURATION must be shorter or equal to FILEDURATION.")
-    if not args.lssegmentduration:
-        # If not specified, then lag times are determined using all of the file data
-        args.lssegmentduration = args.fileduration
-    if args.lsnumiter <= 0:
-        raise argparse.ArgumentTypeError("LSNUMITER must be a positive integer.")
-    args.lsremovefringebins = True if args.lsremovefringebins == 1 else False  # Translate settings to bool
-    args.delprevresults = True if args.delprevresults == 1 else False  # Translate settings to bool
-    return args
+def _delegate(module_name: str, func_name: str, prog: str, argv: list):
+    """Run another module's CLI entry point with *argv* as its arguments.
+
+    The delegated entry points call ``parse_args()`` with no arguments, so they
+    read ``sys.argv``. Swapping it here means their parsers - which are the
+    tested, documented definition of each command's options - need no changes,
+    and their ``--help`` still names the standalone command.
+    """
+    from importlib import import_module
+    entry = getattr(import_module(module_name), func_name)
+    saved = sys.argv
+    sys.argv = [prog] + list(argv)
+    try:
+        return entry()
+    finally:
+        sys.argv = saved
 
 
-def get_args():
-    """Get args from CLI input"""
-    parser = argparse.ArgumentParser(description="dyco - dynamic lag compensation",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+# ---------------------------------------------------------------------------
+# Dispatcher
+# ---------------------------------------------------------------------------
 
-    # Positional args
-    parser.add_argument('var_reference', type=str,
-                        help="Column name of the unlagged reference variable in the data files (one-row header). "
-                             "Lags are determined in relation to this signal.")
-    parser.add_argument('var_lagged', type=str,
-                        help="Column name of the lagged variable in the data files (one-row header). "
-                             "The time lag of this signal is determined in relation to the reference "
-                             "signal var_reference.")
-    parser.add_argument('var_target', nargs='+',
-                        help="Column name(s) of the target variable(s). "
-                             "Column names of the variables the lag that was found between "
-                             "var_reference and var_lagged should be applied to. "
-                             "Example: var1 var2 var3")
+# Flags the v2 CLI took at the top level. Seeing one here means an old command
+# line, which deserves a pointer rather than "unknown command".
+_V2_FLAGS = {'-fnd', '-fnp', '-flim', '-fgr', '-fdur', '-dtf', '-dres',
+             '-lss', '-lsw', '-lsi', '-lsf', '-lsp', '-lt', '-del'}
 
-    # Optional args
-    parser.add_argument('-i', '--indir', type=Path,
-                        help="Path to the source folder that contains the data files, e.g. 'C:/dyco/input'")
-    parser.add_argument('-o', '--outdir', type=Path,
-                        help="Path to output folder, e.g. C:/bico/output")
-    parser.add_argument('-fnd', '--filenamedateformat', type=str, default='%Y%m%d%H%M%S',
-                        help="Filename date format as datetime format strings. Is used to parse the date and "
-                             "time info from the filename of found files. The filename(s) of the files found in "
-                             "INDIR must contain datetime information. Example for data files named like "
-                             "20161015123000.csv: %%Y%%m%%d%%H%%M%%S")
-    parser.add_argument('-fnp', '--filenamepattern', type=str, default='*.csv',
-                        help="Filename pattern for raw data file search, e.g. *.csv")
-    parser.add_argument('-flim', '--limitnumfiles', type=int, default=0,
-                        help="Defines how many of the found files should be used. Must be 0 or a positive "
-                             "integer. If set to 0, all found files will be used. ")
-    parser.add_argument('-fgr', '--filegenres', type=str, default='30T',
-                        help="File generation resolution. Example for data files that were generated "
-                             "every 30 minutes: 30min")
-    parser.add_argument('-fdur', '--fileduration', type=str, default='30T',
-                        help="Duration of one data file. Example for data files containing 30 minutes "
-                             "of data: 30T")
-    parser.add_argument('-dtf', '--datatimestampformat', type=str, default='%Y-%m-%d %H:%M:%S.%f',
-                        help="Timestamp format for each row record in the data files. Example for "
-                             "high-resolution timestamps like 2016-10-24 10:00:00.024999: "
-                             "%%Y-%%m-%%d %%H:%%M:%%S.%%f")
-    parser.add_argument('-dres', '--datanominaltimeres', type=float, default=0.05,
-                        help="Nominal (expected) time resolution of data records in the files, given as "
-                             "one record every x seconds. Example for files recorded at 20Hz: 0.05")
-    parser.add_argument('-lss', '--lssegmentduration', type=str, default='30T',
-                        help="Segment duration for lag determination. Can be the same as or shorter "
-                             "than FILEDURATION.")
-    parser.add_argument('-lsw', '--lswinsize', type=int, default=1000,
-                        help="Initial size of the time window in which the lag is searched given as "
-                             "number of records.")
-    parser.add_argument('-lsi', '--lsnumiter', type=int, default=3,
-                        help="Number of lag search iterations in Phase 1 and Phase 2. Must be larger than 0.")
-    parser.add_argument('-lsf', '--lsremovefringebins', type=int, choices=[0, 1], default=1,
-                        help="Remove fringe bins in histogram of found lag times. "
-                             "Set to 1 if fringe bins should be removed.")
-    parser.add_argument('-lsp', '--lspercthres', type=float, default=0.9,
-                        help="Cumulative percentage threshold in histogram of found lag times.")
-    parser.add_argument('-lt', '--targetlag', type=int, default=0,
-                        help="The target lag given in records to which lag times of all variables "
-                             "in var_target are normalized.")
-    parser.add_argument('-del', '--delprevresults', type=int, choices=[0, 1], default=0,
-                        help="If set to 1, delete all previous results in INDIR. "
-                             "If set to 0, search for previously calculated results in "
-                             "INDIR and continue.")
+_CM_GONE = (
+    "The covariance-maximization method was removed in v3.0.0. Pre-whitening "
+    "block-bootstrap replaces it: `dyco detect-remove`. Its parameters are not a "
+    "renaming of the old ones - the two methods differ in what they take. See the "
+    "CHANGELOG and `dyco detect-remove --help`.")
 
-    args = parser.parse_args()
-    return args
+
+def main(argv: list = None) -> None:
+    """Dispatch to a subcommand. See the module docstring."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+
+    if not argv or argv[0] in ('-h', '--help', 'help'):
+        print(_usage())
+        return
+    if argv[0] in ('-V', '--version'):
+        from importlib.metadata import version, PackageNotFoundError
+        try:
+            print(version('dyco'))
+        except PackageNotFoundError:
+            print('unknown (dyco is not installed)')
+        return
+
+    command, rest = argv[0], argv[1:]
+
+    if command in _DELEGATED:
+        module, func, prog, _ = _DELEGATED[command]
+        _delegate(module, func, prog, rest)
+        return
+    if command == 'cm':
+        sys.exit(f"dyco: {_CM_GONE}")
+
+    if command.startswith('-'):
+        hint = ''
+        if command in _V2_FLAGS or any(a in _V2_FLAGS for a in argv):
+            hint = f"\n\nThat looks like a v2 command line. {_CM_GONE}"
+        sys.exit(f"dyco: expected a command, got the option {command!r}.{hint}\n\n{_usage()}")
+
+    sys.exit(f"dyco: unknown command {command!r}.\n\n{_usage()}")
+
+
+if __name__ == '__main__':
+    main()

@@ -4,8 +4,44 @@ authors:
 - family-names: "Hörtnagl"
   given-names: "Lukas"
   orcid: "https://orcid.org/0000-0002-5569-0761"
+  affiliation: "Grassland Sciences group, ETH Zürich"
 title: "dyco"
-# version: 2.0.4
-# doi: 10.5281/zenodo.1234
-# date-released: 2017-12-18
+abstract: "Time-lag detection and compensation for eddy covariance raw data, using pre-whitening
+  with block-bootstrap so that every detected lag carries an uncertainty interval."
+version: 3.0.0
+# Concept DOI: resolves to the latest version, and is the one to cite for all versions. Zenodo
+# also mints a version DOI at every release; recording that one here too would mean editing this
+# file after every publish, and the concept DOI is the one a citation should follow anyway.
+doi: 10.5281/zenodo.4964067
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.4964067
+    description: "Concept DOI, resolving to the latest version"
+date-released: 2026-08-06
+license: GPL-3.0
 url: "https://github.com/holukas/dyco"
+repository-code: "https://github.com/holukas/dyco"
+keywords:
+  - eddy covariance
+  - time lag
+  - flux
+  - micrometeorology
+  - greenhouse gases
+# The 2021 JOSS article is recorded as a related work, not as `preferred-citation`. It describes
+# v1.1.2 and the covariance-maximization method, which v3 removed, so a tool that read it as the
+# preferred citation would point every user of this version at a paper about a different algorithm.
+# The software entry above, with its Zenodo DOI, is what should be cited.
+references:
+  - type: article
+    authors:
+    - family-names: "Hörtnagl"
+      given-names: "Lukas"
+      orcid: "https://orcid.org/0000-0002-5569-0761"
+    title: "DYCO: A Python package to dynamically detect and compensate for time lags in ecosystem time series"
+    journal: "Journal of Open Source Software"
+    year: 2021
+    volume: 6
+    issue: 62
+    start: 2575
+    doi: 10.21105/joss.02575
+    notes: "Describes dyco v1.1.2 and the covariance-maximization method, removed in v3."
