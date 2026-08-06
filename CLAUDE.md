@@ -491,8 +491,49 @@ them; new modules should have both.
 
 ## Text Writing Standards
 
-Use the `/llm-detox` skill for all written content — documentation, comments,
+Use the `detox-llm` skill for all written content: documentation, comments,
 commit messages, README prose, CHANGELOG entries.
+
+### CHANGELOG entries
+
+**Lead with what changed, in plain words. Name code only where the reader has to
+type it.** An entry is read by someone deciding whether to upgrade, not by
+someone browsing the API. Settled on 2026-08-06, rewriting the v3.0.0 entry.
+
+Not this:
+
+> `dyco.pwb`: `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`.
+> Four CCF combinations per period. Sonic temperature is required, since the
+> `T_SONIC` combinations often expose a cleaner peak than a weak scalar
+> against `W`
+
+This:
+
+> **The new detection method.** Each averaging period is estimated four times
+> over, from different pairings of the gas, the vertical wind and sonic
+> temperature. Sonic temperature is now required: where a gas signal is weak,
+> its pairing often shows a cleaner peak than the wind does
+
+The class names went entirely. Nobody imports `PwboptLagPlot` to find out what
+a release does. What survives is what a user would type: flags, column names,
+output filenames, and the module names in **Removed**, which is the section that
+exists to say which imports break.
+
+The rest of the convention, in order of how often it goes wrong:
+
+- **A bug entry leads with the symptom, not the mechanism.** "A gzipped input
+  was silently processed in part" before any explanation of how. Explain the
+  cause in ordinary words: the function name is rarely the clearest way to say
+  it, and a private one (`_count_data_rows`) tells a user nothing.
+- **Keep a number when it changes what someone does.** `--wdt 11` widening the
+  interval from 0.00/0.05 s to 0.30/0.20 s against a 0.5 s threshold is the
+  whole point of the flag. Drop profiling internals, byte counts and how a
+  fault was discovered.
+- **No em dashes**, per `detox-llm`. Colons, commas, periods, parentheses.
+- **Cut repo housekeeping.** Preview scripts, CI config details and test helpers
+  are not release notes. The v3.0.0 entry went from 337 lines to 188 mostly by
+  dropping discovery narratives and merging four scattered bugs with one root
+  cause into one entry.
 
 ---
 
