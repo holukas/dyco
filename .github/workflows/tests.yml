@@ -1,0 +1,74 @@
+# The test suite, the documentation build and the distribution, on both supported Python versions.
+#
+# `uv sync --locked` fails rather than resolving, so a lockfile that has drifted from
+# `pyproject.toml` is caught here instead of in a release. The documentation is built with `-W`,
+# which is what Read the Docs does, so a broken cross-reference fails a pull request rather than a
+# hosted build.
+
+name: tests
+
+on:
+  push:
+    branches: [main, indev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the project
+        run: uv sync --locked --extra docs
+
+      - name: Run the tests
+        run: uv run pytest tests/ -q -rf
+
+      - name: Build the documentation
+        # `-j auto` matches what Read the Docs runs, and matters more than it looks: parallel
+        # reading is unavailable anywhere without `os.fork`, so a Windows checkout builds serially
+        # whatever it is asked for and cannot see a parallel-only failure. This job can. The
+        # `merge_domaindata` guard in `docs/conf.py` exists because of exactly such a failure.
+        run: uv run sphinx-build -b html -W -j auto docs docs/_build/html
+
+      - name: Build the distribution
+        run: uv build
+
+      - name: Check the distribution
+        # A wheel that does not carry every module imports and then dies on the first workflow
+        # that reaches the missing one, which no other test would catch: they all read the source
+        # tree. The sdist has an explicit include list, so it is the one that can silently lose a
+        # file.
+        run: |
+          uv run python - <<'PY'
+          import glob, tarfile, zipfile
+          wheel = sorted(glob.glob("dist/*.whl"))[-1]
+          names = zipfile.ZipFile(wheel).namelist()
+          wanted = ["pipeline", "pwb", "tui", "apply_tlag", "split", "detectionlimit",
+                    "maxcov", "files", "rotation", "rawio", "cli"]
+          missing = [m for m in wanted if f"dyco/{m}.py" not in names]
+          if missing:
+              raise SystemExit(f"{wheel} is missing {', '.join(missing)}")
+          if not any(n.startswith("dyco/_vendor/") for n in names):
+              raise SystemExit(f"{wheel} is missing dyco/_vendor/")
+          print(f"{wheel} carries all {len(wanted)} modules and _vendor/")
+
+          sdist = sorted(glob.glob("dist/*.tar.gz"))[-1]
+          members = tarfile.open(sdist).getnames()
+          for wanted_path in ("pyproject.toml", "PKG-INFO", "tests/test_pwb.py", "docs/conf.py"):
+              if not any(n.endswith(f"/{wanted_path}") or n == wanted_path for n in members):
+                  raise SystemExit(f"{sdist} is missing {wanted_path}")
+          print(f"{sdist} carries its metadata, tests and docs")
+          PY
