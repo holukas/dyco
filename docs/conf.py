@@ -73,3 +73,45 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'furo'
 html_title = f'dyco {release}'
 html_static_path = []
+
+# ---------------------------------------------------------------------------
+# The parallel read
+# ---------------------------------------------------------------------------
+
+# `sphinx-argparse` declares itself safe to read in parallel and registers a domain that does not
+# implement `merge_domaindata`, so Sphinx splits the read across workers and then dies merging what
+# they produced. Read the Docs builds with `-j auto`, so this is not hypothetical.
+#
+# Declaring the extension unsafe instead only moves the failure: Sphinx then warns that it is
+# unsafe and that it is reading serially, and `fail_on_warning` turns both warnings into the error
+# that fails the build. Neither carries a type that `suppress_warnings` could reach.
+#
+# So the method is supplied. The domain keeps two collections, and every entry in both is a tuple
+# whose fourth element is the document it came from -- exactly what a merge needs: take the entries
+# belonging to the documents this worker read, and leave the rest.
+#
+# None of this is visible from a Windows checkout. Parallel reading needs `os.fork`, so
+# `sphinx.util.parallel.parallel_available` is False here and a local build is serial whatever it
+# is asked for. `.github/workflows/tests.yml` builds with `-j auto` on Linux for that reason.
+#
+# Remove all of it once the extension implements the method itself. Learned in `fluxatlas`, which
+# hit this on the hosted build and nowhere else.
+def _merge_argparse_domaindata(self, docnames, otherdata):
+    docnames = set(docnames)
+    for entry in otherdata.get('commands', ()):
+        if entry[3] in docnames:
+            self.data['commands'].append(entry)
+    for group, entries in otherdata.get('commands-by-group', {}).items():
+        kept = [entry for entry in entries if entry[3] in docnames]
+        if kept:
+            self.data['commands-by-group'].setdefault(group, []).extend(kept)
+
+
+def setup(app):
+    from sphinx.domains import Domain
+    from sphinxarg.ext import ArgParseDomain
+
+    # Only where the extension still inherits the base class's `raise NotImplementedError`, so a
+    # released fix upstream wins over this one rather than being shadowed by it.
+    if ArgParseDomain.merge_domaindata is Domain.merge_domaindata:
+        ArgParseDomain.merge_domaindata = _merge_argparse_domaindata
