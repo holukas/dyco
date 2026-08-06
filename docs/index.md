@@ -14,22 +14,6 @@ their place. This is what makes low-SNR gases such as N₂O and CH₄ workable.
 Start with [the terminal UI](tui.md), or run `dyco detect-remove` on the
 [command line](cli/index.md).
 
-:::{warning}
-**The JOSS paper does not describe this version.**
-
-[Hörtnagl (2021)](https://doi.org/10.21105/joss.02575) describes `dyco` **v1.1.2**, released
-for that publication on 16 Jun 2021. It documents the covariance-maximization method, which v3
-removed. Anyone reading the paper and then this documentation is reading about two different
-algorithms. `pip install dyco==2.0.3` still carries the old method; see
-[Migrating from v2](migrating-from-v2.md).
-:::
-
-:::{note}
-**Version 3 is in development.** These docs describe the v3 layout. The last version released on
-PyPI is `2.0.3`, which has a different API and depends on
-[diive](https://github.com/holukas/diive). v3 is standalone.
-:::
-
 ## One detection method
 
 v3 has a single way of finding the time lag between the vertical wind `W` and a scalar `S`: PWB. The
@@ -66,15 +50,17 @@ migrating-from-v2
 
 ## Citing dyco
 
-Cite the paper:
+Cite the software by its Zenodo DOI, [10.5281/zenodo.4964067](https://doi.org/10.5281/zenodo.4964067).
+That is the concept DOI: it resolves to the latest version and is the one to use for all versions.
+Zenodo also mints a DOI for each individual release, if the work depends on a particular one.
+`CITATION.cff` in the repository carries the full metadata.
 
-> Hörtnagl, L., (2021). DYCO: A Python package to dynamically detect and compensate for time lags in
-> ecosystem time series. *Journal of Open Source Software*, 6(62), 2575,
-> <https://doi.org/10.21105/joss.02575>
+`dyco` was first published in 2021 and has kept developing since. The detection method was replaced
+in v3, so the paper from that first release describes an algorithm the current version does not
+implement — see [Migrating from v2](migrating-from-v2.md).
 
-To cite a particular release of the software, the Zenodo concept DOI
-[10.5281/zenodo.4964067](https://doi.org/10.5281/zenodo.4964067) resolves to the latest version and
-is the one to use for all versions. `CITATION.cff` in the repository carries the full metadata.
+For the method itself, cite Vitale et al. (2024); [the PWB method](method.md) carries the
+reference.
 
 ## Acknowledgements
 

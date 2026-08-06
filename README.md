@@ -5,6 +5,8 @@
 
 # **dyco** - dynamic lag compensation
 
+[![PyPI](https://img.shields.io/pypi/v/dyco.svg)](https://pypi.org/project/dyco/)
+[![Python](https://img.shields.io/pypi/pyversions/dyco.svg)](https://pypi.org/project/dyco/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)
 [![Documentation Status](https://readthedocs.org/projects/dyco/badge/?version=latest)](https://dyco.readthedocs.io/en/latest/?badge=latest)
 
@@ -18,10 +20,6 @@ turbulence would otherwise smear. The lag is then re-estimated on block-bootstra
 detection carries a 95% uncertainty interval instead of a bare number. The PWBOPT decision rule reads
 that interval, discards the detections it cannot trust, and puts a reliable neighbouring lag in their
 place. This is what makes low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> workable.
-
-> **Version 3 is in development.** The working tree carries the v3 layout described below; the last
-> released version on PyPI is `2.0.3`, which has a different API and depends on
-> [diive](https://github.com/holukas/diive). v3 is standalone. See `CHANGELOG.md` for release status.
 
 ## Documentation
 
@@ -47,13 +45,12 @@ went and why, and `pip install dyco==2.0.3` still has it.
 Requires Python 3.12 or 3.13.
 
 ```bash
-git clone https://github.com/holukas/dyco.git
-cd dyco
-uv sync
+pip install dyco
 ```
 
 `dyco` has no dependency on `diive`. Everything it needs is bundled. See
-[Installation](https://dyco.readthedocs.io/en/latest/install.html) for the rest.
+[Installation](https://dyco.readthedocs.io/en/latest/install.html) for a checkout, and for how to
+run the whole pipeline on data that ships with the repository.
 
 ## Start here: the terminal UI
 
@@ -190,15 +187,17 @@ matters, and the references.
 ## Building the documentation
 
 ```bash
-uv run --no-project --with-requirements docs/requirements.txt --with . sphinx-build -b html docs docs/_build/html
+uv sync --extra docs
+uv run sphinx-build -b html -W -j auto docs docs/_build/html
 ```
 
-The command reference is generated from the argparse parsers, so it cannot drift from `--help`.
+`-W` and `-j auto` are what Read the Docs runs. The command reference is generated from the
+argparse parsers, so it cannot drift from `--help`.
 
 ## Contributing
 
 Contributions of code, bug reports, comments and general feedback are welcome and credit is always
-given. See [CONTRIBUTING.md](CONTRIBUTING.md), or the
+given. See [CONTRIBUTING.md](https://github.com/holukas/dyco/blob/main/CONTRIBUTING.md), or the
 [issue tracker](https://github.com/holukas/dyco/issues).
 
 For direct questions the maintainer can be reached by email with the title "dyco":
@@ -212,17 +211,17 @@ Observations RINGO (grant no. 730944).
 
 ## Citing dyco
 
-> Hörtnagl, L., (2021). DYCO: A Python package to dynamically detect and compensate for time lags in
-> ecosystem time series. *Journal of Open Source Software*, 6(62), 2575,
-> https://doi.org/10.21105/joss.02575
-
-To cite a particular release of the software, use the Zenodo concept DOI
-[10.5281/zenodo.4964067](https://doi.org/10.5281/zenodo.4964067), which resolves to the latest
-version. `CITATION.cff` carries the full metadata.
+Cite the software by its Zenodo DOI,
+[10.5281/zenodo.4964067](https://doi.org/10.5281/zenodo.4964067). That is the concept DOI: it
+resolves to the latest version and is the one to use for all versions. Zenodo also mints a DOI for
+each individual release, if the work depends on a particular one. `CITATION.cff` carries the full
+metadata.
 
 ## Notes
 
-The JOSS paper describes `dyco` **v1.1.2**, the version released for that publication on 16 Jun 2021.
-It documents the covariance-maximization method, which was removed in v3 — what the paper describes is
-not what this version does. See `CHANGELOG.md`.
-[![DOI](status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)
+`dyco` was first published in 2021 and has kept developing since. The
+[JOSS paper](https://doi.org/10.21105/joss.02575) describes **v1.1.2**, released for that
+publication on 16 Jun 2021, and documents the covariance-maximization method — which v3 removed.
+What the paper describes is not what this version does. See `CHANGELOG.md`, and
+[Migrating from v2](https://dyco.readthedocs.io/en/latest/migrating-from-v2.html).
+[![DOI](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)
