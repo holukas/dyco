@@ -281,6 +281,10 @@ ruled it out:
   had been stripped back to the shape Zenodo accepted for v2.0.3, and it
   failed the same way. Those blocks are still gone, which is fine on other
   grounds, but they were never the cause.
+- **Missing funding metadata.** Zenodo requires none, and v2.0.3 was
+  accepted carrying none. Ruled out before it cost a cycle. The grants are
+  now declared anyway, for the record and not for the fault: see
+  **Funding metadata** below.
 
 **Three attempts, three eliminated theories, all mine. `CITATION.cff` is
 not the problem.** What remains untested is the release body (v3.0.0's is
@@ -289,13 +293,49 @@ v2.0.3's was short) and Zenodo's own GitHub authorisation.
 
 **Stop guessing at this point.** Each cycle costs a delete-retag-release,
 and Zenodo's `error_id` exists so support can read the server-side
-traceback. Send them the ids. To get the release archived meanwhile,
-upload it to Zenodo by hand as a new version of the concept record
-(`10.5281/zenodo.4964067`) — that mints the version DOI today and is
-independent of the broken integration. One deliberate difference remains: the
+traceback. Send them the ids.
+
+**v3.0.0 was archived by hand instead, on 6 Aug 2026**, as a new version of
+the concept record (`10.5281/zenodo.4964067`), which now resolves to it.
+The version DOI is `10.5281/zenodo.21829164`. That route takes about five
+minutes, needs nothing from the integration, and is the one to reach for
+the next time a release will not archive itself. What it does **not** do is
+tell you why the integration failed, so that question is still open and
+still belongs with Zenodo support. One deliberate difference remains: the
 author email here is `lukas.hoertnagl@usys.ethz.ch`, which is what PyPI already
 shows for `2.0.3`, while the sibling repos use `holukas@ethz.ch`. Left alone;
 the user's to change.
+
+### Funding metadata
+
+The three grants named in the README, the docs front page and `paper/paper.md`
+are declared to Zenodo in **`.zenodo.json`**, because CFF 1.2.0 has no field for
+funding at all:
+
+| Grant | Zenodo award id |
+|---|---|
+| EU RINGO, 730944 | `10.13039/501100000780::730944` |
+| SNSF ICOS-CH, 20FI21_148992 | `10.13039/501100001711::148992` |
+| SNSF ICOS-CH Phase 2, 20FI20_173691 | `10.13039/501100001711::173691` |
+
+The v3.0.0 record carries only RINGO, entered by hand. The two SNSF awards can
+be added to it at any time by editing the published record; Zenodo allows
+metadata edits without minting a new DOI.
+
+Two things to know before touching that file.
+
+**`.zenodo.json` displaces `CITATION.cff` completely.** When both exist, Zenodo
+reads only the JSON and ignores the CFF — so the JSON has to carry the ORCID,
+the affiliation, the abstract and the licence itself, and the two files have to
+be kept in step at every release. `CITATION.cff` still earns its place: it is
+what GitHub's "Cite this repository" button reads.
+
+**The award ids resolve; the numbers in the prose do not.** Zenodo only accepts
+grants that already exist in its award database, which is queryable —
+`https://zenodo.org/api/awards?q=730944` returns RINGO. Note that SNSF awards
+are registered under the bare number, without the `20FI21_` prefix the papers
+use. An id that does not resolve is one of the few things that genuinely can
+fail a deposition, so look a new one up rather than constructing it.
 
 The **sdist carries an explicit include list**. Without one hatchling ships
 every file git does not ignore — ~11 MB of v1 figures, the published `paper/`

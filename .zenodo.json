@@ -1,0 +1,28 @@
+{
+    "upload_type": "software",
+    "title": "dyco",
+    "version": "3.0.0",
+    "description": "<p><strong>dyco</strong> takes eddy covariance raw data files as input and produces lag-compensated raw data files as output, ready for flux calculation software such as EddyPro.</p><p><strong>The method.</strong> Following <a href=\"https://doi.org/10.1007/s10651-024-00615-9\">Vitale et al. (2024)</a>, dyco fits an AR(p) model to each series and cross-correlates the residuals, which sharpens a peak that turbulence would otherwise smear. That estimate is repeated on block-bootstrap resamples, so the peak lag is located once per resample. The reported lag is the mode of the resulting distribution, and its 95% interval is the uncertainty. Each averaging period is estimated four times over, pairing the gas with the vertical wind and with sonic temperature and filtering either partner in turn, and the strongest peak is used. Sonic temperature is required, because where a gas signal is weak that pairing is often the cleaner one.</p><p><strong>PWBOPT.</strong> Every period gets an estimate, but not every estimate deserves to be applied. A weak gas over a single half hour can put its peak somewhere close to arbitrary, while the true lag moves slowly, since it is set by the tube and the flow rate. Going forward through the run, PWBOPT keeps a period's own lag when the interval is narrow, or when the interval is wide but the lag still lands within half a second of the last lag it accepted. Failing both, the detection is discarded and the last accepted lag is carried into its place. This is what makes low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> workable.</p><p><strong>Running it.</strong> <code>dyco detect-remove</code> does the whole job: cut a long raw file into averaging periods, rotate the wind in each, find the lag, decide across the run which lags can be trusted, then write one corrected file per period. The rotation only serves the search. What gets written is the original unrotated data with every column intact and the gas columns shifted. <code>dyco tui</code> is the recommended front end, checking settings as you type and reading column names off a real file; <code>dyco tui --demo</code> runs without any data. <code>dyco apply-batch</code> removes lags listed in an earlier run's results without detecting again.</p><p><strong>Worth knowing.</strong> Each gas can have its own search window, so a gas on a long inlet such as water vapour can search wider than the dry gases in the same run. A gas can borrow another's lag for the periods its own detection cannot cover (<code>--scalar \"N2O:n2o@lagfrom=CO2\"</code>), and <code>--max-carry</code> bounds how far any trusted lag travels. <code>--wdt</code> sets how much the curve is smoothed before its peak is read. Compressed raw files work throughout, <code>.gz</code>, <code>.bz2</code>, <code>.xz</code> and <code>.zip</code>, and <code>--output-suffix</code> picks the output format independently of the input. Every run writes a summary CSV naming the lag that actually reached the data, a report explaining each decision in words, and a <code>log.txt</code>.</p><p><strong>Validation.</strong> The pre-whitening chain is pinned to the numbers RFlux v3.2.0 produces on the same input, agreeing to 12 significant digits over both branches of the stationarity test and a real CH-LAE half hour. Documentation is on <a href=\"https://dyco.readthedocs.io\">Read the Docs</a>, with the command reference generated from the parsers so it cannot drift from <code>--help</code>.</p><p>Downstream flux processing must run with time-lag maximization <strong>disabled</strong>. The lag is already gone from the data.</p><p>Source: <a href=\"https://github.com/holukas/dyco\">github.com/holukas/dyco</a></p>",
+    "creators": [
+        {
+            "name": "Hörtnagl, Lukas",
+            "orcid": "0000-0002-5569-0761",
+            "affiliation": "Grassland Sciences group, ETH Zürich"
+        }
+    ],
+    "access_right": "open",
+    "license": "gpl-3.0-or-later",
+    "language": "eng",
+    "keywords": [
+        "eddy covariance",
+        "time lag",
+        "flux",
+        "micrometeorology",
+        "greenhouse gases"
+    ],
+    "grants": [
+        {"id": "10.13039/501100000780::730944"},
+        {"id": "10.13039/501100001711::148992"},
+        {"id": "10.13039/501100001711::173691"}
+    ]
+}
