@@ -2,340 +2,189 @@
 
 ## v3.0.0 | 6 Aug 2026
 
-`dyco` replaces its time-lag detection method and becomes a standalone package.
+A new detection method, no `diive` dependency, and a command line that does not carry over from v2.
 
-**Pre-whitening with block-bootstrap (PWB) is now the only method.** Following Vitale et al. (2024),
-the lag is estimated after removing serial autocorrelation with an AR(p) filter, and its reliability is
-quantified by block-bootstrap resampling: each detection carries a 95% highest-density interval, and the
-PWBOPT decision rule (S1/S2/S3) substitutes a trustworthy neighbouring lag where a period's own detection
-cannot be trusted. This addresses the case the covariance-maximization method cannot: low-SNR gases such
-as N<sub>2</sub>O and CH<sub>4</sub>, where the cross-correlation function is too noisy to locate the peak
-reliably. Lags are expressed in **seconds** here, not in number of records.
+**[BREAKING] Pre-whitening with block-bootstrap (PWB) replaces covariance maximization.** Following
+Vitale et al. (2024), an AR(p) filter strips the serial autocorrelation before the cross-correlation
+is computed, and block-bootstrap resampling gives every detection a 95% highest-density interval.
+The PWBOPT rule (S1/S2/S3) substitutes a trustworthy neighbouring lag where a period's own detection
+cannot be trusted. This is what low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> need: their
+cross-correlation function is too noisy to locate the peak reliably, and the old method pooled
+detections into a daily median look-up table without saying how far any single one could be trusted.
+Lags are now in **seconds**, not records. The two methods take different parameters, so there is no
+flag-for-flag migration.
 
-**[BREAKING] The v1/v2 covariance-maximization method is removed.** It pooled detections into a daily
-median look-up table and normalized them toward a target lag, without saying how much any single
-detection could be trusted. That is the difficulty with low-SNR gases, and it is what PWB addresses.
-Existing v2 workflows do not carry over: the two methods take different parameters, so there is no
-flag-for-flag migration. See **Removed** below.
-
-**`diive` is no longer a dependency.** v2.0.3 introduced it to avoid duplicating code; that coupling broke
-`dyco` four separate ways when `diive` restructured internally — two import paths moved, and the Python and
-pandas floors diverged to the point where the two could not be installed together. The shared code now lives
-here, and the small generic helpers are bundled in `dyco/_vendor/` with their provenance recorded.
+**[BREAKING] `diive` is no longer a dependency.** The coupling introduced in v2.0.3 broke `dyco`
+four ways when `diive` restructured: two import paths moved, and the Python and pandas floors
+diverged until the two could not be installed together. That code lives here now, with the small
+generic helpers in `dyco/_vendor/`.
 
 ### Added
 
-- `dyco.pwb` — `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. Four CCF combinations per
-  period (scalar/reference × which series is AR-filtered); sonic temperature is required, since the
-  `T_SONIC` combinations often expose a cleaner peak for gases with a weak scalar × `W` signal
-- `dyco.pipeline` — `PerFilePipeline`, `process_one_file`. Splits long raw files into wall-clock-aligned
-  chunks, rotates each in memory, detects per chunk, applies PWBOPT across the whole sequence, then writes
-  one lag-corrected file per chunk
-- `dyco.apply_tlag` — `TlagApplier`, removes lags listed in an existing `tlag_results.csv`
-- `dyco.tui` — Textual terminal UI over the pipeline, with live validation, a preflight check and a
+- `dyco.pwb`: `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. Four CCF combinations
+  per period. Sonic temperature is required, since the `T_SONIC` combinations often expose a cleaner
+  peak than a weak scalar against `W`
+- `dyco.pipeline`: `PerFilePipeline`, `process_one_file`. Splits raw files into wall-clock-aligned
+  chunks, rotates each in memory, detects per chunk, applies PWBOPT across the sequence, writes one
+  corrected file per chunk
+- `dyco.tui`: a Textual terminal UI over the pipeline, with live validation, a preflight check and a
   `--demo` mode that needs no data
-- Per-gas time-lag search windows, so a long-inlet gas such as H<sub>2</sub>O can use a wider window than
-  the dry gases in the same run
-- `dyco.maxcov` — `MaxCovariance`, the covariance-maximization estimator, previously imported from
-  `diive`. `FluxDetectionLimit` builds on it, and it is usable on its own
-- `dyco.rotation` — `WindDoubleRotation`, `reynolds_decomposition`
-- `dyco.split` — `FileSplitter`, `FileSplitterMulti`, splitting long raw files into shorter parts with
-  optional rotation
-- `dyco.detectionlimit` — `FluxDetectionLimit`, the smallest flux distinguishable from noise, read off the
-  far tail of the same cross-covariance function used for lag detection
-- `dyco.rawio` — one place that knows how to open a raw data file. Raw EC data is delimited text
-  (`.csv`, `.dat`, `.txt`) that is routinely shipped compressed, so `.gz`, `.bz2`, `.xz` and `.zip`
-  now read and write transparently everywhere: the pipeline, `apply-batch`, the TUI's column scan
-  and preflight check, and the file splitter. A zipped raw file must hold exactly one member;
-  an archive of many files is a different thing and says so
-- `dyco._vendor` — self-contained copies of the small helpers formerly imported from `diive`
-- A real raw file for the examples: `examples/data/CH-LAE_202507251300.csv.gz`, a 1-hour 20 Hz
-  excerpt from CH-LAE, plus `examples/detect_remove_tlag_realdata.py`, which runs the full
-  detect-and-remove pipeline over it. Running this is what surfaced the three gzip faults below
-- `--wdt` on `dyco detect-remove`: width, in records, of the centred rolling mean applied to each
-  bootstrap CCF before its peak is taken. The default of 5 follows RFlux; the paper's equation 6
-  specifies `hz/2 + 1` (11 at 20 Hz). Previously the value was fixed at 5 with no way to reach the
-  paper's. It matters: on the bundled CH-LAE hour, `--wdt 11` widens the 95% HDI from 0.00/0.05 s to
-  0.30/0.20 s, and the S1 reliability threshold is 0.5 s
-- `--output-suffix` on `dyco detect-remove` (**Output as** in the TUI): the extension the corrected
-  chunks carry. Reading and writing follow from it, so compression never has to be stated separately.
-  Three ways to give it, all with the leading dot:
-  - the whole extension — `.csv`, `.csv.gz`, `.dat.zip`, `.txt` — used as written
-  - the text format alone — `.csv` — which drops compression: `file1.csv.zip` gives `file1.csv`
-  - the compression alone — `.zip` — which keeps the input's text format: `file1.csv` gives
-    `file1.csv.zip`, not `file1.zip`
-  `auto` (the default) reuses the input's own extension. The dot is required, so a one-part
-  extension is written the same way as a two-part one. A compression dyco cannot write (`.zst`,
-  `.7z`) is refused rather than quietly producing plain text under a name that promises otherwise
-- **A gas can take its lag from another gas**, for the periods where its own detection could not be
-  trusted: `--scalar "N2O:n2o@lagfrom=CO2"`, or the **Lag from** field in the TUI, which starts with
-  every gas pointing at itself. A gas keeps every lag PWBOPT accepts for it (S1/S2) and every lag it
-  may still carry forward from an earlier period; past that it takes the donor's lag *for that same
-  period*. Own-lag-first at both tiers is deliberate — two gases down one tube have systematically
-  different delays, so borrowing swaps a stale number for a biased one, and `--max-carry` is what
-  says when staleness has become the bigger error. Without a donor, a trace gas that never detects
-  reliably falls back to the median of detections PWBOPT has just rejected, which on real noise is
-  frequently a negative lag no tube can produce. Chains resolve donor-first; circular ones are
-  refused. **Pair it with `--max-carry`**: with no carry limit a gas carries its own lag forever and
-  the donor reaches only the periods before its first detection — dyco warns when that happens
-- **`--max-carry N`** (**Max carry** in the TUI): the longest distance, in averaging periods, that
-  PWBOPT's S3 rule may carry a lag. The published rule is unbounded — one good half hour can supply
-  every later period in the run, however far away. Beyond the limit the lag expires (`S3_expired`)
-  and the period falls through to the donor gas or the median instead. `{gas}_carry_periods` reports
-  the distance for every period: `0` = detected in that period, `n` = carried `n` periods, empty =
-  came from somewhere else. Default unlimited, i.e. the published behaviour
-- **`{gas}_lag_applied_s` in the summary** — the lag that was actually removed, in seconds. The
-  summary carries six lag columns per gas and none of them said plainly which one reached the data;
-  this one is read back off the record shift, so it is true of the files on disk rather than of the
-  request. Alongside it, `{gas}_lag_reason` gives the decision in words
-- **`detect_and_remove_tlag_decisions.txt`** — one block per output file naming the lag applied to
-  each gas and why: detected here and reliable, accepted for continuity, carried *n* periods forward
-  from a named period, borrowed from a named gas, back-filled, or the median last resort. The
-  thresholds behind the decisions head the file, and a tally closes it
-- **`pwb-batch` and `apply-batch` now write `log.txt`** too, next to their results, the way
-  `detect-remove` already did: run header, per-file lines, and the finish time
-- The `detect-remove` log header names a borrowed lag (`lag from CO2 where N2O has none`), so the
-  per-chunk lines cannot show a gas matching its donor without saying why
-- `{gas}_lag_source` in the summary: `own`, `from:CO2` or `median` per period, so a borrowed lag is
-  never mistaken for a detected one
-- The TUI title bar shows the version, read from package metadata rather than hardcoded
-- A test suite: `tests/`, 130 tests. `dyco` previously had none. `tests/test_pwb_reference.py` pins
-  the pre-whitening chain to the numbers RFlux v3.2.0 produces on the same input — unit-root
-  decision, AR order, AR coefficients, pre-whitened CCF peak and raw cross-covariance all agree to
-  12 significant digits. Three cases: two synthetic, one per branch of the unit-root test, and the
-  bundled **real** CH-LAE half hour, where AR orders reach 133 / 87 / 312 against the synthetic
-  cases' 1 to 5. Fixtures and the R script that produced the frozen values are in `tests/data/`
-- A second bundled raw file, `examples/data/CZ-Lnz_202208180700_QCL.txt`: one 10 Hz half hour in
-  which CH<sub>4</sub>, N<sub>2</sub>O and H<sub>2</sub>O all detect reliably at once. That is rare
-  in the source record, 33 periods out of 8199, and none of those fall between 09:00 and 16:00,
-  because daytime mixing flattens the N<sub>2</sub>O signal
-- Two worked examples in the documentation, each following one bundled file from raw input to
-  output. `docs/example-irga-20hz.md` covers 20 Hz with compressed input, three header rows, no
-  timestamp column at all, and one file that becomes two averaging periods.
-  `docs/example-qcl-10hz.md` covers the harder case: three gases, one of which almost never detects
-  on its own, and a tube delay that changes mid-record. Both also say what the writer changes on the
-  way through, since neither output is byte-identical to its input
-- `preview_docs.ps1`, which builds the documentation and opens it, or serves it with live reload
-  (`-Watch`). `-Strict` matches Read the Docs' `fail_on_warning` and `-Clean` forces a full rebuild,
-  which is needed because a stale cached environment makes `sphinx-build` report "no targets are out
-  of date" after an edit
-- The PWB flowchart zooms and pans, and has a fullscreen button. It carries more nodes than fit
-  legibly in the content column
-- `.github/workflows/tests.yml` — the suite, a `-W -j auto` documentation build and `uv build` with
-  a check of what the two distributions actually carry, on Python 3.12 and 3.13. `uv sync --locked`
-  fails rather than resolving, so a lockfile that has drifted from `pyproject.toml` is caught here
-  instead of in a release. The parallel documentation build is the point of the job: parallel
-  reading needs `os.fork`, so a Windows checkout builds serially whatever it is asked for and cannot
-  see a parallel-only failure
-- `tests/test_packaging.py` — `pyproject.toml`, `CITATION.cff` and the top `CHANGELOG.md` heading
-  all state the version, and nothing else keeps them in step. Zenodo builds its record from the
-  second and PyPI from the first, so a release that bumps one and forgets another is archived under
-  a number it does not carry
-- PyPI metadata that `2.0.3` had and the v3 tree had lost: license, keywords, classifiers and the
-  project URLs. The source distribution now has an explicit file list — hatchling otherwise ships
-  everything git does not ignore, which was ~11 MB of v1 figures, the published `paper/` and the raw
-  example data
+- `dyco.apply_tlag`: `TlagApplier`, removes lags listed in an existing `tlag_results.csv`
+- `dyco.rawio`: one place that opens raw files. `.gz`, `.bz2`, `.xz` and `.zip` read and write
+  transparently everywhere. A zipped raw file must hold exactly one member
+- `dyco.maxcov`, `dyco.rotation`, `dyco.split`, `dyco.detectionlimit`: the covariance-maximization
+  estimator, double rotation, the file splitter and the flux detection limit. Formerly imported from
+  `diive`, each usable on its own
+- Per-gas search windows, so a long-inlet gas such as H<sub>2</sub>O can use a wider window than the
+  dry gases in the same run
+- **A gas can take its lag from another gas** for periods its own detection cannot cover:
+  `--scalar "N2O:n2o@lagfrom=CO2"`, or **Lag from** in the TUI. Own lag wins at every tier, since two
+  gases down one tube have systematically different delays. Chains resolve donor-first and circular
+  ones are refused. Pair it with `--max-carry`, or the gas carries its own lag forever and the donor
+  never gets a turn
+- **`--max-carry N`**: how far, in averaging periods, PWBOPT's S3 rule may carry a lag. The published
+  rule is unbounded, so one good half hour can supply every later period in a run. Past the limit the
+  lag expires and the period falls through to the donor gas or the median. `{gas}_carry_periods`
+  reports the distance. Default unlimited, i.e. the published behaviour
+- **`--wdt`**: width of the centred rolling mean applied to each bootstrap CCF before its peak is
+  taken. Default 5, following RFlux. The paper's `hz/2 + 1` was previously unreachable, and it
+  matters: on the bundled CH-LAE hour `--wdt 11` widens the 95% HDI from 0.00/0.05 s to 0.30/0.20 s,
+  against an S1 threshold of 0.5 s
+- **`--output-suffix`** (**Output as** in the TUI): the extension the corrected chunks carry, with
+  reading and writing following from it. Give the whole extension (`.csv.gz`), the text format alone
+  (`.csv`, dropping compression), or the compression alone (`.zip`, keeping the input's format). The
+  leading dot is required, `auto` reuses the input's. A compression dyco cannot write is refused
+  rather than quietly writing plain text under a name that promises otherwise
+- **`{gas}_lag_applied_s`** in the summary: the lag actually removed, read back off the record shift,
+  so it describes the files on disk rather than the request. Six lag columns per gas existed and none
+  said plainly which one reached the data. `{gas}_lag_reason` gives the decision in words, and
+  `{gas}_lag_source` reads `own`, `from:CO2`, `median` or `no_data`
+- **`detect_and_remove_tlag_decisions.txt`**: one block per output file naming the lag applied to
+  each gas and why. Thresholds head the file, a tally closes it
+- `pwb-batch` and `apply-batch` write `log.txt` beside their results, as `detect-remove` already did
+- A test suite. `dyco` had none. `tests/test_pwb_reference.py` pins the pre-whitening chain to RFlux
+  v3.2.0 at 12 significant digits on the unit-root decision, AR order and coefficients, pre-whitened
+  CCF peak and raw cross-covariance, across both branches of the unit-root test and a real CH-LAE
+  half hour where the AR orders reach 133 / 87 / 312
+- Documentation on Read the Docs, with the command reference generated from the argparse parsers so
+  it cannot drift from `--help`, and two worked examples following a bundled raw file each from input
+  to output
+- `.github/workflows/tests.yml`: the suite, a `-W -j auto` documentation build and `uv build`, on
+  3.12 and 3.13
 
 ### Changed
 
-- **A period that produced no output file no longer gets a lag.** Short, duplicate and errored
-  chunks write nothing, so `{gas}_tlag_final_s`, `{gas}_tlag_final_pf_s`, `{gas}_carry_periods` and
-  `{gas}_lag_applied_s` are left empty for them and `{gas}_lag_source` reads `none`. A number in
-  those rows suggested something had been corrected there. The detection columns are untouched
-- **The TUI is now the recommended way to run dyco.** A detect-and-remove run takes around thirty
-  settings; the TUI validates as you type, picks column names off a real file, and previews the run
-  with a preflight check. The CLI is unchanged and remains the right choice for scripting
-- **Chunk filename placeholders changed.** `{stem}` is the input filename with every suffix removed,
-  and `{suffix}` is the extension the *output* should carry — `--output-suffix`, resolved. One
-  template therefore names files the same way whatever the input was called. Previously a `.csv.gz`
-  input put the `.csv` inside `{stem}` and left `{suffix}` as `.gz`, so
-  `{stem}_chunk{index:02d}{suffix}` produced `site_202401010000.csv_chunk00.gz`; it now produces
-  `site_202401010000_chunk00.csv.gz`. Setting `--output-suffix` with a template that has no
-  `{suffix}` is an error rather than a silently ignored setting
-- **New unified `dyco` command.** One front door dispatching to every workflow:
-  `dyco detect-remove`, `dyco tui`, `dyco pwb-batch`, `dyco apply-batch`. The four
-  standalone `dyco-*` scripts keep working unchanged
-- **Console scripts renamed**: `dyco-detect-remove`, `dyco-detect-remove-tui`, `dyco-pwb-batch`,
-  `dyco-apply-batch`
-- **[BREAKING] The v2 top-level CLI is gone**, with the method it drove. It took short flags directly
-  (`dyco REF LAG TGT -lsw 1000 -lsi 3 ...`). An old-style command line is detected and answered with a
-  pointer to `dyco detect-remove` rather than a parse error
-- **TUI settings file moved** from `~/.diive/detect_remove_tui.yaml` to `~/.dyco/detect_remove_tui.yaml`.
-  An existing settings file is not found until it is moved
-- **PWB detection is tuned around its one hot spot.** Profiling a 30-minute 20 Hz chunk puts ~96% of the
-  run inside the block bootstrap's batched cross-correlation, and ~3% in reading the raw file. The FFT is
-  now padded to `next_fast_len(N + lag_max)` instead of the next power of two — 36288 rather than 65536 for
-  that chunk, and the bulk of the gain. The CCF is normalised after being sliced to the kept lag window
-  rather than across the full transform, and centring, zero-padding and the sum of squares fold into a
-  single pass over the buffer. That takes one chunk-gas detection from 0.71 s to 0.41 s against the first
-  working implementation, and the bundled real-data example from about a minute to about ten seconds.
-  Results are bit-identical, checked across both unit-root branches, the real CH-LAE chunk, windowed and
-  unwindowed searches, 10 Hz, and chunks shorter than one bootstrap block. `scipy.fft` replaces
-  `numpy.fft`, and was already a dependency via `scipy.signal`
-- Python requirement raised to `>=3.12,<3.14` (was `>=3.11,<3.12`)
-- pandas requirement raised to `>=3.0.0` (was `>=2.2.3,<3.0.0`)
-- Build backend switched from `poetry-core` to `hatchling`; `uv` is now used for dependency management
-- New dependencies: `numpy`, `polars`, `pyarrow`, `textual`, `pyyaml`
-- **Stopping a run now writes the chunks it had already detected.** Stop used to skip phase 2
-  outright, so a run that had detected for hours before the user pressed it left a summary, a
-  decisions report and plots, but not one lag-corrected file. PWBOPT runs before the cancellation is
-  checked, so every chunk that detected already has a chosen lag, and those chunks are now aligned
-  and written. Phase 2 is the cheap half, no bootstrap, so the wait after pressing Stop is bounded by
-  what was detected rather than by what was queued. Stop now cancels the phase in flight rather than
-  the run: pressing it again during alignment skips that too and keeps whatever it has written, and
-  the TUI re-enables its button to say so. One caveat, PWBOPT sees a truncated sequence in a stopped
-  run, so a period that a complete run would have back-filled from a later detection may instead
-  carry an earlier lag or fall back to the median. A stopped run's output is provisional
+- **[BREAKING] The v2 top-level CLI is gone**, with the method it drove. An old-style command line
+  (`dyco REF LAG TGT -lsw 1000 ...`) is answered with a pointer to `dyco detect-remove` rather than a
+  parse error
+- **[BREAKING] Chunk filename placeholders changed.** `{stem}` is the input name with every suffix
+  removed and `{suffix}` is the resolved output extension, so one template names files the same way
+  whatever the input was called. `{stem}_chunk{index:02d}{suffix}` on a `.csv.gz` input previously
+  gave `site_202401010000.csv_chunk00.gz` and now gives `site_202401010000_chunk00.csv.gz`. Setting
+  `--output-suffix` with a template that has no `{suffix}` is an error
+- **New unified `dyco` command**, dispatching to `detect-remove`, `tui`, `pwb-batch` and
+  `apply-batch`. The standalone scripts keep working, under new names (`dyco-detect-remove`,
+  `dyco-detect-remove-tui`, `dyco-pwb-batch`, `dyco-apply-batch`)
+- **The TUI is the recommended way to run dyco.** A detect-and-remove run takes around thirty
+  settings. The CLI is unchanged and is still the right choice for scripting
+- **A period that produced no output file no longer gets a lag.** Short, duplicate and errored chunks
+  write nothing, so their lag columns are left empty and `{gas}_lag_source` reads `none`. A number
+  there suggested something had been corrected. Detection columns are untouched
+- **Stopping a run writes the chunks it had already detected.** Stop used to skip phase 2 outright,
+  so a run stopped after hours of detection left a summary and plots but not one corrected file.
+  Pressing Stop again during alignment skips that too and keeps what is written. PWBOPT sees a
+  truncated sequence in a stopped run, so its output is provisional
+- **PWB detection is about 1.7x faster.** Profiling puts ~96% of a chunk inside the block bootstrap's
+  batched cross-correlation. The FFT is padded to `next_fast_len(N + lag_max)` rather than the next
+  power of two, which is most of the gain; the CCF is normalised after slicing to the kept lag
+  window; centring, zero-padding and the sum of squares fold into one pass. One chunk-gas detection
+  goes from 0.71 s to 0.41 s, and the bundled real-data example from about a minute to about ten
+  seconds. Results are bit-identical
+- **TUI settings moved** from `~/.diive/detect_remove_tui.yaml` to `~/.dyco/detect_remove_tui.yaml`.
+  An existing file is not found until it is moved
+- Python `>=3.12,<3.14` (was `>=3.11,<3.12`), pandas `>=3.0.0` (was `>=2.2.3,<3.0.0`). Build backend
+  is hatchling rather than poetry-core, dependencies are managed with uv, and `numpy`, `polars`,
+  `pyarrow`, `textual` and `pyyaml` are new
 
 ### Fixed
 
-- **The hosted documentation build could not have worked.** `sphinx-argparse` declares itself safe
-  to read in parallel and registers a domain with no `merge_domaindata`, so Sphinx splits the read
-  across workers and then dies merging what they produced. Read the Docs builds with `-j auto`, and
-  a Windows checkout cannot: parallel reading needs `os.fork`, so every local build was serial and
-  the failure was invisible. `docs/conf.py` supplies the missing method, guarded so a released fix
-  upstream wins over it rather than being shadowed by it. Declaring the extension unsafe instead
-  only moves the failure — Sphinx then emits two warnings that `fail_on_warning` turns into errors,
-  and neither carries a type `suppress_warnings` could reach
-- **A quoted column-name row made every column look missing.** Loggers commonly write the header as
-  `"TIMESTAMP","u","CH4"` and the data rows bare. `pandas` strips those quotes when it parses the
-  data, but dyco split the header on the separator alone — in six places across `pipeline.py`,
-  `apply_tlag.py` and `tui.py`, none of which stripped quotes — so the frame was labelled `"u"`,
-  quote characters included, and no `--col-u` or `--scalar` name a user would think to pass could
-  match. Every such file failed with `columns missing` while every column was in fact present.
-  Header splitting now lives in one place, `rawio.split_header_line`, alongside the compression
-  dispatch and for the same reason; a separator inside a quoted field no longer splits it either.
-  Found on real CZ-Lnz QCL files
-
-- **A literal `Inf` in a data column killed the averaging period.** Loggers write them — the CZ-Lnz
-  QCL record carries four `-Inf` in one H₂O column. An infinite concentration is not a measurement,
-  but nothing treated it as missing: it is not a string `--na-values` can match (and `argparse`
-  refuses `-Inf` as a value outright, reading the leading dash as an option name), it survives the
-  `-9999` filtering, and `na.approx` interpolating a gap adjacent to one *spreads* it into the gap —
-  four values became fourteen. It then surfaced far downstream as `array must not contain infs or
-  NaNs` out of scipy's `detrend`, naming neither the column nor the period. Non-finite values are now
-  folded into NaN on read, so they are interpolated across like any other gap, and `{gas}_n_valid`
-  counts only usable records. A column of nothing but `Inf` takes the same `no_data` path as an empty
-  one
-
-- **A gas missing for a whole averaging period killed the entire file.** An analyser offline for a
-  period writes its fill value down the whole column — about one period in eight of the CZ-Lnz QCL
-  record this was found on. `_na_approx` handed the empty column to `np.interp`, which raised *array
-  of sample points is empty*; the error surfaced at file level, so one dead gas took every other gas
-  and every chunk of that file with it, and nothing was written. An empty column now means what it
-  says: there is no lag to find and none to apply, since shifting it would move nothing. The gas is
-  skipped for that period, `{gas}_n_valid` records how many records were present, and
-  `{gas}_lag_source` reads `no_data`. That marking survives PWBOPT deliberately — S3 carry and
-  `@lagfrom=` exist to fill periods whose detection was *rejected* and cannot otherwise tell those
-  apart from periods that had no data to detect in. Other gases in the same period, and periods
-  where the gas is only partly missing, are unaffected
-
-- **The PWB raw cross-covariance was read off the differenced series.** When the Breitung
-  variance-ratio test rejects stationarity, all three series are first-differenced before AR
-  fitting — but the differenced arrays were then also used for the raw cross-covariance, which R
-  computes from the *original* series. `cov_pwb` became a covariance of increments: on a drifting
-  record, two orders of magnitude too small and free to carry the opposite sign (measured: -0.017
-  where R gives 4.040 at the same lag). The detected lag was never affected, only the reported
-  covariance and the second diagnostic panel
-
-- **An even CCF smoothing width raised `ValueError`.** The centred rolling mean assumed an odd
-  window, so the paper's `hz/2 + 1` was unusable at 10 Hz (= 6). Even widths now follow zoo's
-  `align="center"` convention, putting the extra sample after the centre, and a window wider than
-  the series returns all-NaN instead of a shape error
-
-- **`dyco apply-batch` crashed on a legacy Windows console** before doing any work: the Rich progress
-  spinner defaults to braille characters, which cp1252 cannot encode, so the run died with
-  `UnicodeEncodeError` instead of starting. All three CLIs now use the ASCII spinner
-
-- **The TUI's column scan and preflight check produced garbage on compressed input.** Both used a
-  plain `open()`, so a `.csv.gz` was decoded as text: five replacement-character "column names"
-  from the compressed bytes, no exception, and a preflight that then reported every configured
-  column as missing — telling you your setup was broken when the run itself would have worked
-
-- **`dyco apply-batch` could not read or write compressed files.** It used a plain `open()` on both
-  ends, so a `.csv.gz` input — which dyco's own file splitter produces — failed with a bare
-  `StopIteration` and no message. It now handles gzip on both ends, and a file shorter than the
-  header block reports which flag to check
-
-- **`dyco apply-batch` wrote mixed line terminators.** Preserved header lines went out with the LF
-  they picked up from the text-mode read while the data used `--lineterm`, so `--lineterm "\r\n"`
-  produced an LF header above CRLF data. The same fault was already fixed on the `detect-remove`
-  side; both now re-terminate the header
-
-- **`_count_data_rows` lost the last row of a file with no trailing newline**, and so disagreed with
-  `_estimate_data_rows` on the same file (2 vs 3). It is the counter used for every compressed
-  input, so gzipped files were systematically one row short in chunk planning and the preflight
-  check
-
-- **`files.read_raw_data` refused compressed files.** It dispatched on
-  `Path(filepath).suffix`, which for `raw.csv.gz` is `.gz`, so every compressed file
-  raised *"File extension must be '.csv' or '.parquet'"*. This is the reader
-  `FileSplitter` uses — and `FileSplitterMulti` writes `.csv.gz` when
-  `compress_splits=True`, so the splitter's own output could not be read back in.
-  Dispatch now ignores compression suffixes (new `files.data_suffix`), and the error
-  for a genuinely unsupported format names what it saw
-
-- **Gzip-compressed raw files could not be handled by the PWB pipeline** — three
-  further faults in a *separate* reader, all from `pandas` inferring compression from
-  the suffix while the surrounding plain `open()` calls did not:
-
-  1. *Reading.* Header rows were parsed from compressed bytes, raising a
-     column-count mismatch before the pipeline could start.
-  2. *Chunk planning.* `_estimate_data_rows` scaled a bytes-per-line measured on
-     decompressed content by `stat().st_size`, which is the **compressed** size.
-     On a 6-hour 20 Hz file that gave 86 500 rows instead of 432 008 — so the run
-     processed 3 chunks of 12, **exited successfully, and reported nothing
-     unusual**. Compressed files now use the exact row count.
-  3. *Writing.* The chunk filename template carries the input's suffix through to
-     the output, so a `.gz` input produced a `.gz` *name* while the writer wrote
-     plain text — a file whose extension lied. The writer now compresses when the
-     name says `.gz`.
-
-  This mattered because dyco's own file splitter writes `.csv.gz` when
-  `compress_splits=True`, so the toolchain produced files its own pipeline could
-  not read. All read and write paths now dispatch on the suffix
-  (`_open_text` / `_open_binary` / `_open_text_write`). Regression tests in
-  `tests/test_rawio_gzip.py` write the same content plain and gzipped and require
-  identical results end to end
-
-- **The progress bar filled to 100% long before the run ended, and the ETA sat at zero.** Phase 1
-  dispatches more chunks than a file holds, at least one extra per file, so a sampling error in the
-  row-count estimate can never drop a trailing chunk; the extras land past EOF and are discarded. The
-  completion counter counted those phantoms while the total it was compared against did not. Phantoms
-  read nothing and finish almost instantly, so they front-run the real work: on a four-file run the
-  bar reached 100% on the very first real chunk and stayed there for the rest of the run. The display
-  now counts only real chunks, and the total is revised while the phase runs, since a file's first
-  past-EOF chunk index is exactly that file's chunk count. Detection, lag selection and the written
-  files were never affected; this was the display alone
+- **A gzipped input was silently processed in part.** `_estimate_data_rows` scaled a bytes-per-line
+  measured on decompressed content by the *compressed* file size, so a 6-hour 20 Hz file was planned
+  as 86,500 rows instead of 432,008. The run processed 3 chunks of 12, exited successfully and
+  reported nothing unusual. Two more faults sat beside it in the same reader: header rows were parsed
+  from compressed bytes, and a `.gz` input produced a `.gz` filename holding plain text. dyco's own
+  splitter writes `.csv.gz`, so the toolchain produced files its own pipeline could not read.
+  `files.read_raw_data` refused them outright for the same reason, dispatching on `.gz` as though it
+  were the data format
+- **A quoted column-name row made every column look missing.** Loggers write the header as
+  `"TIMESTAMP","u","CH4"` and the data rows bare. `pandas` strips those quotes, but dyco split the
+  header on the separator alone in six places, so columns were labelled `"u"` and no `--col-u` or
+  `--scalar` name could match. Every such file failed with `columns missing` while every column was
+  present. Splitting now lives in `rawio.split_header_line`, and a separator inside a quoted field no
+  longer splits it
+- **A literal `Inf` in a data column killed the averaging period.** Loggers write them. It is not a
+  string `--na-values` can match, `argparse` refuses `-Inf` as a value outright, and interpolating a
+  gap beside one spreads it further. It surfaced far downstream as `array must not contain infs or
+  NaNs` out of scipy's `detrend`, naming neither column nor period. Non-finite values now fold into
+  NaN on read, and `{gas}_n_valid` counts only usable records
+- **A gas missing for a whole period killed the entire file.** An analyser offline for a period
+  writes its fill value down the column, about one period in eight of the record this was found on.
+  The empty column reached `np.interp`, and the error surfaced at file level, so one dead gas took
+  every other gas and every chunk with it. An empty column now means there is no lag to find and none
+  to apply: the gas is skipped for that period and `{gas}_lag_source` reads `no_data`. That marking
+  survives PWBOPT deliberately, since S3 carry and `@lagfrom=` exist to fill periods whose detection
+  was *rejected* and cannot otherwise tell the two apart
+- **The PWB raw cross-covariance was read off the differenced series.** When the Breitung test
+  rejects stationarity all three series are first-differenced before AR fitting, and those arrays
+  were then also used for the raw cross-covariance, which R computes from the original series.
+  `cov_pwb` became a covariance of increments: two orders of magnitude too small on a drifting record
+  and free to carry the opposite sign (-0.017 where R gives 4.040). The detected lag was unaffected
+- **The hosted documentation build could not have worked.** `sphinx-argparse` declares itself
+  parallel-safe and registers a domain with no `merge_domaindata`, so Sphinx splits the read and dies
+  merging it. Read the Docs builds with `-j auto`; a Windows checkout cannot, so every local build
+  was serial and the failure invisible. `docs/conf.py` supplies the method, guarded so an upstream
+  fix wins
+- **The progress bar filled to 100% long before the run ended**, with the ETA at zero. Phase 1
+  dispatches at least one chunk past EOF per file so a sampling error can never drop a trailing
+  chunk. Those phantoms finish instantly and were counted while the total was not. The display alone
+  was affected
+- **An even CCF smoothing width raised `ValueError`**, making the paper's `hz/2 + 1` unusable at
+  10 Hz. Even widths now follow zoo's `align="center"` convention, and a window wider than the series
+  returns all-NaN
+- **`dyco apply-batch` could not read or write compressed files**, failing with a bare
+  `StopIteration`, and wrote an LF header above CRLF data when a CRLF `--lineterm` was set. It also
+  died on a legacy Windows console before doing any work, because Rich's default braille spinner is
+  not cp1252-encodable. All three CLIs now use the ASCII spinner
+- **The TUI's column scan and preflight check produced garbage on compressed input**, reading a
+  `.csv.gz` as text and then reporting every configured column as missing, when the run itself would
+  have worked
+- **`_count_data_rows` lost the last row of a file with no trailing newline**, so gzipped files were
+  systematically one row short in chunk planning and the preflight check
 
 ### Removed
 
-- **[BREAKING] The covariance-maximization method**, i.e. everything reached through the `Dyco` class:
-  `dyco.dyco` (`Dyco`), `dyco.loop` (`Loop`), `dyco.lag` (`AdjustLagsearchWindow`), `dyco.analyze`
-  (`AnalyzeLags`), `dyco.correction` (`RemoveLags`), `dyco.plot` and `dyco.setup`. With them go the
-  iterative window narrowing, the daily median look-up table, the target-lag normalization, the
-  `outdirs` numbered output tree, and the rolling z-score outlier filter (`dyco._vendor.outliers`).
-  `dyco cm` exits with a pointer to `dyco detect-remove`. To run the old method, install `dyco==2.0.3`,
-  noting that it depends on `diive` and no longer installs cleanly against current `diive` versions.
-  `MaxCovariance` (`dyco.maxcov`) stays: `FluxDetectionLimit` uses it, and it is useful on its own
-- `files.read_segment_lagtimes_file` and `files.add_data_stats`, which only served that path.
-  `dyco._vendor.filedetector.add_data_stats` is now the only function of that name
-- The `example/` directory (two JOSS-era scripts driving the old CLI, and their input archive) and the
-  `images/dyco_v2_*.png` figures that illustrated the removed workflow. `examples/` is unaffected
-- `diive` dependency
+- **[BREAKING] The covariance-maximization method**, i.e. everything reached through the `Dyco`
+  class: `dyco.dyco`, `dyco.loop`, `dyco.lag`, `dyco.analyze`, `dyco.correction`, `dyco.plot` and
+  `dyco.setup`. With them go the iterative window narrowing, the daily median look-up table, the
+  target-lag normalization, the `outdirs` numbered output tree and the rolling z-score outlier
+  filter. `dyco cm` exits with a pointer to `dyco detect-remove`. To run the old method install
+  `dyco==2.0.3`, which depends on `diive` and no longer installs cleanly against current `diive`.
+  `MaxCovariance` stays: `FluxDetectionLimit` uses it, and it is useful on its own
+- `files.read_segment_lagtimes_file` and `files.add_data_stats`, which only served that path
+- The `example/` directory and the `images/dyco_v2_*.png` figures. `examples/` is unaffected
+- The `diive` dependency
 
 ### Notes
 
-Downstream flux processing must run with EC time-lag maximization **disabled** — the lag has already been
-removed.
+Downstream flux processing must run with EC time-lag maximization **disabled**. The lag is already
+gone from the data.
 
-The published JOSS paper (`paper/`) describes the covariance-maximization method as it stood in `v1.1.2`,
-the version released for that publication, and is left as the historical record. The PWB method has its own
-publication (Vitale et al. 2024).
+The JOSS paper (`paper/`) describes the covariance-maximization method as it stood in `v1.1.2` and is
+left as the historical record. PWB has its own publication:
 
 Vitale, D., Fratini, G., Helfter, C., Hörtnagl, L., et al., 2024. A pre-whitening with block-bootstrap
 cross-correlation procedure for temporal alignment of data sampled by eddy covariance systems. Environ.
-Ecol. Stat. 31, 219–244. https://doi.org/10.1007/s10651-024-00615-9
+Ecol. Stat. 31, 219-244. https://doi.org/10.1007/s10651-024-00615-9
 
 ## v2.0.3 | 6 May 2025
 
