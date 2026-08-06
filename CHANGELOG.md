@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v3.0.0 | unreleased
+## v3.0.0 | 6 Aug 2026
 
 `dyco` replaces its time-lag detection method and becomes a standalone package.
 
@@ -118,10 +118,23 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 - `preview_docs.ps1`, which builds the documentation and opens it, or serves it with live reload
   (`-Watch`). `-Strict` matches Read the Docs' `fail_on_warning` and `-Clean` forces a full rebuild,
   which is needed because a stale cached environment makes `sphinx-build` report "no targets are out
-  of date" after an edit. Sphinx runs through `uv run --with-requirements`, so the docs toolchain
-  stays out of the project environment and out of `uv.lock`
+  of date" after an edit
 - The PWB flowchart zooms and pans, and has a fullscreen button. It carries more nodes than fit
   legibly in the content column
+- `.github/workflows/tests.yml` — the suite, a `-W -j auto` documentation build and `uv build` with
+  a check of what the two distributions actually carry, on Python 3.12 and 3.13. `uv sync --locked`
+  fails rather than resolving, so a lockfile that has drifted from `pyproject.toml` is caught here
+  instead of in a release. The parallel documentation build is the point of the job: parallel
+  reading needs `os.fork`, so a Windows checkout builds serially whatever it is asked for and cannot
+  see a parallel-only failure
+- `tests/test_packaging.py` — `pyproject.toml`, `CITATION.cff` and the top `CHANGELOG.md` heading
+  all state the version, and nothing else keeps them in step. Zenodo builds its record from the
+  second and PyPI from the first, so a release that bumps one and forgets another is archived under
+  a number it does not carry
+- PyPI metadata that `2.0.3` had and the v3 tree had lost: license, keywords, classifiers and the
+  project URLs. The source distribution now has an explicit file list — hatchling otherwise ships
+  everything git does not ignore, which was ~11 MB of v1 figures, the published `paper/` and the raw
+  example data
 
 ### Changed
 
@@ -176,6 +189,14 @@ here, and the small generic helpers are bundled in `dyco/_vendor/` with their pr
 
 ### Fixed
 
+- **The hosted documentation build could not have worked.** `sphinx-argparse` declares itself safe
+  to read in parallel and registers a domain with no `merge_domaindata`, so Sphinx splits the read
+  across workers and then dies merging what they produced. Read the Docs builds with `-j auto`, and
+  a Windows checkout cannot: parallel reading needs `os.fork`, so every local build was serial and
+  the failure was invisible. `docs/conf.py` supplies the missing method, guarded so a released fix
+  upstream wins over it rather than being shadowed by it. Declaring the extension unsafe instead
+  only moves the failure — Sphinx then emits two warnings that `fail_on_warning` turns into errors,
+  and neither carries a type `suppress_warnings` could reach
 - **A quoted column-name row made every column look missing.** Loggers commonly write the header as
   `"TIMESTAMP","u","CH4"` and the data rows bare. `pandas` strips those quotes when it parses the
   data, but dyco split the header on the separator alone — in six places across `pipeline.py`,

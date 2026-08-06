@@ -21,7 +21,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
 | Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 10 more, 198 total |
+| Tests | `tests/test_pwb.py` + 11 more, 210 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -130,13 +130,16 @@ chars, then bullet points.
 
 ## Environment
 
-**Python** `>=3.12,<3.14`. **Build** hatchling, **deps** uv. `pyproject.toml`
-reads `version = "3.0.0"`. The CHANGELOG entry is still `unreleased` — v3 is
-not published yet. **Do not touch the version again; the user owns it.**
+**Python** `>=3.12,<3.14`. **Build** hatchling, **deps** uv. **Do not touch the
+version; the user owns it.** `CHANGELOG.md` says which one is current and what
+changed in it — this file does not, and neither should the README or the docs
+front page: a sentence naming a version has to be found and edited every time
+the version moves, and every one that existed went stale. See **Packaging, docs
+and releasing** for how a release is cut.
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 198 passed
+uv run pytest tests/ -q                                  # 210 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -247,9 +250,93 @@ Neither is urgent, and both are smaller than they look:
 
 ---
 
+## Packaging, docs and releasing
+
+**Conventions are mirrored from `fluxatlas` (`F:\dev\fluxatlas`) and `diive`.**
+Keep them aligned unless there is a reason not to: hatchling, flat layout
+(`dyco/`, not `src/`), `license = { text = "GPL-3.0" }`,
+`requires-python = ">=3.12,<3.14"`. One deliberate difference remains: the
+author email here is `lukas.hoertnagl@usys.ethz.ch`, which is what PyPI already
+shows for `2.0.3`, while the sibling repos use `holukas@ethz.ch`. Left alone;
+the user's to change.
+
+The **sdist carries an explicit include list**. Without one hatchling ships
+every file git does not ignore — ~11 MB of v1 figures, the published `paper/`
+and the raw example data. `tests/` is in, and its 3 MB 10 Hz fixture with it, so
+that whoever repackages this can run the suite.
+
+### The documentation
+
+```bash
+uv sync --extra docs
+uv run sphinx-build -b html -W -j auto docs docs/_build/html
+```
+
+Hosted at `dyco.readthedocs.io`, built from **the default branch**, which is
+`main`. The `docs` extra in `pyproject.toml` is the only place the Sphinx
+dependencies are stated; `docs/requirements.txt` is gone, because a path install
+is how Read the Docs installs a project and it cannot reach a PEP 735 group.
+
+Three traps, all of them learned in `fluxatlas` rather than here:
+
+- **Read the Docs reads with `-j auto`, and a Windows checkout cannot.**
+  Parallel reading needs `os.fork`, so a local build is serial whatever it is
+  asked for, and anything that only breaks in parallel is invisible until the
+  hosted build meets it. `sphinx-argparse` is exactly such a case: it declares
+  itself parallel-safe and registers a domain with no `merge_domaindata`.
+  `docs/conf.py` supplies the method, guarded so an upstream fix wins.
+  `.github/workflows/tests.yml` builds with `-j auto` on Linux so the next one
+  is caught in a PR.
+- **Declaring the extension unsafe does not fix that** — Sphinx then emits two
+  warnings that `fail_on_warning` turns into errors, and neither carries a type
+  `suppress_warnings` can reach.
+- **A key the schema does not know fails the build before it starts**, with no
+  environment and no install in the log. Check any new `.readthedocs.yaml` key
+  against the schema, not against what looks reasonable.
+
+### Cutting a release
+
+Finish the work first, then cut the release in one commit, so the tag points at
+a commit that contains its own paperwork.
+
+1. `version` in `pyproject.toml` and `CITATION.cff`, and a dated
+   `## vX.Y.Z | D Mon YYYY` heading in `CHANGELOG.md`, all agree.
+   `tests/test_packaging.py` asserts exactly that, against the installed
+   distribution, and that `date-released` matches the changelog date.
+   **The version is the user's; do not touch it.**
+2. `uv sync`, then `uv run pytest tests/ -q`.
+3. `uv build`, then `uv run --with twine twine check dist/*`.
+4. Commit and push (**the user's**, always).
+5. **Publish a GitHub Release.** Its "Choose a tag" field creates the tag from
+   the target branch as the remote has it, so pushing first is what matters and
+   a local `git tag` is optional. Zenodo mints a DOI on a *published release*
+   and not on a bare tag, so a release that exists only as a tag is not archived
+   and not citable. The release body is the changelog entry.
+6. `uv publish`, which is **the user's to run** — it is public and needs their
+   token. The username it prompts for is the literal string `__token__`; pasting
+   the token into the username prompt fails with "Username/Password
+   authentication is no longer supported", which does not sound like the mistake
+   it is. `$env:UV_PUBLISH_TOKEN = (Read-Host 'PyPI token')` avoids the prompt
+   and keeps the token out of `ConsoleHost_history.txt`. Use a project-scoped
+   token.
+
+`CITATION.cff` is what Zenodo builds its record from — the ORCID and the
+affiliation come from there, not from the GitHub profile. It carries the
+**concept** DOI alone (`10.5281/zenodo.4964067`), which resolves to whichever
+version is current; the version DOI Zenodo mints each release is deliberately
+not recorded, since that would mean editing the file after every publish.
+
+`status.svg` is the JOSS badge, a local file. README links it by absolute raw
+URL, because a relative path renders as a broken image on PyPI — same reason
+`CONTRIBUTING.md` is linked absolutely.
+
+**Never `git commit`, `git push` or `uv publish`.** `uv build` is fine.
+
+---
+
 ## Open
 
-Two items, neither urgent. Anything else belongs in the GitHub issue tracker.
+One item, not urgent. Anything else belongs in the GitHub issue tracker.
 
 **`rawio` unification, part two.** The *opening* layer is done — `rawio.py`
 owns compression for every module. What is still split is *parsing*:
@@ -258,14 +345,6 @@ mismatch, while `pipeline.py`'s `_read_raw_file` / `_write_raw_file` handle
 arbitrary metadata rows, preserve line endings and can write. Folding the first
 into the second is low priority — `files.py` has exactly one consumer, and the
 defect class that motivated it lived in the opening layer, which is now shared.
-
-**Release chores.** `CITATION.cff` now carries `version: 3.0.0` and the Zenodo
-concept DOI `10.5281/zenodo.4964067`, which resolves to the latest version and
-is the one to cite for all versions; its `date-released:` is still commented
-out. The `CHANGELOG.md` heading is `## v3.0.0 | unreleased` — both dates go in
-at release, deliberately not before. Check `status.svg` still points somewhere
-valid. **The version in `pyproject.toml` is the user's; do not touch it** — but
-`CITATION.cff` has to be kept in step with it.
 
 ---
 
@@ -361,12 +440,12 @@ nothing or worse, and the one that paid was a single constant. See
 
 ## Testing
 
-`tests/` holds **198 tests plus 120 subtests**, seeded by diive's
+`tests/` holds **210 tests plus 120 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 198 passed, 120 subtests
+uv run pytest tests/ -q     # 210 passed, 120 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving
@@ -419,21 +498,30 @@ commit messages, README prose, CHANGELOG entries.
 
 ## Publication Status
 
-dyco is a **published, citable package**. The citation is:
+dyco is a **published, citable package**, and **the citation is the software**:
+the Zenodo concept DOI `10.5281/zenodo.4964067`, which resolves to whichever
+version is current.
 
-> Hörtnagl, L., (2021). DYCO: A Python package to dynamically detect and
-> compensate for time lags in ecosystem time series. *Journal of Open Source
-> Software*, 6(62), 2575, https://doi.org/10.21105/joss.02575
+**The 2021 JOSS article is not the citation for this version, and is not
+front-page material.** It describes `v1.1.2` — released 16 Jun 2021 for that
+publication — i.e. the covariance-maximization method, which v3 removed. Anyone
+reading the paper and then this code is reading about two different algorithms.
+So it belongs *deep* in the documentation, next to the migration it explains,
+and not on a landing page:
 
-Single author, 2021 — not "Hörtnagl et al. (2020)". The `date: 31 Jul 2020` in
-`paper/paper.md` is the submission date, not the publication year. That source
-lives in `paper/` with `paper.bib`; `CITATION.cff` carries the same reference as
-`preferred-citation`, plus the author's ORCID.
+- `docs/migrating-from-v2.md`, under **The published paper describes v1.1.2**,
+  is its one home in the docs, with the full reference.
+- `docs/index.md` and the README point there in a sentence and do not carry the
+  reference themselves. Both say dyco was first published in 2021 and has kept
+  developing since, which is the context a reader needs.
+- `CITATION.cff` records it under `references:`, **not** `preferred-citation:`.
+  That field is what GitHub's "Cite this repository" button and most citation
+  tools read, so leaving the article there pointed every user of this version at
+  a paper about a different algorithm. Do not put it back.
 
-**The paper describes `v1.1.2`** — released 16 Jun 2021 for that publication —
-i.e. the covariance-maximization method, which v3 removed. Anyone reading the
-paper and then this code is reading about two different algorithms; say so
-wherever the paper is cited.
+For the reference itself: single author, 2021 — not "Hörtnagl et al. (2020)".
+The `date: 31 Jul 2020` in `paper/paper.md` is the submission date, not the
+publication year.
 
 **Do not edit `paper/`** without explicit instruction — it is the published
 record. The newer pre-whitening block-bootstrap method has its own manuscript
@@ -441,4 +529,4 @@ repo (`holukas/ms_fluxnet_ch4_n2o_timelag`).
 
 ---
 
-**Last Updated:** 2026-08-02 | **Version:** v3.0.0 (unreleased)
+**Last Updated:** 2026-08-06
