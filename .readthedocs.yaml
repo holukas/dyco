@@ -1,21 +1,32 @@
 # Read the Docs build configuration.
 # https://docs.readthedocs.io/en/stable/config-file/v2.html
+#
+# A key this schema does not know fails the build before it starts: the log clones, checks out,
+# prints this file and stops, with no environment and no install, which reads like a silence
+# rather than a validation error. Check any new key against the schema.
 
 version: 2
 
 build:
   os: ubuntu-24.04
   tools:
+    # The lower bound of `requires-python`. Nothing in the docs build needs more.
     python: "3.12"
+
+python:
+  install:
+    # The package and its `docs` extra, in one install. dyco itself has to be importable, not just
+    # present as a source tree: sphinx-argparse imports the CLI modules to reach their parsers, so
+    # every runtime dependency has to be in the environment too.
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
 
 sphinx:
   configuration: docs/conf.py
   fail_on_warning: true
 
-python:
-  install:
-    - requirements: docs/requirements.txt
-    # sphinx-argparse imports the CLI modules to reach their parsers, so dyco
-    # and its runtime dependencies have to be present in the build environment.
-    - method: pip
-      path: .
+# HTML only. A PDF is a LaTeX build, and these pages are heavy in characters that need xelatex and
+# a font carrying them (`N₂O`, `µmol`, `->`); adding `- pdf` here is what remains if one is wanted.
+formats: []

@@ -3,10 +3,10 @@
     Build the dyco documentation and open it in a browser.
 
 .DESCRIPTION
-    Sphinx and its extensions are deliberately kept out of the project
-    environment (see docs/requirements.txt), so this script runs them through
-    `uv run --with-requirements`, which layers them into a temporary overlay and
-    never touches uv.lock.
+    Sphinx and its extensions are the `docs` extra in pyproject.toml, which is
+    the one place they are stated and what Read the Docs installs. This script
+    runs them through `uv run --extra docs`, so the extra is resolved from
+    uv.lock rather than pinned a second time here.
 
     Without -Watch the docs are built once and the start page is opened. With
     -Watch, sphinx-autobuild serves them on http://localhost:<Port> and rebuilds
@@ -61,10 +61,10 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $sourceDir = Join-Path $repoRoot 'docs'
 $buildDir = Join-Path $repoRoot 'docs\_build\html'
-$reqFile = Join-Path $sourceDir 'requirements.txt'
+$projectFile = Join-Path $repoRoot 'pyproject.toml'
 
-if (-not (Test-Path $reqFile)) {
-    throw "Not found: $reqFile. Run this script from inside the dyco repository."
+if (-not (Test-Path $projectFile)) {
+    throw "Not found: $projectFile. Run this script from inside the dyco repository."
 }
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     throw "uv is not on PATH. See https://docs.astral.sh/uv/ for installation."
@@ -92,7 +92,7 @@ if ($Watch) {
 
     # sphinx-autobuild opens the browser itself once the first build is served.
     $uvArgs = @(
-        'run', '--with-requirements', $reqFile, '--with', 'sphinx-autobuild',
+        'run', '--extra', 'docs', '--with', 'sphinx-autobuild',
         'sphinx-autobuild', $sourceDir, $buildDir,
         '--port', $Port, '--open-browser', '--delay', '1'
     ) + $sphinxFlags
@@ -102,7 +102,7 @@ if ($Watch) {
 
 Write-Host "Building docs -> $buildDir" -ForegroundColor Cyan
 $uvArgs = @(
-    'run', '--with-requirements', $reqFile,
+    'run', '--extra', 'docs',
     'sphinx-build', '-b', 'html'
 ) + $sphinxFlags + @($sourceDir, $buildDir)
 & uv @uvArgs

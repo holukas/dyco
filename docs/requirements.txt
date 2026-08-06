@@ -1,9 +1,0 @@
-# Documentation build dependencies.
-#
-# Kept here rather than in a pyproject.toml dependency group so that building
-# the docs never touches uv.lock or the project's own environment.
-sphinx>=8.1
-myst-parser>=4.0
-sphinx-argparse>=0.5
-sphinxcontrib-mermaid>=1.0
-furo>=2024.8.6
