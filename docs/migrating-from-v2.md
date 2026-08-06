@@ -31,9 +31,14 @@ trusted at all.
 
 ## The published paper describes v1.1.2
 
-[Hörtnagl (2021)](https://doi.org/10.21105/joss.02575) documents the covariance-maximization
-method, in the version released for that publication on 16 Jun 2021. If you arrived here from the
-paper, the algorithm described there is the one this page is about migrating *away* from.
+> Hörtnagl, L., 2021. DYCO: A Python package to dynamically detect and compensate for time lags in
+> ecosystem time series. *Journal of Open Source Software* 6(62), 2575.
+> <https://doi.org/10.21105/joss.02575>
+
+That paper documents the covariance-maximization method, in the version released for it on
+16 Jun 2021. If you arrived here from the paper, the algorithm described there is the one this page
+is about migrating *away* from — the two describe different algorithms, and nothing in the paper
+applies to a v3 run. `pip install dyco==2.0.3` still carries the old method if you need it.
 
 The pre-whitening block-bootstrap method has its own manuscript.
 
