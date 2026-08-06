@@ -80,9 +80,25 @@ The parts worth knowing before you open either file:
 `{gas}_lag_reason`
 : Why that value was chosen, in words. The same text as in the decisions report above.
 
-`tlag_s`
+`{gas}_tlag_s`
 : The **raw** per-chunk detection, before PWBOPT. This is not necessarily what was removed. A
   wide-HDI chunk's raw lag can be spurious, which is the entire reason PWBOPT exists.
+
+`{gas}_hdi_range_s`
+: The width of the 95% interval, and the number every PWBOPT decision turns on. Below
+  `--hdi-thresh` the detection is accepted outright (S1). `{gas}_hdi_lo_s` and `{gas}_hdi_hi_s` are
+  the bounds it was computed from, and `{gas}_is_reliable` is the same test as a boolean.
+
+`{gas}_n_valid`
+: How many records of this gas the chunk actually holds. `0` means the analyser was offline for the
+  whole period: nothing was detected, nothing was carried or borrowed in, and the column was written
+  through untouched.
+
+`{gas}_best_combination`
+: Which of the four pre-whitening combinations won: `cw` and `wc` are the gas against vertical wind,
+  `ct` and `tc` the gas against sonic temperature. Strong fluxes usually win on `cw`/`wc`. A trace
+  gas that keeps falling back to the temperature pair is telling you its own signal against `W` is
+  too weak to work with.
 
 `{gas}_tlag_final_pf_s`
 : The PWBOPT-optimised, pre-filtered, gap-filled lag — the default value of
@@ -91,8 +107,9 @@ The parts worth knowing before you open either file:
 
 `{gas}_lag_source`
 : Where the period's lag came from: `own` (the gas detected it here, or carried it from one of its
-  own nearby periods), `from:CO2` (borrowed from a donor gas), or `median` (the last-resort median
-  of rejected detections). See [PWBOPT](method.md#periods-still-without-a-lag).
+  own nearby periods), `from:CO2` (borrowed from a donor gas), `median` (the last-resort median of
+  rejected detections), `no_data` (the gas was missing for the whole period, so no lag was needed and
+  none was applied), or `none`. See [PWBOPT](method.md#periods-still-without-a-lag).
 
 `{gas}_carry_periods`
 : How far that lag travelled: `0` if it was detected in this very period, `n` if it came from `n`
@@ -125,13 +142,37 @@ consulted.
 
 ## Diagnostic plots
 
-`--save-plots` writes per-chunk PWB figures to `plots/` and batch-level overviews to
-`plots_summary/`.
+`--save-plots` writes two kinds of figure. Both are off by default, because they cost time and disk
+on a long run.
 
-<!-- TODO: what each panel shows and how to read it. The batch overview has
-     three: detected lags coloured by S1/S2/S3 flag, final gap-filled lags with
-     S1/S2 anchor points, and HDI range bars against the S1 and pre-filter
-     threshold lines. See PwbBatchDetection.plot_batch_summary in pwb.py. -->
+### One figure per chunk and gas, in `plots/`
+
+Three panels, left to right (`PreWhiteningBootstrap.plot`):
+
+1. **The pre-whitened cross-correlation**, grey stems with the smoothed line over them, a Bartlett
+   significance band, and a red marker at the detected lag. If the peak does not clear the band,
+   there was nothing to find in that period.
+2. **The raw cross-covariance**, same layout, with the same lag marked. This is the curve the old
+   covariance-maximization method worked on, so comparing the two panels shows what pre-whitening
+   bought.
+3. **The bootstrap lag distribution** for the winning combination: a histogram of the peak found in
+   each resample, the 95% interval shaded, and the mode marked. A tight cluster is a reliable lag; a
+   spread-out or multi-peaked one is what a wide interval looks like. The panel title names the
+   combination that won.
+
+### Batch overviews, in `plots_summary/`
+
+Five panels per gas, plus one cross-gas comparison figure (`PwbBatchDetection.plot_summary`):
+
+1. Detected lags over the run, coloured by S1/S2/S3 flag.
+2. The final gap-filled lags, with the S1/S2 detections that anchor them drawn as filled markers and
+   the applied lag as open circles. This is the panel that shows carry and borrowing at a glance.
+3. Interval width per period, against the S1 threshold and the pre-filter threshold as lines.
+4. Flag counts per period, standard rule beside pre-filtered.
+5. A histogram of every detected lag, with the mode marked.
+
+The comparison figure puts all gases on one scatter with a density curve per gas, which is where a
+systematic offset between two gases in the same tube shows up.
 
 ## log.txt and run_settings.txt
 

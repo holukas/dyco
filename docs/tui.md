@@ -39,6 +39,57 @@ The TUI's saved settings live at `~/.dyco/detect_remove_tui.yaml`.
 An existing `~/.diive/` configuration from before the v3 migration will not be found.
 :::
 
-<!-- TODO: a walkthrough of the panes, the Check preflight and what it reports,
-     and the per-gas window editor. Screenshots of each rather than one overview
-     shot. -->
+Settings are loaded at start and saved on **Run**, or with the **Save** button, so column names and
+paths are entered once and then stay.
+
+## The two panes
+
+**Left, the form.** Paths, the four wind and sonic columns, the gases, the PWB and chunking
+parameters, the raw file format (skip-rows, extra header rows, separator, file glob) and the naming
+rule for output chunks. Every field has a tooltip on hover, and focusing a field echoes the same help
+into the status line, so the keyboard route shows as much as the mouse one.
+
+You can drag a folder onto the window to fill a path field. The drop prefers an empty field, so once
+**Input dir** is set the next drop lands in **Output dir** without clicking anything. Some terminals
+type the dropped path into whatever field has focus instead of pasting it; there, click the target
+field first. The ✕ button clears a field.
+
+**Right, the run.** An overall progress bar, one spinner row per busy worker naming the file and
+chunk it is on *right now*, and a log underneath where each finished chunk appends its result. The
+spinner row appears the moment a worker picks up a chunk, so the display shows what is in flight
+rather than only what has landed. Each log line is stamped with the wall-clock time, and **Copy log**
+(or `c`) puts the whole buffer on the clipboard.
+
+## The Check preflight
+
+**Check** (or `k`) reads only the header of the first matching file, so it answers in well under a
+second rather than after a long run. It reports, in order:
+
+- How many files the glob matched.
+- How many columns were parsed out of the header, with the `skiprows` and `extra-rows` it used, then
+  the column names themselves.
+- One line per configured column, ticked if it is in the header and crossed if not. This is the check
+  that earns its keep: a wrong separator or `skiprows` shows up here as every column missing, rather
+  than as a failed run an hour later.
+- The chunk plan: roughly how many data rows the file holds, how many chunks that becomes, and the
+  total across all matched files.
+- The name the first output file would get, and a note if the compression is about to change between
+  input and output.
+
+It finishes with **check passed, ready to Run**, or points you at the log.
+
+## Stopping a run
+
+**Stop** cancels the phase in flight, not the whole run. Pressing it during detection lets the chunks
+already detected be aligned and written, so a long run leaves usable data behind rather than nothing.
+The button re-enables when alignment starts; press it again to skip that too and keep whatever has
+been written by then.
+
+:::{warning}
+A stopped run's output is provisional. PWBOPT only sees the periods that were detected before you
+stopped, so a period a complete run would have filled from a later detection may instead carry an
+earlier lag, or fall back to the median.
+:::
+
+<!-- TODO: screenshots of the form, the Check output and the per-gas window
+     editor, rather than the single overview shot above. -->
