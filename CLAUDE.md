@@ -276,18 +276,23 @@ ruled it out:
   failure was on a tag already carrying `GPL-3.0-or-later`.
 - **An oversized archive.** The zipball is 5 MB.
 
-What was left, and the working theory: **`identifiers:` and `references:`
-in `CITATION.cff`**. The last file Zenodo accepted (v2.0.3, May 2025) had
-neither, and carried nothing but authors, title and url. Both blocks were
-added during v3 release prep, and both are structurally more complex than
-anything Zenodo had parsed here before. They are gone, with the reasoning
-in the file itself.
+- **`identifiers:` and `references:` in `CITATION.cff`.** The richest
+  theory, and also wrong: the third attempt ran against a tag whose file
+  had been stripped back to the shape Zenodo accepted for v2.0.3, and it
+  failed the same way. Those blocks are still gone, which is fine on other
+  grounds, but they were never the cause.
 
-**If it fails again, remove `CITATION.cff` entirely and re-release.** Zenodo
-falls back to the repository metadata, which always works. That gets the
-DOI minted and proves the file is at fault; a reduced version can go back
-in afterwards for the next release. The cost is a record without the ORCID
-and affiliation, which come from that file and nowhere else. One deliberate difference remains: the
+**Three attempts, three eliminated theories, all mine. `CITATION.cff` is
+not the problem.** What remains untested is the release body (v3.0.0's is
+the whole changelog, ~20,000 characters with raw `<sub>` HTML, where
+v2.0.3's was short) and Zenodo's own GitHub authorisation.
+
+**Stop guessing at this point.** Each cycle costs a delete-retag-release,
+and Zenodo's `error_id` exists so support can read the server-side
+traceback. Send them the ids. To get the release archived meanwhile,
+upload it to Zenodo by hand as a new version of the concept record
+(`10.5281/zenodo.4964067`) — that mints the version DOI today and is
+independent of the broken integration. One deliberate difference remains: the
 author email here is `lukas.hoertnagl@usys.ethz.ch`, which is what PyPI already
 shows for `2.0.3`, while the sibling repos use `holukas@ethz.ch`. Left alone;
 the user's to change.
