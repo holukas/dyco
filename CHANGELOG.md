@@ -4,15 +4,23 @@
 
 A new detection method, no `diive` dependency, and a command line that does not carry over from v2.
 
-**[BREAKING] Pre-whitening with block-bootstrap (PWB) replaces covariance maximization.** Following
-Vitale et al. (2024), an AR(p) filter strips the serial autocorrelation before the cross-correlation
-is computed, and block-bootstrap resampling gives every detection a 95% highest-density interval.
-The PWBOPT rule (S1/S2/S3) substitutes a trustworthy neighbouring lag where a period's own detection
-cannot be trusted. This is what low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> need: their
-cross-correlation function is too noisy to locate the peak reliably, and the old method pooled
-detections into a daily median look-up table without saying how far any single one could be trusted.
-Lags are now in **seconds**, not records. The two methods take different parameters, so there is no
-flag-for-flag migration.
+**[BREAKING] Pre-whitening with block-bootstrap (PWB) replaces the v1/v2 detection workflow.** Both
+methods look for the lag at a peak in a cross-correlation curve. What changed is which curve, and how
+much a single peak is allowed to count for.
+
+Following Vitale et al. (2024), dyco first removes the part of each series that is predictable from
+its own recent past, which sharpens a peak that turbulence would otherwise smear. It then rebuilds
+the series many times from resampled blocks of it and finds the peak again in each. The lag reported
+is the answer that came up most often, with a 95% interval saying how much the repeats agreed. Where
+that interval is wide, the period's own answer is set aside and the lag from the last period that
+could be trusted is used instead. That is the PWBOPT rule: accept a lag when the interval is narrow,
+accept it when it sits close to the last accepted one, and otherwise reuse the last accepted one.
+
+The old workflow maximized the raw covariance, pooled the results into a daily median look-up table
+and normalized them toward a target lag, with nothing to say how far any one detection could be
+trusted. That is what low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> need, since their curve
+is too noisy to place the peak reliably. Lags are now in **seconds**, not records. The two methods
+take different parameters, so there is no flag-for-flag migration.
 
 **[BREAKING] `diive` is no longer a dependency.** The coupling introduced in v2.0.3 broke `dyco`
 four ways when `diive` restructured: two import paths moved, and the Python and pandas floors
@@ -21,12 +29,16 @@ generic helpers in `dyco/_vendor/`.
 
 ### Added
 
-- **The new detection method.** Each averaging period is estimated four times over, from different
-  pairings of the gas, the vertical wind and sonic temperature. Sonic temperature is now required:
-  where a gas signal is weak, its pairing often shows a cleaner peak than the wind does
+- **The new detection method.** The gas is compared against the vertical wind, and separately against
+  sonic temperature. Each of those is done twice, once filtering the gas and once filtering its
+  partner, which gives four estimates per averaging period. The one with the strongest peak is used.
+  Sonic temperature is now required, because where a gas signal is weak the temperature comparison is
+  often the cleaner of the two
 - **One command that does the whole job.** `dyco detect-remove` cuts a long raw file into averaging
-  periods, rotates each one, finds the lag in each, decides across the whole run which of those lags
-  can be trusted, then writes one corrected file per period
+  periods, rotates the wind in each, finds the lag, decides across the whole run which of those lags
+  can be trusted, then writes one corrected file per period. The rotation is only used to find the
+  lag. What gets written is the original unrotated data with every column intact and the gas columns
+  shifted, which is what flux software expects
 - **A terminal interface**, and the recommended way to run dyco. It checks settings as you type,
   reads column names off a real file, and previews a run before it starts. `dyco tui --demo` runs
   without any data at all
@@ -39,18 +51,20 @@ generic helpers in `dyco/_vendor/`.
 - **A separate search window per gas**, so a gas on a long inlet such as water vapour can search
   wider than the dry gases in the same run
 - **A gas can borrow another gas's lag** for the periods its own detection cannot cover:
-  `--scalar "N2O:n2o@lagfrom=CO2"`, or **Lag from** in the TUI. A gas always prefers its own lag,
-  because two gases down the same tube have systematically different delays. Chains are resolved
-  donor first, and circular ones are refused. Pair it with `--max-carry`, or a gas carries its own
-  lag forever and the donor never gets a turn
-- **A limit on how far a trusted lag travels** (`--max-carry N`), counted in averaging periods. The
-  published rule has no limit, so a single good half hour can supply every later period in a run.
-  Past the limit the lag expires and the period falls back to the donor gas or the median. The
-  summary reports the distance for each period. Unlimited by default, matching the published rule
-- **Control over the CCF smoothing width** (`--wdt`). The default of 5 follows RFlux; the width the
-  paper specifies was previously out of reach. It matters: on the bundled CH-LAE hour, `--wdt 11`
-  widens the 95% uncertainty interval from 0.00/0.05 s to 0.30/0.20 s, against a 0.5 s threshold for
-  calling a detection reliable
+  `--scalar "N2O:n2o@lagfrom=CO2"`, or **Lag from** in the TUI. A gas always prefers its own lag, in
+  any of its forms, because two gases down the same tube still have different delays. A systematic
+  gap of 0.35 s between CH<sub>4</sub> and N<sub>2</sub>O is ordinary, so borrowing trades a stale
+  number for a biased one. Chains are resolved donor first, and circular ones are refused. Pair it
+  with `--max-carry`, or a gas carries its own lag forever and the donor never gets a turn
+- **A limit on how far a trusted lag travels** (`--max-carry N`), counted in averaging periods and
+  applied in both directions. The published rule has no limit, so a single good half hour can supply
+  every later period in a run. Past the limit the lag expires and the period falls back to the donor
+  gas or the median. The summary reports the distance for each period. Unlimited by default, matching
+  the published rule
+- **Control over how much the curve is smoothed before its peak is read** (`--wdt`). The default of 5
+  follows RFlux; the width the paper specifies was previously out of reach. It matters: on the
+  bundled CH-LAE hour, `--wdt 11` widens the 95% interval from 0.00/0.05 s to 0.30/0.20 s, against a
+  0.5 s threshold for calling a detection reliable
 - **Control over the output file type** (`--output-suffix`, **Output as** in the TUI). Give the whole
   extension (`.csv.gz`), the text format alone (`.csv`, which drops compression), or the compression
   alone (`.zip`, which keeps the input's format). The leading dot is required, and `auto` reuses the
@@ -59,8 +73,8 @@ generic helpers in `dyco/_vendor/`.
 - **The summary says which lag actually reached the data** (`{gas}_lag_applied_s`), measured from the
   shift itself rather than from what was requested. There were six lag columns per gas and none of
   them answered that. Beside it, `{gas}_lag_reason` gives the decision in words and
-  `{gas}_lag_source` says where the lag came from: the gas itself, another gas, the median, or
-  nothing at all
+  `{gas}_lag_source` says where the lag came from: the gas itself, another gas, the median of the
+  detections PWBOPT rejected, a constant you supplied, or nothing at all
 - **A report explaining every decision** (`detect_and_remove_tlag_decisions.txt`): one block per
   output file, naming the lag applied to each gas and why. The thresholds behind the decisions head
   the file and a tally closes it
@@ -149,7 +163,7 @@ generic helpers in `dyco/_vendor/`.
   dispatches at least one chunk past EOF per file so a sampling error can never drop a trailing
   chunk. Those phantoms finish instantly and were counted while the total was not. The display alone
   was affected
-- **An even CCF smoothing width raised `ValueError`**, making the paper's `hz/2 + 1` unusable at
+- **An even smoothing width raised `ValueError`**, making the paper's `hz/2 + 1` unusable at
   10 Hz. Even widths now follow zoo's `align="center"` convention, and a window wider than the series
   returns all-NaN
 - **`dyco apply-batch` could not read or write compressed files**, failing with a bare
@@ -164,13 +178,14 @@ generic helpers in `dyco/_vendor/`.
 
 ### Removed
 
-- **[BREAKING] The covariance-maximization method**, i.e. everything reached through the `Dyco`
-  class: `dyco.dyco`, `dyco.loop`, `dyco.lag`, `dyco.analyze`, `dyco.correction`, `dyco.plot` and
-  `dyco.setup`. With them go the iterative window narrowing, the daily median look-up table, the
+- **[BREAKING] The v1/v2 covariance-maximization workflow**, i.e. everything reached through the
+  `Dyco` class: `dyco.dyco`, `dyco.loop`, `dyco.lag`, `dyco.analyze`, `dyco.correction`, `dyco.plot`
+  and `dyco.setup`. With them go the iterative window narrowing, the daily median look-up table, the
   target-lag normalization, the `outdirs` numbered output tree and the rolling z-score outlier
-  filter. `dyco cm` exits with a pointer to `dyco detect-remove`. To run the old method install
+  filter. `dyco cm` exits with a pointer to `dyco detect-remove`. To run the old workflow install
   `dyco==2.0.3`, which depends on `diive` and no longer installs cleanly against current `diive`.
-  `MaxCovariance` stays: `FluxDetectionLimit` uses it, and it is useful on its own
+  The covariance-maximization estimator itself is **not** removed: `MaxCovariance` stays, the flux
+  detection limit is built on it, and it can be used on its own
 - Two helper functions that served only that path (`files.read_segment_lagtimes_file`,
   `files.add_data_stats`)
 - The `example/` directory and the `images/dyco_v2_*.png` figures. `examples/` is unaffected
