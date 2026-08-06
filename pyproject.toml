@@ -6,7 +6,10 @@ authors = [
     { name = "Lukas Hörtnagl", email = "lukas.hoertnagl@usys.ethz.ch" }
 ]
 readme = "README.md"
-license = { text = "GPL-3.0" }
+# SPDX deprecated the bare "GPL-3.0". LICENSE grants version 3 "or (at your option) any later
+# version", so this is the identifier that matches it. Kept as a table rather than a PEP 639
+# expression, which would forbid the License classifier below.
+license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.12,<3.14"
 keywords = [
     "eddy covariance",

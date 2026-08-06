@@ -254,8 +254,16 @@ Neither is urgent, and both are smaller than they look:
 
 **Conventions are mirrored from `fluxatlas` (`F:\dev\fluxatlas`) and `diive`.**
 Keep them aligned unless there is a reason not to: hatchling, flat layout
-(`dyco/`, not `src/`), `license = { text = "GPL-3.0" }`,
-`requires-python = ">=3.12,<3.14"`. One deliberate difference remains: the
+(`dyco/`, not `src/`), `requires-python = ">=3.12,<3.14"`.
+
+**One deliberate divergence: the license identifier.** dyco says
+`GPL-3.0-or-later`; the sibling repos still say `GPL-3.0`, which SPDX
+deprecated. That is the most likely reason the v3.0.0 Zenodo deposition
+failed — Zenodo matches the identifier against an SPDX-derived vocabulary,
+and its error body came back empty. Nothing local catches it: the file
+validates against the CFF schema with either value. `CITATION.cff` and
+`pyproject.toml` both carry the corrected one, and `fluxatlas` and `diive`
+will hit the same wall at their next release. One deliberate difference remains: the
 author email here is `lukas.hoertnagl@usys.ethz.ch`, which is what PyPI already
 shows for `2.0.3`, while the sibling repos use `holukas@ethz.ch`. Left alone;
 the user's to change.

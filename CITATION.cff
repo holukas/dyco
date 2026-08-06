@@ -9,16 +9,20 @@ title: "dyco"
 abstract: "Time-lag detection and compensation for eddy covariance raw data, using pre-whitening
   with block-bootstrap so that every detected lag carries an uncertainty interval."
 version: 3.0.0
-# Concept DOI: resolves to the latest version, and is the one to cite for all versions. Zenodo
-# also mints a version DOI at every release; recording that one here too would mean editing this
-# file after every publish, and the concept DOI is the one a citation should follow anyway.
-doi: 10.5281/zenodo.4964067
+# The concept DOI resolves to the latest version and is the one to cite for all versions. It sits
+# in `identifiers:` and not in a top-level `doi:` field. Zenodo mints a fresh version DOI at every
+# release, so a `doi:` here risks being read as the DOI for the record being created, which already
+# exists as the concept record. Keeping it out costs nothing and removes the question.
 identifiers:
   - type: doi
     value: 10.5281/zenodo.4964067
     description: "Concept DOI, resolving to the latest version"
 date-released: 2026-08-06
-license: GPL-3.0
+# SPDX, and the most likely reason the v3.0.0 Zenodo deposition failed: this said "GPL-3.0", which
+# SPDX deprecated, and Zenodo matches the identifier against its own SPDX-derived vocabulary. The
+# file validated against the CFF schema either way, so nothing local caught it. LICENSE grants
+# version 3 "or (at your option) any later version", so this is the identifier that matches it.
+license: GPL-3.0-or-later
 url: "https://github.com/holukas/dyco"
 repository-code: "https://github.com/holukas/dyco"
 keywords:
