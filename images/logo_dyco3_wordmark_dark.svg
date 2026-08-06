@@ -13,7 +13,7 @@
     <path d="M146.35 33.28 A22 22 0 1 0 146.35 62.72"/>
   </g>
   <g fill="none" stroke-width="12" stroke-linecap="round">
-    <g clip-path="url(#dycoOT)"><circle cx="189" cy="48" r="22" stroke="#F2B24E"/></g>
+    <g clip-path="url(#dycoOT)"><circle cx="189" cy="48" r="22" stroke="#f0a500"/></g>
     <g clip-path="url(#dycoOB)"><circle cx="181" cy="48" r="22" stroke="#EDECE6"/></g>
   </g>
   </g>

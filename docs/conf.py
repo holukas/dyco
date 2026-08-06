@@ -72,7 +72,16 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'furo'
 html_title = f'dyco {release}'
+
+# The mark is taken from the package, not copied into a `docs/_static`, so the two cannot drift
+# apart -- and, unlike `images/`, `dyco/` is in the sdist, so the documentation still builds from
+# one. Same arrangement as fluxatlas.
+#
+# One file, not furo's `light_logo`/`dark_logo` pair: the mark is a solid tile that carries its own
+# background, so it reads on the light sidebar and the dark one without a second version.
 html_static_path = []
+html_logo = '../dyco/assets/logo.svg'
+html_favicon = '../dyco/assets/logo.svg'
 
 # ---------------------------------------------------------------------------
 # The parallel read

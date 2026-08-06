@@ -117,6 +117,9 @@ generic helpers in `dyco/_vendor/`.
   from about a minute to about ten seconds. Results are bit-identical
 - **TUI settings moved** from `~/.diive/detect_remove_tui.yaml` to `~/.dyco/detect_remove_tui.yaml`.
   An existing file is not found until it is moved
+- **A new logo.** Four bars stepping right, one per chunk, in place of the split circle. The mark
+  and the lockup are in `images/`, in colour and in monochrome. The documentation had no logo and no
+  tab icon before and now has both
 - Python `>=3.12,<3.14` (was `>=3.11,<3.12`), pandas `>=3.0.0` (was `>=2.2.3,<3.0.0`). Build backend
   is hatchling rather than poetry-core, dependencies are managed with uv, and `numpy`, `polars`,
   `pyarrow`, `textual` and `pyyaml` are new

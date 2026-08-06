@@ -1,16 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336 90" width="336" height="90" role="img" aria-label="dyco">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 315 90" width="315" height="90" role="img" aria-label="dyco">
   <title>dyco</title>
   <defs>
-    <clipPath id="dycoT"><rect x="0" y="0" width="100" height="46"/></clipPath>
-    <clipPath id="dycoB"><rect x="0" y="52" width="100" height="48"/></clipPath>
     <clipPath id="dycoOT"><rect x="0" y="0" width="240" height="44"/></clipPath>
     <clipPath id="dycoOB"><rect x="0" y="51" width="240" height="49"/></clipPath>
   </defs>
-  <g transform="translate(-4.111 -3.389) scale(1.02778)">
-  <g clip-path="url(#dycoT)"><circle cx="60" cy="50" r="36" fill="#15171C"/></g>
-  <g clip-path="url(#dycoB)"><circle cx="40" cy="50" r="36" fill="#15171C"/></g>
+  <g transform="translate(-2.467 8.533) scale(1.23333)">
+    <rect x="2" y="2" width="60" height="60" rx="13" fill="#15171C"/>
+    <rect x="8" y="8.5" width="24" height="8" rx="4" fill="#EDECE6"/>
+    <rect x="16" y="21.5" width="24" height="8" rx="4" fill="#EDECE6"/>
+    <rect x="24" y="34.5" width="24" height="8" rx="4" fill="#EDECE6"/>
+    <rect x="32" y="47.5" width="24" height="8" rx="4" fill="#EDECE6"/>
   </g>
-  <g transform="translate(118.556 -2.0)">
+  <g transform="translate(98.000 -2.0)">
   <g fill="none" stroke="#15171C" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="30" cy="48" r="22"/>
     <path d="M52 8 V70"/>

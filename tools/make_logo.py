@@ -2,7 +2,7 @@
 MAKE_LOGO: BRAND ASSET GENERATOR
 =================================
 
-Regenerate every `images/logo_dyco3_*` file: the Slip mark, the dyco wordmark,
+Regenerate every `images/logo_dyco3_*` file: the Step mark, the dyco wordmark,
 and the two locked up together.
 
 Geometry is defined once here and emitted twice - as SVG text, and as PNG drawn
@@ -11,12 +11,13 @@ two output formats are produced by independent code paths; both read the same
 constants, which is what keeps them from drifting apart. After changing any
 geometry, check an SVG against its PNG rather than trusting one of them.
 
-The displaced half is amber, the rest is ink. That split is weakest on a light
-ground, where the mark can read as a sun over a bowl rather than as one disc cut
-and slid, and strongest on a dark ground. The amber is therefore pitched per
-ground - deeper on paper, warmer on ink - and a one-colour cut is emitted
-alongside for print and for sizes below roughly 20 px, where the amber cap stops
-separating from the ink half.
+The mark is a filled tile carrying four bars that step to the right, one per
+chunk. Because the tile is its own background it reads the same on paper and on
+ink, so unlike the disc mark it replaced there is no per-ground version and no
+per-ground amber: `logo_dyco3_mark_dark` would have been a byte-for-byte copy of
+`logo_dyco3_mark` and is not emitted. The lockup still has one, since the
+wordmark beside it does change with the ground. A one-colour cut is emitted for
+print and for anywhere amber cannot go.
 
 Not imported by the package; `pyproject.toml` ships only `dyco`. Pillow arrives
 as a matplotlib dependency, so no extra install is needed:
@@ -32,13 +33,19 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
 
-OUT = Path(__file__).resolve().parents[1] / "images"
+_ROOT = Path(__file__).resolve().parents[1]
+OUT = _ROOT / "images"
+# The documentation's copy of the mark. It lives in the package rather than in
+# `images/`, which is excluded from the sdist, because the docs have to build
+# from an sdist too. Emitted here so it cannot drift from the one in `images/`.
+DOCS_LOGO = _ROOT / "dyco" / "assets" / "logo.svg"
 SS = 4  # supersample factor, downsampled with LANCZOS
 
-INK = "#15171C"
+TILE = "#2b4c6f"
+BARS = ("#6b93b5", "#93b5d0", "#bcd4e6")  # the three that step toward the accent
+AMBER = "#f0a500"
+INK = "#15171C"                           # the wordmark, and the one-colour cut
 PAPER = "#EDECE6"
-AMBER_ON_PAPER = "#E39A22"   # deeper, so it holds contrast against a light ground
-AMBER_ON_INK = "#F2B24E"     # lighter, so it does not go muddy against a dark one
 
 
 def rgba(h):
@@ -47,12 +54,14 @@ def rgba(h):
 
 
 # ---------------------------------------------------------------- geometry
-# The Slip mark, in a 100 x 100 box: one disc, cut across the middle, the upper
-# half displaced right. Ink spans x 4..96, y 14..86. The displacement is 28% of
-# the diameter - below about 20% the eye stops reading it as displacement at all.
-MARK_TOP = (60, 50, 36)      # cx, cy, r -- slid right
-MARK_BOT = (40, 50, 36)      # cx, cy, r -- slid left
-MARK_CUT = (46, 52)          # top half ends, bottom half begins
+# The Step mark, authored in a 64 x 64 square and scaled into whatever box it is
+# emitted to. A rounded tile, and four bars each starting 8 further right than the
+# one above it. The offset is a third of the 24-unit bar; below about a fifth the
+# eye stops reading it as a step once this is a 16 px favicon.
+MARK_UNIT = 64
+MARK_TILE = (2, 2, 60, 60, 13)        # x, y, w, h, corner radius
+MARK_BAR = (24, 8, 4)                 # w, h, corner radius
+MARK_BAR_XY = ((8, 8.5), (16, 21.5), (24, 34.5), (32, 47.5))
 
 # The wordmark, in a 240 x 100 box. One stroke weight throughout; d, c and o are
 # the same circle - closed, opened, and cut. Ink spans x 2..228, y 2..92.
@@ -78,13 +87,15 @@ WORD_INK_B = 92.0
 
 WORD_W, WORD_H = 240, 100
 MARK_W, MARK_H = 100, 100
+MARK_VIEW_SCALE = MARK_W / MARK_UNIT
 
 # Lockup: the mark scaled to 74 tall and optically centred on the x-height axis
-# (y = 48), ink flush left, then 26 units of air before the word.
-LOCK_SCALE = 74.0 / 72.0
-LOCK_MARK_DX = -4.0                          # user units, pre-scale
-LOCK_MARK_DY = 48.0 / LOCK_SCALE - 50.0      # put the mark's centre on y = 48
-LOCK_WORD_DX = (LOCK_MARK_DX + 96.0) * LOCK_SCALE + 26.0 - WORD_INK_L
+# (y = 48), tile flush left, then 26 units of air before the word. The tile is
+# 60 units tall in the authoring square and square, so it is also 74 wide.
+LOCK_MARK_SCALE = 74.0 / MARK_TILE[3]
+LOCK_MARK_DX = -MARK_TILE[0]                      # user units, pre-scale
+LOCK_MARK_DY = 48.0 / LOCK_MARK_SCALE - MARK_UNIT / 2
+LOCK_WORD_DX = 74.0 + 26.0 - WORD_INK_L
 LOCK_WORD_DY = -WORD_INK_T
 LOCK_W = round(LOCK_WORD_DX + WORD_INK_R)
 LOCK_H = round(WORD_INK_B - WORD_INK_T)
@@ -120,8 +131,10 @@ class Pen:
         rr = r * self.k
         self.d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=colour)
 
-    def disc(self, cx, cy, r, colour):
-        self.dot(cx, cy, r, colour)
+    def rrect(self, x, y, w, h, r, colour):
+        x0, y0 = self.p(x, y)
+        x1, y1 = self.p(x + w, y + h)
+        self.d.rounded_rectangle([x0, y0, x1, y1], radius=r * self.k, fill=colour)
 
     def ring(self, cx, cy, r, w, colour):
         # Pillow strokes inward from the bbox, so push the bbox out by half the width
@@ -162,13 +175,13 @@ class Pen:
         base.alpha_composite(self.img)
 
 
-def draw_mark(base, size_px, scale, dx, dy, colour, accent):
-    for (cx, cy, r), (y0, y1), col in ((MARK_TOP, (-50, MARK_CUT[0]), accent),
-                                       (MARK_BOT, (MARK_CUT[1], 200), colour)):
-        pen = Pen(size_px, scale, dx, dy)
-        pen.disc(cx, cy, r, col)
-        pen.band(y0, y1)
-        pen.onto(base)
+def draw_mark(base, size_px, scale, dx, dy, tile, bars):
+    pen = Pen(size_px, scale, dx, dy)
+    pen.rrect(*MARK_TILE[:4], MARK_TILE[4], tile)
+    bw, bh, br = MARK_BAR
+    for (bx, by), col in zip(MARK_BAR_XY, bars):
+        pen.rrect(bx, by, bw, bh, br, col)
+    pen.onto(base)
 
 
 def draw_word(base, size_px, scale, dx, dy, colour, accent):
@@ -197,37 +210,53 @@ def render(path, size_px, build):
     print("wrote", path.name, size_px)
 
 
-def palette(dark, mono):
-    """(base, accent) for the requested ground and colour treatment."""
-    base = PAPER if dark else INK
-    if mono:
-        return rgba(base), rgba(base)
-    return rgba(base), rgba(AMBER_ON_INK if dark else AMBER_ON_PAPER)
+def mark_colours(dark, mono, conv=lambda c: c):
+    """(tile, four bar colours) for the requested ground and colour treatment.
+
+    Only `mono` reads `dark`. In full colour the tile supplies its own ground, so
+    the mark is the same on paper as on ink.
+    """
+    if not mono:
+        return conv(TILE), [conv(c) for c in (*BARS, AMBER)]
+    base, on = (PAPER, INK) if dark else (INK, PAPER)
+    return conv(base), [conv(on)] * 4
+
+
+def word_colours(dark, mono, conv=lambda c: c):
+    """(stroke, accent) for the requested ground and colour treatment."""
+    col = PAPER if dark else INK
+    return conv(col), conv(col if mono else AMBER)
 
 
 def mark_png(path, px, dark=False, mono=False):
-    col, acc = palette(dark, mono)
+    tile, bars = mark_colours(dark, mono, rgba)
     render(path, (px, px),
-           lambda b: draw_mark(b, (px, px), px / MARK_W, 0, 0, col, acc))
+           lambda b: draw_mark(b, (px, px), px / MARK_UNIT, 0, 0, tile, bars))
 
 
 def lockup_png(path, px_w, dark=False, mono=False):
-    col, acc = palette(dark, mono)
+    tile, bars = mark_colours(dark, mono, rgba)
+    col, acc = word_colours(dark, mono, rgba)
     px_h = round(px_w * LOCK_H / LOCK_W)
     s = px_w / LOCK_W
     size = (px_w, px_h)
 
     def build(b):
-        draw_mark(b, size, s * LOCK_SCALE, LOCK_MARK_DX, LOCK_MARK_DY, col, acc)
+        draw_mark(b, size, s * LOCK_MARK_SCALE, LOCK_MARK_DX, LOCK_MARK_DY, tile, bars)
         draw_word(b, size, s, LOCK_WORD_DX, LOCK_WORD_DY, col, acc)
 
     render(path, size, build)
 
 
 # ---------------------------------------------------------------------- svg
-def _mark_body(col, acc):
-    return f'''  <g clip-path="url(#dycoT)"><circle cx="{MARK_TOP[0]}" cy="{MARK_TOP[1]}" r="{MARK_TOP[2]}" fill="{acc}"/></g>
-  <g clip-path="url(#dycoB)"><circle cx="{MARK_BOT[0]}" cy="{MARK_BOT[1]}" r="{MARK_BOT[2]}" fill="{col}"/></g>'''
+def _mark_body(tile, bars, pad="  "):
+    x, y, w, h, r = MARK_TILE
+    bw, bh, br = MARK_BAR
+    out = [f'{pad}<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{tile}"/>']
+    for (bx, by), col in zip(MARK_BAR_XY, bars):
+        out.append(f'{pad}<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" '
+                   f'rx="{br}" fill="{col}"/>')
+    return "\n".join(out)
 
 
 def _word_body(col, acc):
@@ -249,37 +278,28 @@ def _word_body(col, acc):
   </g>'''
 
 
-# The clip ids are fixed, so inlining two of these SVGs into one HTML document
-# would make the second set of definitions collide with the first. Reference the
-# files with <img> or <picture>, which keeps each one its own document.
-_CLIPS_MARK = f'''    <clipPath id="dycoT"><rect x="0" y="0" width="100" height="{MARK_CUT[0]}"/></clipPath>
-    <clipPath id="dycoB"><rect x="0" y="{MARK_CUT[1]}" width="100" height="{100 - MARK_CUT[1]}"/></clipPath>'''
-
+# The clip ids are fixed, so inlining two wordmarks or two lockups into one HTML
+# document would make the second set of definitions collide with the first.
+# Reference the files with <img> or <picture>, which keeps each one its own
+# document. The mark is plain rectangles and carries no clips, so it is safe to
+# inline as many times as you like.
 _CLIPS_WORD = f'''    <clipPath id="dycoOT"><rect x="0" y="0" width="{WORD_W}" height="{O_CUT[0]}"/></clipPath>
     <clipPath id="dycoOB"><rect x="0" y="{O_CUT[1]}" width="{WORD_W}" height="{100 - O_CUT[1]}"/></clipPath>'''
 
 
-def svg_palette(dark, mono):
-    base = PAPER if dark else INK
-    if mono:
-        return base, base
-    return base, (AMBER_ON_INK if dark else AMBER_ON_PAPER)
-
-
-def svg_mark(dark, mono=False):
-    col, acc = svg_palette(dark, mono)
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="dyco">
+def svg_mark(dark=False, mono=False):
+    tile, bars = mark_colours(dark, mono)
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {MARK_W} {MARK_H}" width="{MARK_W}" height="{MARK_H}" role="img" aria-label="dyco">
   <title>dyco</title>
-  <defs>
-{_CLIPS_MARK}
-  </defs>
-{_mark_body(col, acc)}
+  <g transform="scale({MARK_VIEW_SCALE})">
+{_mark_body(tile, bars, pad="    ")}
+  </g>
 </svg>
 '''
 
 
 def svg_word(dark, mono=False):
-    col, acc = svg_palette(dark, mono)
+    col, acc = word_colours(dark, mono)
     w = round(WORD_INK_R - WORD_INK_L)
     h = round(WORD_INK_B - WORD_INK_T)
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="dyco">
@@ -295,15 +315,15 @@ def svg_word(dark, mono=False):
 
 
 def svg_lockup(dark, mono=False):
-    col, acc = svg_palette(dark, mono)
+    tile, bars = mark_colours(dark, mono)
+    col, acc = word_colours(dark, mono)
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LOCK_W} {LOCK_H}" width="{LOCK_W}" height="{LOCK_H}" role="img" aria-label="dyco">
   <title>dyco</title>
   <defs>
-{_CLIPS_MARK}
 {_CLIPS_WORD}
   </defs>
-  <g transform="translate({LOCK_MARK_DX * LOCK_SCALE:.3f} {LOCK_MARK_DY * LOCK_SCALE:.3f}) scale({LOCK_SCALE:.5f})">
-{_mark_body(col, acc)}
+  <g transform="translate({LOCK_MARK_DX * LOCK_MARK_SCALE:.3f} {LOCK_MARK_DY * LOCK_MARK_SCALE:.3f}) scale({LOCK_MARK_SCALE:.5f})">
+{_mark_body(tile, bars, pad="    ")}
   </g>
   <g transform="translate({LOCK_WORD_DX:.3f} {LOCK_WORD_DY})">
 {_word_body(col, acc)}
@@ -314,15 +334,14 @@ def svg_lockup(dark, mono=False):
 
 def main():
     for name, text in {
-        # primary: the displaced half in amber
-        "logo_dyco3_mark.svg": svg_mark(False),
-        "logo_dyco3_mark_dark.svg": svg_mark(True),
+        # primary: the stepping bars, amber on the last
+        "logo_dyco3_mark.svg": svg_mark(),
         "logo_dyco3_wordmark.svg": svg_word(False),
         "logo_dyco3_wordmark_dark.svg": svg_word(True),
         "logo_dyco3_lockup.svg": svg_lockup(False),
         "logo_dyco3_lockup_dark.svg": svg_lockup(True),
         # one colour: print, favicons, anywhere amber cannot go
-        "logo_dyco3_mark_mono.svg": svg_mark(False, mono=True),
+        "logo_dyco3_mark_mono.svg": svg_mark(mono=True),
         "logo_dyco3_mark_mono_dark.svg": svg_mark(True, mono=True),
         "logo_dyco3_lockup_mono.svg": svg_lockup(False, mono=True),
         "logo_dyco3_lockup_mono_dark.svg": svg_lockup(True, mono=True),
@@ -330,10 +349,12 @@ def main():
         (OUT / name).write_text(text, encoding="utf-8")
         print("wrote", name)
 
+    DOCS_LOGO.parent.mkdir(parents=True, exist_ok=True)
+    DOCS_LOGO.write_text(svg_mark(), encoding="utf-8")
+    print("wrote", DOCS_LOGO.relative_to(_ROOT).as_posix())
+
     mark_png(OUT / "logo_dyco3_mark_1024px.png", 1024)
     mark_png(OUT / "logo_dyco3_mark_256px.png", 256)
-    mark_png(OUT / "logo_dyco3_mark_dark_1024px.png", 1024, dark=True)
-    mark_png(OUT / "logo_dyco3_mark_dark_256px.png", 256, dark=True)
     mark_png(OUT / "logo_dyco3_mark_mono_256px.png", 256, mono=True)
     lockup_png(OUT / "logo_dyco3_lockup_1024px.png", 1024)
     lockup_png(OUT / "logo_dyco3_lockup_dark_1024px.png", 1024, dark=True)
