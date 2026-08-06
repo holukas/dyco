@@ -124,20 +124,21 @@ can be checked.
 ```mermaid
 flowchart TD
     RAW["Raw EC file<br/>unrotated delimited text, plain or compressed<br/>--input-dir, --file-pattern"]
-    RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30"]
+    RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30<br/>a remainder under --min-chunk-seconds writes nothing"]
 
     subgraph P1["Phase 1: detect (nothing is written yet)"]
         direction TB
         ROT["Double rotation<br/>in memory only, never reaches disk"]
-        PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC"]
+        PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC<br/>all three series differenced first if any fails the unit-root test"]
         BS["Block-bootstrap the CCF<br/>--n-bootstrap, --block-length<br/>4 combinations of W / T_SONIC"]
-        EST["Lag for this chunk<br/>mode + 95% HDI"]
+        EST["Lag for this chunk<br/>mode + 95% HDI<br/>a peak pinned to the window edge is a failure, not a lag"]
         ROT --> PW --> BS --> EST
     end
 
     SPLIT --> ROT
 
-    EST --> OPT{"PWBOPT<br/>all chunks together, in time order"}
+    EST --> PRE["Drop detections wider than --hdi-prefilter<br/>default 1 s, 0 disables<br/>stops S2 accepting a wide lag that merely sits close<br/>the unfiltered series is also computed and kept in the summary"]
+    PRE --> OPT{"PWBOPT, per gas<br/>all chunks together, in time order"}
     OPT -->|"S1: HDI narrower than --hdi-thresh"| KEEP["trust the chunk's own lag"]
     OPT -->|"S2: close to the last trusted lag"| KEEP
     OPT -->|"S3: neither"| SUB["carry the last trusted lag forward<br/>--max-carry bounds how far"]

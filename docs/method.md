@@ -8,20 +8,21 @@ How `dyco` finds a time lag, and why it does it this way.
 ```{mermaid}
 flowchart TD
     RAW["Raw EC file<br/>unrotated delimited text, plain or compressed<br/>--input-dir, --file-pattern"]
-    RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30"]
+    RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30<br/>a remainder under --min-chunk-seconds writes nothing"]
 
     subgraph P1["Phase 1: detect (nothing is written yet)"]
         direction TB
         ROT["Double rotation<br/>in memory only, never reaches disk"]
-        PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC"]
+        PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC<br/>all three series differenced first if any fails the unit-root test"]
         BS["Block-bootstrap the CCF<br/>--n-bootstrap, --block-length<br/>4 combinations of W / T_SONIC"]
-        EST["Lag for this chunk<br/>mode + 95% HDI"]
+        EST["Lag for this chunk<br/>mode + 95% HDI<br/>a peak pinned to the window edge is a failure, not a lag"]
         ROT --> PW --> BS --> EST
     end
 
     SPLIT --> ROT
 
-    EST --> OPT{"PWBOPT<br/>all chunks together, in time order"}
+    EST --> PRE["Drop detections wider than --hdi-prefilter<br/>default 1 s, 0 disables<br/>stops S2 accepting a wide lag that merely sits close<br/>the unfiltered series is also computed and kept in the summary"]
+    PRE --> OPT{"PWBOPT, per gas<br/>all chunks together, in time order"}
     OPT -->|"S1: HDI narrower than --hdi-thresh"| KEEP["trust the chunk's own lag"]
     OPT -->|"S2: close to the last trusted lag"| KEEP
     OPT -->|"S3: neither"| SUB["carry the last trusted lag forward<br/>--max-carry bounds how far"]
@@ -84,9 +85,27 @@ of the cross-correlation function and blurs the lag estimate. Pre-whitening fits
 (order chosen by AIC) to each series so the residuals are approximately white noise, sharpening the
 peak.
 
-<!-- TODO: the unit-root test and the differencing branch. It fires on ordinary
-     data -- T_SONIC drifts over half an hour -- so it is not the edge case it
-     looks like. Source: the pwb.py module docstring. -->
+The AR order is allowed to go high: the ceiling is `floor(100 * log10(N))`, which for a 30-minute
+20 Hz chunk is 455. Real chunks use a good deal of it. On the bundled CH-LAE half hour the three
+fitted orders are 133, 87 and 312, which is what long-range turbulent autocorrelation costs to
+capture.
+
+### The differencing branch
+
+An AR fit assumes the series is stationary, so each of the three series is first put through a
+Breitung variance-ratio unit-root test. **If any one of them fails (p ≥ 0.01), all three are
+first-differenced** before fitting. Stationarity of all three is required to use the originals; one
+failure is enough to difference everything.
+
+This is not the edge case it looks like. It fires on ordinary data, because sonic temperature drifts
+with the diurnal cycle over half an hour: on the bundled CH-LAE chunk the test fails on `T_SONIC`
+with p = 0.057, and all three series are differenced as a result. Expect to meet this branch.
+
+Differencing feeds the **AR filters only**. The raw cross-covariance reported as `{gas}_cov_pwb` is
+computed from the original, undifferenced series, which is what the reference implementation does.
+Reading it off the differenced arrays instead turns it into a covariance of increments: on a drifting
+record that is smaller by two orders of magnitude and can carry the opposite sign. dyco had that bug
+and fixed it; the detected lag was never affected, only the reported covariance.
 
 ## Block-bootstrap
 
@@ -108,8 +127,8 @@ smoothed peak wins. **`T_SONIC` is required.**
 
 With every chunk's raw detection in hand, the S1/S2/S3 decision rule (Vitale et al. 2024, Section
 2.3) runs across the whole sequence in temporal order. A chunk with a wide HDI has an untrustworthy
-mode lag, and PWBOPT replaces it with a neighbouring reliable one rather than accepting a spurious
-value.
+mode lag, and PWBOPT replaces it with the last lag that was trustworthy rather than accepting a
+spurious value.
 
 **Before the rule runs**, an optional pre-filter discards the worst detections outright: any lag
 whose HDI range exceeds `--hdi-prefilter` (default `1.0` s) is set to `NaN`. This exists so that S2
@@ -226,11 +245,31 @@ site's lags come back suspiciously flat, widening the window is the first thing 
 
 `tests/test_pwb_reference.py` pins the deterministic half of the implementation to RFlux v3.2.0's
 `tlag_detection.R` at 12 significant digits: both branches of the unit-root test, and the bundled
-real CH-LAE half hour, where the AR orders reach 133 / 87 / 312.
+real CH-LAE half hour, where the AR orders reach 133 / 87 / 312. The R script that produced the
+frozen values ships alongside the fixtures in `tests/data/`, so the comparison can be rerun.
 
-<!-- TODO: summarise the catalogued differences and their severities. The
-     authoritative list is the pwb.py module docstring; this page should
-     paraphrase it for readers rather than duplicate it, and link to the test. -->
+Everything deterministic matches. What is left over is the bootstrap, which is random by nature, and
+a short list of deliberate choices. The authoritative catalogue with severities is the module
+docstring in `dyco/pwb.py`; in summary:
+
+**Differences that could move a number, all small.** dyco resamples with moving blocks starting
+anywhere from 0 to `n - L`, while R's `tsboot` wraps around by default, joining the end of a
+turbulence record to its start. The bootstrap mode comes from a Gaussian KDE rather than R's
+`map_estimate`, a different bandwidth and grid but well inside bootstrap noise. AR-filter
+initialisation NaN are zeroed where R's `acf` skips NA pairs, affecting about 1% of positions with
+the same numerator. And an S2 acceptance updates the carry-forward reference, so a run of S2 periods
+can drift; the paper's Section 2.3 is ambiguous and its S3 wording implies this reading.
+
+**Differences that are choices, not approximations.** A lag pinned to the search-window boundary is
+treated as a failed detection and discarded, where R returns it: a peak on the edge is undetermined
+rather than measured, and this matches EddyPro. When `--lws`/`--uws` are set they constrain the
+returned lag, where R computes windowed variants and then returns the unwindowed ones. `--max-carry`
+and `@lagfrom=` are additions with no counterpart in R, both off unless you ask for them.
+
+**One place where dyco follows R against the paper.** `--wdt` defaults to 5, R's value, not the
+paper's `hz/2 + 1` (11 at 20 Hz, 6 at 10 Hz). The flag exists so you can have the paper's, and the
+choice is not cosmetic: on the bundled CH-LAE hour, `--wdt 11` widens the 95% interval from
+0.00/0.05 s to 0.30/0.20 s, against the 0.5 s threshold that decides S1.
 
 ## Further reading
 
