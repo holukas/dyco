@@ -422,7 +422,7 @@ class PreWhiteningBootstrap:
 
     Example
     -------
-    See `examples/flux/hires/flux_lag_pwb.py` for a complete example.
+    See `examples/lag_pwb.py` for a complete example.
     """
 
     def __init__(
@@ -1578,7 +1578,7 @@ class PwboptLagPlot:
 
     Example
     -------
-    See ``examples/flux/hires/flux_lag_pwbopt.py`` for a complete example.
+    See ``examples/lag_pwbopt.py`` for a complete example.
     """
 
     def __init__(
@@ -2320,7 +2320,7 @@ class PwbBatchDetection:
 
     Example
     -------
-    See ``examples/flux/hires/flux_lag_pwb_batch.py`` for a complete example.
+    See ``examples/lag_pwb_batch.py`` for a complete example.
 
     See Also
     --------

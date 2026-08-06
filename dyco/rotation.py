@@ -88,7 +88,7 @@ class WindDoubleRotation:
 
     Example
     -------
-    See `examples/flux/hires/flux_windrotation.py` for complete examples demonstrating
+    See `examples/windrotation.py` for complete examples demonstrating
     wind rotation and tilt correction with synthetic eddy covariance data.
     """
 

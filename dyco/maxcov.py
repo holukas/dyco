@@ -65,7 +65,7 @@ class MaxCovariance:
 
     Example
     -------
-    See `examples/flux/hires/flux_lag.py` for complete examples demonstrating lag
+    See `examples/maxcov.py` for complete examples demonstrating lag
     detection between wind and scalars using covariance analysis with synthetic data.
     """
 

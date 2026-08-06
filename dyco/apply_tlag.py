@@ -160,7 +160,7 @@ Windows note:
 
 Example
 -------
-See ``examples/flux/hires/flux_apply_tlag_cli.py`` for a complete example.
+See ``examples/apply_tlag_cli.py`` for a complete example.
 
 Part of the dyco package: https://github.com/holukas/dyco
 """
@@ -420,7 +420,7 @@ class TlagApplier:
 
     Example
     -------
-    See ``examples/flux/hires/flux_apply_tlag_cli.py`` for a complete example.
+    See ``examples/apply_tlag_cli.py`` for a complete example.
 
     See Also
     --------
