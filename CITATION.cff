@@ -9,19 +9,9 @@ title: "dyco"
 abstract: "Time-lag detection and compensation for eddy covariance raw data, using pre-whitening
   with block-bootstrap so that every detected lag carries an uncertainty interval."
 version: 3.0.0
-# The concept DOI resolves to the latest version and is the one to cite for all versions. It sits
-# in `identifiers:` and not in a top-level `doi:` field. Zenodo mints a fresh version DOI at every
-# release, so a `doi:` here risks being read as the DOI for the record being created, which already
-# exists as the concept record. Keeping it out costs nothing and removes the question.
-identifiers:
-  - type: doi
-    value: 10.5281/zenodo.4964067
-    description: "Concept DOI, resolving to the latest version"
 date-released: 2026-08-06
-# SPDX, and the most likely reason the v3.0.0 Zenodo deposition failed: this said "GPL-3.0", which
-# SPDX deprecated, and Zenodo matches the identifier against its own SPDX-derived vocabulary. The
-# file validated against the CFF schema either way, so nothing local caught it. LICENSE grants
-# version 3 "or (at your option) any later version", so this is the identifier that matches it.
+# SPDX. Not the bare "GPL-3.0", which SPDX deprecated. LICENSE grants version 3 "or (at your
+# option) any later version", so this is the identifier that matches it.
 license: GPL-3.0-or-later
 url: "https://github.com/holukas/dyco"
 repository-code: "https://github.com/holukas/dyco"
@@ -31,21 +21,18 @@ keywords:
   - flux
   - micrometeorology
   - greenhouse gases
-# The 2021 JOSS article is recorded as a related work, not as `preferred-citation`. It describes
-# v1.1.2 and the covariance-maximization method, which v3 removed, so a tool that read it as the
-# preferred citation would point every user of this version at a paper about a different algorithm.
-# The software entry above, with its Zenodo DOI, is what should be cited.
-references:
-  - type: article
-    authors:
-    - family-names: "Hörtnagl"
-      given-names: "Lukas"
-      orcid: "https://orcid.org/0000-0002-5569-0761"
-    title: "DYCO: A Python package to dynamically detect and compensate for time lags in ecosystem time series"
-    journal: "Journal of Open Source Software"
-    year: 2021
-    volume: 6
-    issue: 62
-    start: 2575
-    doi: 10.21105/joss.02575
-    notes: "Describes dyco v1.1.2 and the covariance-maximization method, removed in v3."
+
+# DELIBERATELY ABSENT, and both were here when Zenodo refused this release twice with an empty
+# error body:
+#
+#   doi: / identifiers:  the concept DOI, 10.5281/zenodo.4964067. Zenodo mints a fresh version DOI
+#       at every release and already knows the concept it belongs to. Declaring that same DOI in
+#       the metadata of the record being created is self-referential, and Zenodo does not need it.
+#       Cite the concept DOI from the README and the docs, not from here.
+#
+#   references:  the 2021 JOSS article. It describes v1.1.2 and a method v3 removed, so it is not
+#       the citation for this software in any case; docs/migrating-from-v2.md carries it in full.
+#
+# The last file that Zenodo accepted (v2.0.3, May 2025) had neither, and nothing but authors,
+# title and url besides. Everything above that line is descriptive metadata Zenodo maps directly.
+# If a future release fails the same way, strip back to that shape before looking anywhere else.

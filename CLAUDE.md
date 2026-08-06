@@ -258,12 +258,36 @@ Keep them aligned unless there is a reason not to: hatchling, flat layout
 
 **One deliberate divergence: the license identifier.** dyco says
 `GPL-3.0-or-later`; the sibling repos still say `GPL-3.0`, which SPDX
-deprecated. That is the most likely reason the v3.0.0 Zenodo deposition
-failed — Zenodo matches the identifier against an SPDX-derived vocabulary,
-and its error body came back empty. Nothing local catches it: the file
-validates against the CFF schema with either value. `CITATION.cff` and
-`pyproject.toml` both carry the corrected one, and `fluxatlas` and `diive`
-will hit the same wall at their next release. One deliberate difference remains: the
+deprecated. LICENSE grants version 3 "or (at your option) any later
+version", so `-or-later` is the one that matches it. Correct on its own
+merits — but it did **not** fix the Zenodo failure below, so do not go
+changing the siblings expecting it to.
+
+### When Zenodo refuses a release
+
+It returns an empty error body, so the cause has to be found by
+elimination. v3.0.0 failed twice. What was ruled out, with the check that
+ruled it out:
+
+- **A malformed citation file.** `cffconvert --validate -i CITATION.cff`
+  passes, and `-f zenodo` renders the exact metadata Zenodo receives. Run
+  both before blaming anything else.
+- **A deprecated SPDX license id.** Plausible, and wrong: the second
+  failure was on a tag already carrying `GPL-3.0-or-later`.
+- **An oversized archive.** The zipball is 5 MB.
+
+What was left, and the working theory: **`identifiers:` and `references:`
+in `CITATION.cff`**. The last file Zenodo accepted (v2.0.3, May 2025) had
+neither, and carried nothing but authors, title and url. Both blocks were
+added during v3 release prep, and both are structurally more complex than
+anything Zenodo had parsed here before. They are gone, with the reasoning
+in the file itself.
+
+**If it fails again, remove `CITATION.cff` entirely and re-release.** Zenodo
+falls back to the repository metadata, which always works. That gets the
+DOI minted and proves the file is at fault; a reduced version can go back
+in afterwards for the next release. The cost is a record without the ORCID
+and affiliation, which come from that file and nowhere else. One deliberate difference remains: the
 author email here is `lukas.hoertnagl@usys.ethz.ch`, which is what PyPI already
 shows for `2.0.3`, while the sibling repos use `holukas@ethz.ch`. Left alone;
 the user's to change.
