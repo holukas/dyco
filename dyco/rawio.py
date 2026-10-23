@@ -26,6 +26,7 @@ import csv
 import gzip
 import io
 import lzma
+import os
 import re
 import zipfile
 from contextlib import contextmanager
@@ -198,6 +199,24 @@ def open_binary(path):
             yield fh
 
 
+def partial_path(path) -> Path:
+    """Where ``open_text_write`` puts *path* while it is still being written."""
+    path = Path(path)
+    return path.with_name(path.name + '.partial')
+
+
+# Writers over an already-open binary file. Same formats and defaults as
+# _STREAM_OPENERS; gzip is given the final name because it records it in the
+# header, and the file on disk is still called .partial while it is written.
+_STREAM_WRITERS = {
+    '.gz': lambda raw, name: gzip.GzipFile(filename=name, mode='wb', fileobj=raw),
+    '.gzip': lambda raw, name: gzip.GzipFile(filename=name, mode='wb', fileobj=raw),
+    '.bz2': lambda raw, name: bz2.BZ2File(raw, 'wb'),
+    '.xz': lambda raw, name: lzma.LZMAFile(raw, 'wb'),
+    '.lzma': lambda raw, name: lzma.LZMAFile(raw, 'wb'),
+}
+
+
 @contextmanager
 def open_text_write(path, encoding: str = 'utf-8'):
     """Open *path* for text writing, compressing when the name says so.
@@ -206,28 +225,43 @@ def open_text_write(path, encoding: str = 'utf-8'):
     output, so a compressed input yields a compressed output *name*. Writing
     plain text to it would produce a file whose extension lies, and downstream
     software that trusts the extension would fail to open it.
+
+    The data goes to ``partial_path(path)`` and is renamed to *path* only once
+    every stream is closed. A process killed mid-write -- a broken process
+    pool terminates every worker at once -- then leaves a stray ``.partial``,
+    never a truncated file under the real name that a reader trusts.
     """
     path = Path(path)
+    tmp = partial_path(path)
     suffix = path.suffix.lower()
-    if suffix == '.zip':
-        # One member, named after the archive without the .zip -- so
-        # `chunk.csv.zip` holds `chunk.csv`.
-        member = path.stem or path.name
-        with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            # TextIOWrapper buffers. If the stream beneath it closes first, the
-            # tail of that buffer is dropped -- silently, with a valid archive
-            # and a short file. Give the wrapper its own `with` so it flushes
-            # first. (Measured: 63 of 36000 rows lost before this.)
-            with zf.open(member, 'w') as raw, \
-                    io.TextIOWrapper(raw, encoding=encoding, newline='') as fh:
-                yield fh
-    elif suffix in _STREAM_OPENERS:
-        with _STREAM_OPENERS[suffix](path, 'wt', encoding=encoding,
-                                     newline='') as fh:
-            yield fh
-    else:
-        with open(path, 'w', encoding=encoding, newline='') as fh:
-            yield fh
+    try:
+        with open(tmp, 'wb') as raw:
+            if suffix == '.zip':
+                # One member, named after the archive without the .zip -- so
+                # `chunk.csv.zip` holds `chunk.csv`.
+                member = path.stem or path.name
+                with zipfile.ZipFile(raw, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    # TextIOWrapper buffers. If the stream beneath it closes
+                    # first, the tail of that buffer is dropped -- silently,
+                    # with a valid archive and a short file. Give the wrapper
+                    # its own `with` so it flushes first. (Measured: 63 of
+                    # 36000 rows lost before this.)
+                    with zf.open(member, 'w') as zraw, \
+                            io.TextIOWrapper(zraw, encoding=encoding,
+                                             newline='') as fh:
+                        yield fh
+            elif suffix in _STREAM_WRITERS:
+                with _STREAM_WRITERS[suffix](raw, path.name) as comp, \
+                        io.TextIOWrapper(comp, encoding=encoding,
+                                         newline='') as fh:
+                    yield fh
+            else:
+                with io.TextIOWrapper(raw, encoding=encoding, newline='') as fh:
+                    yield fh
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    os.replace(tmp, path)
 
 
 def read_preserved_lines(path, n: int) -> list:
