@@ -90,9 +90,14 @@ The parts worth knowing before you open either file:
   the bounds it was computed from, and `{gas}_is_reliable` is the same test as a boolean.
 
 `{gas}_n_valid`
-: How many records of this gas the chunk actually holds. `0` means the analyser was offline for the
-  whole period: nothing was detected, nothing was carried or borrowed in, and the column was written
-  through untouched.
+: How many records of this gas the chunk actually holds, not counting values outside the gas's
+  [valid range](cli/detect-remove.md#a-valid-range-per-gas). `0` means the analyser was offline for
+  the whole period, or wrote nothing inside the range: nothing was detected, nothing was carried or
+  borrowed in, and the column was written through untouched.
+
+`{gas}_n_out_of_range`
+: How many records lay outside the gas's valid range. Detection treated them as missing. They are
+  still in the written file. `0` when the gas has no range.
 
 `{gas}_best_combination`
 : Which of the four pre-whitening combinations won: `cw` and `wc` are the gas against vertical wind,
@@ -108,8 +113,8 @@ The parts worth knowing before you open either file:
 `{gas}_lag_source`
 : Where the period's lag came from: `own` (the gas detected it here, or carried it from one of its
   own nearby periods), `from:CO2` (borrowed from a donor gas), `median` (the last-resort median of
-  rejected detections), `no_data` (the gas was missing for the whole period, so no lag was needed and
-  none was applied), or `none`. See [PWBOPT](method.md#periods-still-without-a-lag).
+  rejected detections), `no_data` (the gas was missing for the whole period, or entirely outside its
+  valid range, so no lag was needed and none was applied), or `none`. See [PWBOPT](method.md#periods-still-without-a-lag).
 
 `{gas}_carry_periods`
 : How far that lag travelled: `0` if it was detected in this very period, `n` if it came from `n`
@@ -178,7 +183,8 @@ systematic offset between two gases in the same tube shows up.
 
 Every CLI writes a `log.txt` to its output folder: the run header, the per-file and per-chunk lines,
 and the finish time. The animated progress display is deliberately kept out of it, so the log stays
-readable as plain text.
+readable as plain text. When a gas had values outside its valid range, the log ends with one line
+for that gas, giving the count and how many periods they were in.
 
 `run_settings.txt` is written at the *start* of the run and records every setting with a one-line
 explanation of what it does. Between it and `detect_remove_tui_settings.yaml`, a finished run carries

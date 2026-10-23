@@ -40,6 +40,43 @@ long-inlet gas such as H₂O can use a wider window than the dry gases in the sa
 because EddyPro applies a single lag setting to all gases downstream. Keep the expected lag near the
 middle of the window; detections pinned to a boundary are unreliable and are discarded.
 
+## A valid range per gas
+
+A gas can be given the range its values can physically take, in the column's own units:
+
+```bash
+dyco detect-remove --scalar "CO2:CO2_DRY_[IRGA72-B]@min=200;max=900" --scalar "H2O:H2O_DRY_[IRGA72-B]@min=0;max=40"
+```
+
+Either bound may be left out (`@min=0`). A value outside the range is not a measurement, so lag
+detection treats it as missing, the same way it treats `Inf`: the gap is interpolated over before the
+search. `{gas}_n_out_of_range` in the summary counts these values per period, and `log.txt` names
+each gas that had any. A period where every value is outside the range is treated like a period with
+no data (`no_data`).
+
+The range exists because loggers can write values that pass every status check and are still wrong.
+At CH-LAE in 2016 and 2017, a logger fault copied LI-7500 values into the LI-7200 record about once a
+second, so the closed-path CO₂ column read about 15 instead of about 400 µmol mol⁻¹ in 3.9 % of the
+rows. EddyPro removes such values with its absolute-limits test. Without a range, dyco searched for
+the lag on the corrupted series.
+
+**The range is for detection only.** The written files keep every value, out-of-range ones
+included, shifted by the lag like the rest. A range never repairs the output: removing bad values
+before the flux calculation is the job of the flux software, so keep its own limits switched on.
+
+Suggested values, from EddyPro's absolute-limit defaults:
+
+| Gas | Unit | Range |
+|---|---|---|
+| CO₂ | µmol mol⁻¹ | 200 to 900 |
+| H₂O | mmol mol⁻¹ | 0 to 40 |
+| CH₄ | µmol mol⁻¹ | 0.17 to 1000 |
+| N₂O | µmol mol⁻¹ | 0.032 to 1000 |
+
+They only make sense in these units. A density (mmol m⁻³) needs different limits. The TUI's
+**Valid range** field fills these in for you from the units row of the first input file. A gas whose
+unit it cannot identify, or whose unit is a density, gets `[,]`, which means no range.
+
 :::{important}
 Downstream flux processing must run with time-lag maximization **disabled**. The lag has already
 been removed.

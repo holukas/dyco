@@ -21,7 +21,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
 | Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 11 more, 210 total |
+| Tests | `tests/test_pwb.py` + 12 more, 239 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -139,7 +139,7 @@ and releasing** for how a release is cut.
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 210 passed
+uv run pytest tests/ -q                                  # 239 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -517,12 +517,12 @@ nothing or worse, and the one that paid was a single constant. See
 
 ## Testing
 
-`tests/` holds **210 tests plus 120 subtests**, seeded by diive's
+`tests/` holds **239 tests plus 148 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 210 passed, 120 subtests
+uv run pytest tests/ -q     # 239 passed, 148 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving

@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## Unreleased
+
+### Added
+
+- **A valid range per gas, for lag detection.** Values outside it are treated as missing while the
+  lag is searched for, the same way `Inf` already was: `--scalar "CO2:co2@min=200;max=900"`, either
+  bound optional, in `dyco detect-remove` and `dyco pwb-batch`. The written files are unchanged and
+  keep every value, so the flux software's own limits still have to remove bad ones. This catches a
+  logger fault seen at CH-LAE in 2016 and 2017, where LI-7500 values landed in the LI-7200 record
+  about once a second (CO<sub>2</sub> near 15 instead of 400 µmol/mol) with a clean status byte.
+  The summary gains `{gas}_n_out_of_range`, `{gas}_n_valid` no longer counts those values, a period
+  with nothing in range is treated as `no_data`, and `log.txt` names each gas that had any
+- **Valid range** in the TUI, filled in from the units row of the first input file with EddyPro's
+  absolute-limit defaults: CO<sub>2</sub> 200 to 900, CH<sub>4</sub> 0.17 to 1000 and
+  N<sub>2</sub>O 0.032 to 1000 µmol/mol, and H<sub>2</sub>O 0 to 40 mmol/mol. A gas whose unit is
+  unknown, or is a density, gets no range. The ⟳ button fills the field in again
+
 ## v3.0.0 | 6 Aug 2026
 
 A new detection method, no `diive` dependency, and a command line that does not carry over from v2.
