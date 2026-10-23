@@ -93,6 +93,7 @@ from textual.widgets.option_list import Option
 
 from dyco.pipeline import (
     _WHITESPACE_SEP, PerFilePipeline, parse_scalar_spec, window_to_lag_params)
+from dyco.pwb import format_valid_range, out_of_range_lines
 from dyco.rawio import (compression_suffix, normalise_output_suffix,
                         read_preserved_lines, split_header_line)
 
@@ -137,6 +138,26 @@ def _scan_columns(input_dir: str, file_pattern: str, skiprows: int,
     line = head[skiprows].rstrip('\r\n')
     cols = split_header_line(line, sep)
     return f0, files, cols
+
+
+def _scan_units(input_dir: str, file_pattern: str, skiprows: int,
+                extra_rows: int, sep: str) -> dict:
+    """``{column: unit}`` from the first matching file, or ``{}``.
+
+    The units row is taken to be the first row after the header, which is
+    where raw EC CSVs keep it. No extra rows, no matching file, or a row whose
+    cell count differs from the header's all give ``{}``: no unit is known.
+    """
+    if extra_rows < 1:
+        return {}
+    try:
+        f0, _files, cols = _scan_columns(input_dir, file_pattern, skiprows,
+                                         extra_rows, sep)
+        line = read_preserved_lines(f0, skiprows + 2)[skiprows + 1]
+        units = split_header_line(line.rstrip('\r\n'), sep)
+    except Exception:
+        return {}
+    return dict(zip(cols, units)) if len(units) == len(cols) else {}
 
 
 def _clean_dropped_path(raw: str) -> str | None:
@@ -563,6 +584,8 @@ _FIELDS = [
     ('lagmax', 'Lag max s', 'default 10.0  (seeds each gas window below)'),
     ('winranges', 'Win s', 'per-gas LABEL:[lower,upper]  (⟳ re-seeds from Lag max)'),
     ('lagfrom', 'Lag from', 'whose lag each gas uses where it has none  (N2O:CO2)'),
+    ('validrange', 'Valid range',
+     'per-gas LABEL:[min,max], [,] = none  (⟳ re-seeds from units)'),
     # --- PWBOPT (best-lag selection across chunks) ---
     ('hdithresh', 'HDI thresh', 'default 0.5  (S1: reliable if HDI range <)'),
     ('devthresh', 'Dev thresh', 'default 0.5  (S2: accept if within of prev)'),
@@ -602,8 +625,9 @@ _PATH_FIELDS = ['input_dir', 'output_dir']
 _COL_PICK_FIELDS = ['col_u', 'col_v', 'col_w', 'col_tsonic', 'scalars']
 
 # The per-gas window field gets a ⟳ button that re-seeds every gas window to the
-# symmetric [-Lag max, +Lag max] default (e.g. after editing Lag max s).
-_WIN_FIELDS = ['winranges', 'lagfrom']
+# symmetric [-Lag max, +Lag max] default (e.g. after editing Lag max s). The
+# valid-range field's ⟳ re-seeds every gas from its unit in the file.
+_WIN_FIELDS = ['winranges', 'lagfrom', 'validrange']
 
 # Per-gas window text format: LABEL:[lower,upper] entries, comma-separated. The
 # inner brackets carry their own comma, so split with a regex, not str.split.
@@ -626,6 +650,116 @@ def format_win_ranges(items) -> str:
     """Build the window text from ``[(label, lower, upper), ...]`` in order."""
     return ','.join(f'{lbl}:[{_fmt_win_num(a)},{_fmt_win_num(b)}]'
                     for lbl, a, b in items)
+
+
+# Valid-range text format: LABEL:[min,max], either number may be left out
+# (CO2:[200,], H2O:[,40]) and LABEL:[,] means no range for that gas.
+_RANGE_NUM = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+_RANGE_ENTRY = (rf'([^\s:,\[\]]+)\s*:\s*\[\s*({_RANGE_NUM})?\s*,'
+                rf'\s*({_RANGE_NUM})?\s*\]')
+_RANGE_RE = re.compile(_RANGE_ENTRY)
+_RANGE_FULL_RE = re.compile(
+    rf'\s*(?:{_RANGE_ENTRY}(?:\s*,\s*{_RANGE_ENTRY})*)?\s*')
+
+
+def parse_valid_ranges(text: str) -> dict:
+    """Parse ``CO2:[200,900],N2O:[,]`` -> ``{'CO2': (200.0, 900.0), 'N2O': (None, None)}``.
+
+    Raises ``ValueError`` on text that is not a list of such entries, or on a
+    range whose min is not below its max: a malformed range must not quietly
+    turn into no range at all.
+    """
+    text = text or ''
+    if not _RANGE_FULL_RE.fullmatch(text):
+        raise ValueError(
+            f'expected LABEL:[min,max] entries, comma-separated, got {text!r}')
+    out: dict = {}
+    for m in _RANGE_RE.finditer(text):
+        lo = None if m.group(2) is None else float(m.group(2))
+        hi = None if m.group(3) is None else float(m.group(3))
+        if lo is not None and hi is not None and not lo < hi:
+            raise ValueError(
+                f'{m.group(1)}: min {lo:g} must be below max {hi:g}')
+        out[m.group(1)] = (lo, hi)
+    return out
+
+
+def format_valid_ranges(ranges: dict) -> str:
+    """Render ``{'CO2': (200, 900), 'N2O': (None, None)}`` as ``CO2:[200,900],N2O:[,]``."""
+    def num(x):
+        return '' if x is None else _fmt_win_num(x)
+    return ','.join(f'{lbl}:[{num(lo)},{num(hi)}]'
+                    for lbl, (lo, hi) in ranges.items())
+
+
+def _opt_valid_ranges(v: str) -> bool:
+    try:
+        parse_valid_ranges(v)
+        return True
+    except ValueError:
+        return False
+
+
+# EddyPro's absolute-limit defaults, per gas and per unit. Only units that are
+# recognised get a range; anything else is left unchecked rather than guessed.
+_SUGGESTED_RANGES = {
+    ('CO2', 'umol/mol'): (200.0, 900.0),
+    ('H2O', 'mmol/mol'): (0.0, 40.0),
+    ('CH4', 'umol/mol'): (0.17, 1000.0),
+    ('N2O', 'umol/mol'): (0.032, 1000.0),
+}
+_GAS_NAME_RE = re.compile(r'CO2|H2O|CH4|N2O', re.IGNORECASE)
+
+
+def _gas_of(label: str, column: str) -> str | None:
+    """Which of CO2/H2O/CH4/N2O a scalar is, from its label, else its column."""
+    for text in (label, column):
+        m = _GAS_NAME_RE.search(text or '')
+        if m:
+            return m.group(0).upper()
+    return None
+
+
+def _unit_kind(unit: str) -> str | None:
+    """Reduce a units-row cell to 'umol/mol', 'mmol/mol', 'density' or None.
+
+    Accepts the spellings loggers and EddyPro use for the same thing:
+    ``[umol+1_mol-1]``, ``umol mol^-1``, ``µmol/mol`` and ``ppm`` are all
+    'umol/mol'; ``[mmol+1_m-3]`` and ``mmol/m^3`` are densities.
+    """
+    u = (unit or '').strip().strip('[]()').lower()
+    u = u.replace('µ', 'u').replace('μ', 'u').replace('+1', '').replace('^', '')
+    u = re.sub(r'[\s_*·.]+', '', u)
+    u = u.replace('mol-1', '/mol').replace('m-3', '/m3')
+    if u in ('umol/mol', 'ppm', 'ppmv'):
+        return 'umol/mol'
+    if u == 'mmol/mol':
+        return 'mmol/mol'
+    if u.endswith('/m3'):
+        return 'density'
+    return None
+
+
+def suggest_valid_range(label: str, column: str, units: dict) -> tuple:
+    """Suggested ``((min, max), why)`` for one gas, or ``(None, why)``.
+
+    *units* maps column names to the units-row text. A gas gets a range only
+    when both the gas and its unit are recognised; *why* says what was found,
+    for the status line.
+    """
+    gas = _gas_of(label, column)
+    if gas is None:
+        return None, 'not CO2, H2O, CH4 or N2O'
+    unit = units.get(column)
+    if not unit:
+        return None, 'unit unknown'
+    kind = _unit_kind(unit)
+    if kind == 'density':
+        return None, f'{unit} is a density'
+    rng = _SUGGESTED_RANGES.get((gas, kind))
+    if rng is None:
+        return None, f'no suggestion for {gas} in {unit}'
+    return rng, unit
 
 
 # --- Live field validation (blank is always allowed = use default) ---------
@@ -671,6 +805,8 @@ _VALIDATORS = {
     'devthresh': [Function(_opt_num, 'a number of seconds')],
     'hdiprefilter': [Function(_opt_num, 'a number of seconds')],
     'maxcarry': [Function(_opt_int, 'a whole number of periods, or blank')],
+    'validrange': [Function(_opt_valid_ranges,
+                            'LABEL:[min,max] entries, min below max')],
     'streg': [Function(_opt_regex, 'not a valid regular expression')],
 }
 
@@ -748,6 +884,18 @@ _HELP = {
         'a tube with a strong one -- without it those periods fall back to the '
         'median of detections PWBOPT has already rejected. The summary records '
         'the choice per period in {gas}_lag_source.',
+    'validrange':
+        'Per-gas valid range, LABEL:[min,max] in the column\'s own units. A '
+        'value outside it is not a measurement (a logger fault, a spike), so '
+        'lag detection treats it as missing. Detection only: the written '
+        'files keep every value, shifted like the rest, and removing bad '
+        'values for the flux is the flux software\'s job (EddyPro\'s absolute '
+        'limits). Filled in from Scalars using the unit row of the first '
+        'input file: CO2 200-900 umol mol-1, H2O 0-40 mmol mol-1, CH4 '
+        '0.17-1000 and N2O 0.032-1000 umol mol-1 (EddyPro\'s defaults). A gas '
+        'whose unit is unknown, or a density, gets [,] = no range. Either '
+        'bound may be left out, e.g. H2O:[0,]. Press ⟳ to re-seed all gases '
+        'from their units, e.g. after setting Input dir.',
     'winranges':
         'Per-gas lag search window, one LABEL:[lower,upper] (seconds) per gas, '
         'auto-filled from your Scalars + Lag max. The lag is searched only '
@@ -906,7 +1054,8 @@ def _winranges_from_cli(scalars: dict, per_gas_lag: dict,
 
 def write_run_settings_yaml(output_dir, args, scalars: dict,
                             per_gas_lag: dict,
-                            lag_fallback: dict | None = None) -> str | None:
+                            lag_fallback: dict | None = None,
+                            valid_ranges: dict | None = None) -> str | None:
     """Drop a TUI-loadable settings YAML into a CLI run's output folder.
 
     Mirrors the App's ``_settings_dict`` schema (``_FIELD_IDS`` + ``_SWITCHES``)
@@ -931,6 +1080,11 @@ def write_run_settings_yaml(output_dir, args, scalars: dict,
                 {lbl: (lag_fallback or {}).get(lbl, lbl) for lbl in scalars}),
             'winranges': _winranges_from_cli(scalars, per_gas_lag,
                                              args.lws, args.uws),
+            # Every gas gets an entry, [,] where the run had no range, so the
+            # TUI keeps it unchecked instead of seeding one from its unit.
+            'validrange': format_valid_ranges(
+                {lbl: (valid_ranges or {}).get(lbl, (None, None))
+                 for lbl in scalars}),
             'hdithresh': _fmt_win_num(args.hdi_thresh),
             'devthresh': _fmt_win_num(args.dev_thresh),
             'hdiprefilter': _fmt_win_num(args.hdi_prefilter),
@@ -1118,6 +1272,11 @@ class DetectRemoveTUI(App):
         # Stop was pressed during detection, so the align phase that follows
         # it should offer the button again (see action_stop / ui_update).
         self._stop_requested = False
+        # Gases whose valid range was left at [,] because no unit was found
+        # yet (e.g. the column is still being typed). Seeding is retried for
+        # these; a [,] the user chose is not in here and is left alone.
+        self._range_unseeded: set = set()
+        self._units_cache: dict = {}
 
     # ---- layout: title / [settings | console] / footer ----------------
     def compose(self) -> ComposeResult:
@@ -1146,6 +1305,7 @@ class DetectRemoveTUI(App):
                 yield self._field('lagmax')
                 yield self._field('winranges')
                 yield self._field('lagfrom')
+                yield self._field('validrange')
                 yield Static('PWBOPT (best-lag selection)', classes='section')
                 yield self._field('hdithresh')
                 yield self._field('devthresh')
@@ -1341,14 +1501,85 @@ class DetectRemoveTUI(App):
         if new_text != win_inp.value:
             win_inp.value = new_text
 
+    def _units(self) -> dict:
+        """``{column: unit}`` of the first input file, cached per file setup."""
+        def g(i):
+            return self.query_one(f'#{i}', Input).value.strip()
+        try:
+            key = (g('input_dir'), g('filepattern') or '*.csv',
+                   int(g('skiprows') or 0), int(g('extrarows') or 2),
+                   _unescape_sep(g('sep') or ','))
+        except ValueError:
+            return {}
+        if not key[0]:
+            return {}
+        if key not in self._units_cache:
+            self._units_cache[key] = _scan_units(*key)
+        return self._units_cache[key]
+
+    def _sync_valid_field(self, reseed: bool = False) -> None:
+        """Reconcile the Valid-range field to the gases in Scalars.
+
+        A new gas is seeded from its unit (``suggest_valid_range``), or gets
+        ``[,]`` when none is known. Ranges already there are kept, except a
+        ``[,]`` this method put in for want of a unit, which is retried. With
+        ``reseed`` every gas is seeded afresh. Says in the status line what
+        was seeded, whenever the field changes.
+        """
+        try:
+            inp = self.query_one('#validrange', Input)
+        except NoMatches:
+            return
+        try:
+            existing = {} if reseed else parse_valid_ranges(inp.value)
+        except ValueError:
+            return          # mid-typing; leave it alone
+        cols = {}
+        for tok in self.query_one('#scalars', Input).value.split(','):
+            lbl, sep, col = tok.partition(':')
+            if sep and lbl.strip() and lbl.strip() not in cols:
+                cols[lbl.strip()] = col.partition('@')[0].strip()
+        ranges, notes = {}, []
+        for lbl, col in cols.items():
+            have = existing.get(lbl)
+            if have is not None and not (lbl in self._range_unseeded
+                                         and have == (None, None)):
+                ranges[lbl] = have
+                continue
+            rng, why = suggest_valid_range(lbl, col, self._units())
+            if rng is None:
+                ranges[lbl] = (None, None)
+                self._range_unseeded.add(lbl)
+                notes.append(f'{lbl} none ({why})')
+            else:
+                ranges[lbl] = rng
+                self._range_unseeded.discard(lbl)
+                notes.append(f'{lbl} {format_valid_range(*rng)} ({why})')
+        self._range_unseeded &= set(cols)
+        new_text = format_valid_ranges(ranges)
+        if new_text != inp.value or reseed:
+            inp.value = new_text
+            if notes:
+                unknown = any(' none (' in n for n in notes)
+                self._status(
+                    'valid range: ' + '; '.join(notes)
+                    + ('  -- set Input dir, then ⟳' if unknown
+                       and not self._units() else ''),
+                    _AMBER if unknown else _LAV)
+
     @on(Input.Changed, '#scalars')
     def _on_scalars_changed(self, event: Input.Changed) -> None:
         self._sync_win_field()
         self._sync_lagfrom_field()
+        self._sync_valid_field()
 
     @on(Button.Pressed, '.reseedbtn')
     def _on_reseed(self, event: Button.Pressed) -> None:
         event.stop()
+        if event.button.id == 'reseed_validrange':
+            self._units_cache.clear()   # re-read the file: it may have changed
+            self._sync_valid_field(reseed=True)
+            return
         self._sync_win_field(reseed=True)
         self._status('per-gas windows re-seeded from Lag max s', _LAV)
 
@@ -2078,6 +2309,10 @@ class DetectRemoveTUI(App):
             for ln in _summary_lines(summary, list(scalars), hz,
                                      cancelled=pipeline.cancelled):
                 self.call_from_thread(self._log_only, ln)
+            for ln in out_of_range_lines(summary, scalars,
+                                         pipeline.valid_ranges):
+                self.call_from_thread(self._log_only,
+                                      Text(f'range  {ln}', style=_AMBER))
             for ln in _finished_lines(summary, cfg, pipeline,
                                       time.monotonic() - t_start,
                                       pipeline.cancelled):
@@ -2127,6 +2362,13 @@ class DetectRemoveTUI(App):
                 per_gas_lag[label] = window_to_lag_params(lo, hi)
             except ValueError as e:
                 raise ValueError(f'window for {label}: {e}') from e
+        # Valid ranges: [,] and gases no longer in Scalars mean no range.
+        try:
+            ranges = parse_valid_ranges(g('validrange'))
+        except ValueError as e:
+            raise ValueError(f'Valid range: {e}') from e
+        valid_ranges = {lbl: rng for lbl, rng in ranges.items()
+                        if lbl in scalars and rng != (None, None)}
         in_dir, out_dir = g('input_dir'), g('output_dir')
         if not in_dir or not out_dir:
             raise ValueError('input dir and output dir are required')
@@ -2170,6 +2412,7 @@ class DetectRemoveTUI(App):
             n_bootstrap=int(g('nboot') or 99),
             per_gas_lag=per_gas_lag,
             lag_fallback=parse_lag_from(g('lagfrom')),
+            valid_ranges=valid_ranges,
             chunk_seconds=float(g('chunk') or 1800),
             min_chunk_seconds=float(g('minchunk') or 300),
             n_workers=workers if workers > 0 else None,
