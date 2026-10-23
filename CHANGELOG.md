@@ -17,6 +17,17 @@
   N<sub>2</sub>O 0.032 to 1000 µmol/mol, and H<sub>2</sub>O 0 to 40 mmol/mol. A gas whose unit is
   unknown, or is a density, gets no range. The ⟳ button fills the field in again
 
+### Fixed
+
+- **A crashed worker could leave truncated output files that were counted as written.** When one
+  alignment worker died, for example by running out of memory with many workers, every other worker
+  was stopped mid-write as well. `dyco detect-remove` still reported all chunks written, and the
+  output folder held truncated or empty `.csv.gz` files that downstream readers failed on. Each file
+  is now written under a temporary `.partial` name and renamed only once it is complete, so a file
+  under its real name is always whole. A chunk that never reported back is now an `error` in the
+  summary, is not counted as written, and is named after the `Done` line and in `log.txt`. If it
+  happens, rerun with fewer `--n-workers`
+
 ## v3.0.0 | 6 Aug 2026
 
 A new detection method, no `diive` dependency, and a command line that does not carry over from v2.

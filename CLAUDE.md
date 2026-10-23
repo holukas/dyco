@@ -21,7 +21,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
 | Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
 | Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 12 more, 239 total |
+| Tests | `tests/test_pwb.py` + 15 more, 242 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -139,7 +139,7 @@ and releasing** for how a release is cut.
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 239 passed
+uv run pytest tests/ -q                                  # 242 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -464,6 +464,14 @@ nothing or worse, and the one that paid was a single constant. See
   `apply_tlag.py` and `tui.py` each grew their own `open()` calls, and each
   broke on compressed input independently — the TUI's silently, returning
   mojibake column names. If you add a reader, go through `rawio`.
+- **A worker that dies takes the whole pool with it.** `ProcessPoolExecutor`
+  marks itself broken and terminates every other worker, mid-write. On
+  2026-10-23 a 24-worker run lost one worker (probably to memory; the
+  exception was not kept) and truncated 21 of 24 `.csv.gz` outputs while
+  `run()` still counted them written. Two guards now:
+  `rawio.open_text_write` writes to `<name>.partial` and renames on a clean
+  close, and `run()` marks any chunk dispatched to phase 2 without a returned
+  row as `error`. Keep both; neither covers what the other does.
 - **Header splitting is `rawio.split_header_line`'s job**, for the same
   reason. The header row was split on the raw separator in six places across
   four modules, none of which stripped quotes, so a logger that writes
@@ -517,12 +525,12 @@ nothing or worse, and the one that paid was a single constant. See
 
 ## Testing
 
-`tests/` holds **239 tests plus 148 subtests**, seeded by diive's
+`tests/` holds **242 tests plus 148 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 239 passed, 148 subtests
+uv run pytest tests/ -q     # 242 passed, 148 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving
