@@ -90,6 +90,7 @@ Differences from RFlux v3.2.0 (tlag_detection.R):
     | Combination tie-break order (cw,wc,ct,tc vs R's ct,cw,tc,wc) | negligible -- exact ties only |
     | ``max_carry`` can expire an S3 carry that has travelled too far; the paper's carry is unbounded | opt-in, off by default -- see ``apply_pwbopt`` |
     | A donor gas (``lagfrom``) fills any period with no accepted detection, not only a gas that failed everywhere | opt-in, only when a donor is named -- see ``fill_tlag_gaps`` |
+    | A scalar value outside ``[valid_min, valid_max]`` is set to NaN before na.approx; R has no range check | opt-in, only when a range is given; data inside the range give identical results |
 
     Shared with R, against the paper: wdt defaults to 5 (R's default), not the
     paper's hz/2+1. The pipeline exposes --wdt to get the paper's value.
@@ -295,6 +296,56 @@ def _finite_or_nan(x: np.ndarray) -> np.ndarray:
     return np.where(np.isfinite(x), x, np.nan)
 
 
+def _out_of_range(x: np.ndarray, valid_min: float | None,
+                  valid_max: float | None) -> np.ndarray:
+    """Mask of the values in *x* that lie outside ``[valid_min, valid_max]``.
+
+    Either bound may be None, meaning no limit on that side. NaN is never
+    flagged: it is already missing and is counted as such.
+    """
+    out = np.zeros(len(x), dtype=bool)
+    if valid_min is not None:
+        out |= x < valid_min
+    if valid_max is not None:
+        out |= x > valid_max
+    return out
+
+
+def format_valid_range(valid_min: float | None,
+                       valid_max: float | None) -> str:
+    """Say a valid range in words: '200 to 900', 'at least 0', 'no limit'."""
+    if valid_min is not None and valid_max is not None:
+        return f'{valid_min:g} to {valid_max:g}'
+    if valid_min is not None:
+        return f'at least {valid_min:g}'
+    if valid_max is not None:
+        return f'at most {valid_max:g}'
+    return 'no limit'
+
+
+def out_of_range_lines(summary: DataFrame, scalars, valid_ranges: dict) -> list:
+    """One plain-text line per gas that had values outside its valid range.
+
+    Read from the ``{gas}_n_out_of_range`` summary column. Gases without a
+    range, or whose values all lay inside it, get no line.
+    """
+    lines = []
+    for label in scalars:
+        col = f'{label.lower()}_n_out_of_range'
+        if label not in (valid_ranges or {}) or col not in summary.columns:
+            continue
+        counts = pd.to_numeric(summary[col], errors='coerce')
+        n = int(counts.fillna(0).sum())
+        if n == 0:
+            continue
+        lines.append(
+            f'{label}: {n} records outside the valid range '
+            f'({format_valid_range(*valid_ranges[label])}) in '
+            f'{int((counts > 0).sum())} of {int(counts.notna().sum())} periods, '
+            f'ignored for lag detection only')
+    return lines
+
+
 def _na_approx(x: np.ndarray) -> np.ndarray:
     """
     Linear interpolation of NaN, matching R's zoo::na.approx(na.rm=FALSE).
@@ -440,6 +491,8 @@ class PreWhiteningBootstrap:
             segment_name: str = 'segment',
             lws: float | None = None,
             uws: float | None = None,
+            valid_min: float | None = None,
+            valid_max: float | None = None,
     ):
         """
         Store data and parameters. No computation is performed here.
@@ -492,6 +545,18 @@ class PreWhiteningBootstrap:
                 full symmetric window, identical to prior behaviour.  Mirrors
                 RFlux's lws/uws, but here the window constrains the *returned*
                 PWB lag (R computes a windowed variant separately).
+            valid_min (float | None): Lowest plausible value of *var_scalar*,
+                in the column's own units.  valid_max (float | None): highest.
+                A scalar value outside ``[valid_min, valid_max]`` is not a
+                measurement, so it is treated as missing, exactly like inf:
+                set to NaN and interpolated over before the AR fit.  Either
+                bound may be None (no limit on that side); both None (default)
+                leaves the data as it is.  This affects lag *detection* only.
+                Nothing here writes data, and the pipeline still shifts and
+                writes the original values, out-of-range ones included:
+                removing them for the flux calculation is the flux software's
+                job (EddyPro's absolute-limits test).  Wind and sonic
+                temperature are never range-checked.
         """
         self.df = df
         self.var_w = var_w
@@ -544,7 +609,17 @@ class PreWhiteningBootstrap:
             self._win_lo_idx = 0
             self._win_hi_idx = 2 * self._lag_max_records  # inclusive (full)
 
+        if (valid_min is not None and valid_max is not None
+                and not valid_min < valid_max):
+            raise ValueError(
+                f"valid range for {var_scalar} is empty: min {valid_min} is "
+                f"not below max {valid_max}.")
+        self.valid_min = valid_min
+        self.valid_max = valid_max
+
         # --- Results populated by run() ---
+        # Scalar records set to NaN for lying outside [valid_min, valid_max].
+        self._n_out_of_range: int | None = None
         # PW results (full-data scalar-AR CCF, for diagnostic panels)
         self._tlag_pw_records: int | None = None
         self._corr_pw: float | None = None
@@ -699,6 +774,9 @@ class PreWhiteningBootstrap:
             'n_bootstrap': self.n_bootstrap,
             'lws': self.lws,
             'uws': self.uws,
+            'valid_min': self.valid_min,
+            'valid_max': self.valid_max,
+            'n_out_of_range': self._n_out_of_range,
         }
 
     # ------------------------------------------------------------------
@@ -711,8 +789,10 @@ class PreWhiteningBootstrap:
 
         Steps
         -----
-        1. Load all input series and linearly interpolate NaN (R: na.approx).
-           Drop rows where any series remains NaN after interpolation.
+        1. Load all input series, treat inf and any scalar value outside
+           ``[valid_min, valid_max]`` as missing, and linearly interpolate NaN
+           (R: na.approx). Drop rows where any series remains NaN after
+           interpolation. The valid range is not in R.
         1b. Breitung (2002) variance-ratio unit-root test on each series
            (R: egcm::bvr.test).  If any series has a unit root (p >= 0.01),
            first-difference all series.
@@ -750,10 +830,18 @@ class PreWhiteningBootstrap:
         columns = {}
         for name in (self.var_w, self.var_scalar, self.var_tsonic):
             x = _finite_or_nan(self.df[name].to_numpy(dtype=float))
+            out_of_range = ''
+            if name == self.var_scalar:
+                oor = _out_of_range(x, self.valid_min, self.valid_max)
+                self._n_out_of_range = int(oor.sum())
+                if self._n_out_of_range:
+                    x = np.where(oor, np.nan, x)
+                    out_of_range = ' or outside its valid range'
             if np.isnan(x).all():
                 raise ValueError(
                     f"column '{name}' is empty for {self.segment_name}: every "
-                    f"record is missing, so no time lag can be detected")
+                    f"record is missing{out_of_range}, so no time lag can be "
+                    f"detected")
             columns[name] = x
 
         w_raw = _na_approx(columns[self.var_w])
@@ -2120,7 +2208,7 @@ def _pwb_file_worker(args: tuple) -> dict:
      hz, lag_max_s, n_bootstrap, block_length_s,
      usecols, col_names, skiprows, na_values,
      min_valid_frac, plot_dir, save_plots, seed, strict,
-     file_date_format, ts_offset) = args
+     file_date_format, ts_offset, valid_ranges) = args
 
     period_name = Path(filepath).name
     row: dict = {'period': period_name,
@@ -2170,7 +2258,13 @@ def _pwb_file_worker(args: tuple) -> dict:
             row[f'{prefix}_error'] = f'T_SONIC column {col_tsonic!r} not found'
             continue
 
+        valid_min, valid_max = (valid_ranges or {}).get(
+            scalar_label, (None, None))
         s_arr = np.asarray(df[scalar_col], dtype=float)
+        oor = _out_of_range(_finite_or_nan(s_arr), valid_min, valid_max)
+        row[f'{prefix}_n_out_of_range'] = int(oor.sum())
+        # Out-of-range values count against min_valid_frac like missing ones.
+        s_arr = np.where(oor, np.nan, s_arr)
         if (np.mean(~np.isnan(s_arr)) < min_valid_frac
                 or np.nanstd(s_arr) < np.finfo(float).eps):
             row.update(nan_row)
@@ -2196,6 +2290,8 @@ def _pwb_file_worker(args: tuple) -> dict:
                 block_length_s=block_length_s,
                 random_state=sub_seed,
                 segment_name=period_name,
+                valid_min=valid_min,
+                valid_max=valid_max,
             )
             pwb.run()
             res = pwb.results
@@ -2317,6 +2413,13 @@ class PwbBatchDetection:
         fall back to the integer period index).  The pattern must use fixed-width
         directives (``%Y %m %d %H %M %S``); variable-width tokens such as ``%-d``
         or month names are not supported.
+    valid_ranges:
+        Optional ``{gas_label: (min, max)}``, either bound None for no limit
+        on that side.  Scalar values outside the range are treated as missing
+        for detection (see ``PreWhiteningBootstrap``'s ``valid_min``) and
+        count against *min_valid_frac*.  The results carry
+        ``{prefix}_n_out_of_range`` per period.  Defaults to ``None`` (no
+        range check).
 
     Example
     -------
@@ -2348,6 +2451,7 @@ class PwbBatchDetection:
             random_state: int | None = None,
             strict: bool = False,
             file_date_format: str | None = None,
+            valid_ranges: dict | None = None,
     ):
         """Set up batch PWB time-lag detection. See the class docstring."""
         if usecols is None or col_names is None:
@@ -2377,6 +2481,7 @@ class PwbBatchDetection:
         self.random_state = random_state
         self.strict = strict
         self.file_date_format = file_date_format
+        self.valid_ranges = valid_ranges or {}
 
         self._results: DataFrame | None = None
 
@@ -2432,6 +2537,7 @@ class PwbBatchDetection:
                 None if self.random_state is None else self.random_state + i,
                 self.strict,
                 self.file_date_format, ts_offset,
+                self.valid_ranges,
             )
             for i, f in enumerate(self.files)
         ]
@@ -2972,8 +3078,12 @@ def _build_parser():
                    help='Directory for results CSV, checkpoint, and optional plots.')
     # Scalars
     p.add_argument('--scalar', dest='scalars', action='append',
-                   metavar='LABEL:column', required=True,
-                   help='Gas label and column name, e.g. CH4:ch4. Repeat for each gas.')
+                   metavar='LABEL:column[@min=..;max=..]', required=True,
+                   help='Gas label and column name, e.g. CH4:ch4. Repeat for '
+                        'each gas. Append "@min=..;max=.." (either may be left '
+                        'out) to give the gas a valid range in its own units, '
+                        'e.g. "CO2:co2@min=200;max=900": values outside it are '
+                        'treated as missing when the lag is detected.')
     # Column mapping
     p.add_argument('--col-w', default='w',
                    help='Column name for vertical wind W.')
@@ -3055,14 +3165,26 @@ def _cli_main():
               file=sys.stderr)
         sys.exit(1)
 
+    # Same token syntax as dyco detect-remove, so a valid range is written
+    # the same way in both. Imported here: dyco.pipeline imports this module.
+    from dyco.pipeline import parse_scalar_spec
     scalars = {}
+    valid_ranges: dict = {}
     for token in args.scalars:
-        if ':' not in token:
-            print(f'ERROR: --scalar must be LABEL:column, got {token!r}',
-                  file=sys.stderr)
+        try:
+            label, col, overrides = parse_scalar_spec(token)
+        except ValueError as e:
+            print(f'ERROR: {e}', file=sys.stderr)
             sys.exit(1)
-        label, col = token.split(':', 1)
+        lo = overrides.pop('valid_min', None)
+        hi = overrides.pop('valid_max', None)
+        if overrides:
+            print(f'ERROR: pwb-batch takes only min and max after "@", got '
+                  f'{sorted(overrides)} in {token!r}', file=sys.stderr)
+            sys.exit(1)
         scalars[label] = col
+        if lo is not None or hi is not None:
+            valid_ranges[label] = (lo, hi)
 
     det = PwbBatchDetection(
         files=files,
@@ -3083,6 +3205,7 @@ def _cli_main():
         n_workers=args.n_workers,
         random_state=args.random_state,
         file_date_format=args.file_date_format,
+        valid_ranges=valid_ranges,
     )
 
     msg = (f'PWB batch detection  {len(files)} files  '
@@ -3097,7 +3220,9 @@ def _cli_main():
     out(f'[dim]output:[/dim]  {args.output_dir}')
     out(f'[dim]wind  :[/dim]  W={args.col_w!r}  T_SONIC={args.col_tsonic!r}')
     for label, col in scalars.items():
-        out(f'[dim]scalar:[/dim]  [bold]{label}[/bold]  <- {col!r}')
+        rng = (f'   [dim]valid[/dim] {format_valid_range(*valid_ranges[label])}'
+               if label in valid_ranges else '')
+        out(f'[dim]scalar:[/dim]  [bold]{label}[/bold]  <- {col!r}{rng}')
     out(f'[dim]params:[/dim]  hz {args.hz}    lag-max {args.lag_max} s    '
         f'n-boot {args.n_bootstrap}    block {args.block_length} s')
     out(f'[dim]PWBOPT:[/dim]  hdi-thresh {args.hdi_thresh} s    '
@@ -3143,6 +3268,8 @@ def _cli_main():
         results = det.run(on_progress=_cb)
 
     out(f'\n[green]Done — {len(results)} periods.[/green]')
+    for line in out_of_range_lines(results, scalars, valid_ranges):
+        out(f'[yellow]range[/yellow]  {line}')
 
     # PWBOPT post-processing
     for label in scalars:

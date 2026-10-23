@@ -44,6 +44,14 @@ window to per-gas params: ``lag_max_s = max(|lws|, |uws|)`` and
 for a wide window). A gas without a window uses the global ``lag_max_s``
 symmetrically.
 
+**Per-gas valid range.** ``valid_ranges`` (``{label: (min, max)}``), or on
+the CLI ``--scalar "CO2:co2@min=200;max=900"``, gives a gas the range its
+values can physically take, in the column's own units. A value outside it is
+not a measurement, so detection treats it as missing, like inf. This is for
+detection only: phase 2 shifts and writes the original values, out-of-range
+ones included. Removing them for the flux calculation is the flux software's
+job (EddyPro's absolute-limits test).
+
 **PWBOPT — choose the best lag:** with every chunk's raw detection in hand,
 apply the PWBOPT decision rule (S1/S2/S3 carry-forward + gap-fill, paper
 Section 2.3) across the full chunk sequence in temporal order. This is what
@@ -224,7 +232,11 @@ from pandas import DataFrame  # noqa: E402
 
 from dyco.pwb import (  # noqa: E402
     _DEFAULT_NA_VALUES,
+    _finite_or_nan,
+    _out_of_range,
     _read_engine_kwargs,
+    format_valid_range,
+    out_of_range_lines,
     PreWhiteningBootstrap,
     PwbBatchDetection,
 )
@@ -679,6 +691,7 @@ _GAS_SPEC_ALIASES = {
     'lag': 'lag_max_s', 'lag_max': 'lag_max_s', 'lagmax': 'lag_max_s',
     'block': 'block_length_s', 'block_length': 'block_length_s',
     'lws': 'lws', 'uws': 'uws',
+    'min': 'valid_min', 'max': 'valid_max',
 }
 
 
@@ -692,14 +705,22 @@ def parse_scalar_spec(token: str) -> tuple[str, str, dict]:
         H2O:h2o@lag=30;uws=25                # + asymmetric window upper bound
         H2O:h2o@lag=30;lws=0;uws=25;block=60 # all four, seconds
         N2O:n2o@lagfrom=CO2                  # borrow CO2's lag where N2O has none
+        CO2:co2@min=200;max=900              # valid range, in the column's units
+        H2O:h2o@min=0                        # either bound may be left out
 
     The part after ``@`` is ``;``-separated ``key=value`` pairs. Keys: ``lag``
     / ``lag_max`` (lag_max_s), ``block`` (block_length_s), ``lws``, ``uws`` --
-    all in seconds -- plus ``lagfrom``, another gas's LABEL. Returns
+    all in seconds -- plus ``lagfrom``, another gas's LABEL, and ``min`` /
+    ``max``, the gas's valid range in its own units. Returns
     ``(label, column, overrides)`` with the numeric *overrides* keyed by the
     canonical ``PreWhiteningBootstrap`` argument names (empty when there is no
-    ``@`` part); ``lagfrom`` is returned under that name and is a string, not a
-    number. Raises ``ValueError`` on a malformed token.
+    ``@`` part), so the range comes back as ``valid_min`` / ``valid_max``;
+    ``lagfrom`` is returned under that name and is a string, not a number.
+    Raises ``ValueError`` on a malformed token.
+
+    A value outside the valid range is treated as missing when the lag is
+    detected. It is still shifted and written to the output like any other
+    value: removing it for the flux calculation is the flux software's job.
 
     .. warning::
 
@@ -740,13 +761,22 @@ def parse_scalar_spec(token: str) -> tuple[str, str, dict]:
         if canon is None:
             raise ValueError(
                 f"unknown per-gas option {key.strip()!r} in {token!r}; "
-                f"allowed: lag, block, lws, uws, lagfrom")
+                f"allowed: lag, block, lws, uws, lagfrom, min, max")
         try:
-            overrides[canon] = float(val.strip())
+            num = float(val.strip())
         except ValueError as e:
             raise ValueError(
                 f"per-gas option {key.strip()!r} needs a number, got "
                 f"{val.strip()!r} in {token!r}") from e
+        if not np.isfinite(num):
+            raise ValueError(
+                f"per-gas option {key.strip()!r} needs a finite number, got "
+                f"{val.strip()!r} in {token!r}")
+        overrides[canon] = num
+    lo, hi = overrides.get('valid_min'), overrides.get('valid_max')
+    if lo is not None and hi is not None and not lo < hi:
+        raise ValueError(
+            f"valid range min ({lo:g}) must be below max ({hi:g}) in {token!r}")
     return label, col, overrides
 
 
@@ -831,6 +861,7 @@ def process_one_file(
         gas_lag_overrides: dict | None = None,
         lag_fallback: dict | None = None,
         max_carry: int | None = None,
+        valid_ranges: dict | None = None,
         progress_queue=None,
 ) -> list:
     """Run the two-phase PWB pipeline on one (possibly multi-hour) input file.
@@ -853,7 +884,9 @@ def process_one_file(
     verbatim at the top of every chunk file.
 
     ``scalars`` maps gas labels (e.g. ``'CH4'``) to column names in the
-    raw file (e.g. ``'CH4_DRY_[LGR-A]'``).
+    raw file (e.g. ``'CH4_DRY_[LGR-A]'``). ``valid_ranges`` optionally maps a
+    label to ``(min, max)``: values outside it are ignored when the lag is
+    detected, and written unchanged.
 
     Returns a list of per-chunk summary dicts: ``period`` (output chunk
     filename), ``parent`` (input filename), ``chunk_index``,
@@ -996,6 +1029,7 @@ def process_one_file(
                     g_lag, g_block, g_lws, g_uws = _resolve_gas_lag(
                         label, lag_max_s, block_length_s, lws, uws,
                         gas_lag_overrides)
+                    g_min, g_max = (valid_ranges or {}).get(label, (None, None))
                     pwb = PreWhiteningBootstrap(
                         df=pwb_df,
                         var_w='W_rot',
@@ -1010,9 +1044,12 @@ def process_one_file(
                         random_state=seed,
                         lws=g_lws,
                         uws=g_uws,
+                        valid_min=g_min,
+                        valid_max=g_max,
                     )
                     pwb.run()
                     res = pwb.results
+                    chunk_row[f'{pfx}_n_out_of_range'] = res['n_out_of_range']
 
                     # Full schema (matches dyco-pwb-batch results CSV)
                     chunk_row[f'{pfx}_tlag_s'] = float(res.get('tlag_s', np.nan))
@@ -1160,6 +1197,7 @@ def _empty_detect_row(scalars: dict, period: str, parent: str,
         r[f'{pfx}_ar_order'] = np.nan
         r[f'{pfx}_best_combination'] = ''
         r[f'{pfx}_n_valid'] = np.nan
+        r[f'{pfx}_n_out_of_range'] = np.nan
         r[f'{pfx}_applied_records'] = np.nan
         r[f'{pfx}_status'] = 'pending'
     return r
@@ -1196,6 +1234,7 @@ def detect_one_chunk(
         lws: float | None = None,
         uws: float | None = None,
         gas_lag_overrides: dict | None = None,
+        valid_ranges: dict | None = None,
         progress_queue=None,
 ) -> dict:
     """Phase 1: detect the per-gas time lag for one chunk (writes no data).
@@ -1334,11 +1373,16 @@ def detect_one_chunk(
         for gi, (label, col_name) in enumerate(scalars.items()):
             pfx = label.lower()
             gas_series = df_chunk[col_name].astype(float)
-            # Counts *usable* records: inf is as unusable as NaN, and a column
-            # of nothing but inf has to reach the no-data path below rather
-            # than PWB, which would reject it.
-            n_valid = int(np.isfinite(gas_series.to_numpy(dtype=float)).sum())
+            # Counts *usable* records: inf is as unusable as NaN, and so is a
+            # value outside the gas's valid range. A column of nothing but
+            # either has to reach the no-data path below rather than PWB,
+            # which would reject it. PWB applies the same range itself.
+            g_min, g_max = (valid_ranges or {}).get(label, (None, None))
+            x = _finite_or_nan(gas_series.to_numpy(dtype=float))
+            n_oor = int(_out_of_range(x, g_min, g_max).sum())
+            n_valid = int(np.isfinite(x).sum()) - n_oor
             row[f'{pfx}_n_valid'] = n_valid
+            row[f'{pfx}_n_out_of_range'] = n_oor
             if n_valid == 0:
                 # Analyser offline for the whole period: the column is -9999
                 # end to end. There is no lag to detect and none to apply --
@@ -1369,6 +1413,8 @@ def detect_one_chunk(
                 random_state=seed,
                 lws=g_lws,
                 uws=g_uws,
+                valid_min=g_min,
+                valid_max=g_max,
             )
             pwb.run()
             res = pwb.results
@@ -1705,10 +1751,16 @@ _SUMMARY_PERGAS_COLS = [
      "usually win on cw/wc; weak trace gases may fall back to the T_SONIC "
      "pair."),
     ('{gas}_n_valid',
-     "How many records of this gas are present (not missing) in the chunk. "
-     "0 means the analyser was offline for the whole period: no lag is "
+     "How many records of this gas are present (not missing) in the chunk "
+     "and inside its valid range, if one was set. 0 means the analyser was "
+     "offline for the whole period, or wrote nothing plausible: no lag is "
      "detected, none is carried or borrowed in, and the column is written "
      "through untouched."),
+    ('{gas}_n_out_of_range',
+     "How many records of this gas lay outside its valid range (--scalar "
+     "...@min=;max=). They were treated as missing for lag detection only "
+     "and are still in the written file, shifted like every other value. "
+     "0 when no range was set."),
     ('{gas}_applied_records',
      "Number of records the scalar column was shifted by in phase 2 = "
      "round(applied_lag_s * hz). The applied lag in seconds = this / hz "
@@ -1782,8 +1834,11 @@ def _lag_reason(summary, i: int, pfx: str, hdi_thresh: float,
 
     source = str(row.get(f'{pfx}_lag_source', 'none'))
     if source == 'no_data':
-        return ('every record of this gas is missing in this period - no lag '
-                'needed, and none applied')
+        n_oor = row.get(f'{pfx}_n_out_of_range', np.nan)
+        missing = ('missing or outside its valid range' if n_oor == n_oor
+                   and n_oor > 0 else 'missing')
+        return (f'every record of this gas is {missing} in this period - no '
+                f'lag needed, and none applied')
 
     flag = str(row.get(f'{pfx}_flag_pf', ''))
     hdi = row.get(f'{pfx}_hdi_range_s', np.nan)
@@ -1999,6 +2054,7 @@ class PerFilePipeline:
             per_gas_lag: dict | None = None,
             lag_fallback: dict | None = None,
             max_carry: int | None = None,
+            valid_ranges: dict | None = None,
     ):
         """Set up the per-file detect-and-remove pipeline. See the class docstring."""
         self.input_dir = Path(input_dir)
@@ -2077,6 +2133,23 @@ class PerFilePipeline:
         # Validated here so a typo fails before any file is read.
         self.lag_fallback = lag_fallback or {}
         resolve_lag_fallback(self.lag_fallback, scalars)
+
+        # {gas: (min, max)} -- values outside are ignored for detection only;
+        # the written files keep them. Validated here, like the two above.
+        self.valid_ranges = {}
+        for lbl, rng in (valid_ranges or {}).items():
+            if lbl not in scalars:
+                raise ValueError(
+                    f"valid_ranges references unknown gas label {lbl!r}; "
+                    f"known scalars are {sorted(scalars)}.")
+            lo, hi = rng
+            if lo is None and hi is None:
+                continue
+            if lo is not None and hi is not None and not lo < hi:
+                raise ValueError(
+                    f"valid range for {lbl}: min ({lo:g}) must be below max "
+                    f"({hi:g}).")
+            self.valid_ranges[lbl] = (lo, hi)
 
         self._summary: DataFrame | None = None
         # Result-file paths, populated by run() -> _write_summary_and_plots.
@@ -2344,6 +2417,7 @@ class PerFilePipeline:
                     lws=self.lws,
                     uws=self.uws,
                     gas_lag_overrides=self.per_gas_lag,
+                    valid_ranges=self.valid_ranges,
                     chunk_seconds=self.chunk_seconds,
                     chunk_name_template=self.chunk_name_template,
                     output_suffix=self.output_suffix,
@@ -2749,6 +2823,12 @@ class PerFilePipeline:
             ('per_gas_lag', self.per_gas_lag or "(none)",
              'Per-gas window overrides {label: {lag_max_s, block_length_s, '
              'lws, uws}}; a gas without an entry uses the global values.'),
+            ('valid_ranges',
+             ', '.join(f'{k}: {format_valid_range(*v)}'
+                       for k, v in self.valid_ranges.items()) or '(none)',
+             'Per-gas valid range, in the column\'s own units. Values outside '
+             'it are ignored for lag detection only; the written files keep '
+             'them. A gas without an entry is not range-checked.'),
             ('random_state', self.random_state,
              'Seed for a reproducible bootstrap; None = non-deterministic.'),
         ])
@@ -3244,7 +3324,8 @@ def _build_parser():
                    help='Column name for sonic temperature.')
     # --- Scalars ---
     p.add_argument('--scalar', dest='scalars', action='append',
-                   metavar='LABEL:column[@lag=..;uws=..]', required=True,
+                   metavar='LABEL:column[@lag=..;uws=..;min=..;max=..]',
+                   required=True,
                    help='Gas label and column name in the raw file, e.g. '
                         '"CH4:CH4_DRY_[LGR-A]". Repeat for each gas. Append '
                         'an optional per-gas time-lag window after "@" as '
@@ -3256,7 +3337,12 @@ def _build_parser():
                         'between gases that behave alike: H2O sticks to the '
                         'tube wall and lags longer than the flow, so it must '
                         'NOT be the donor for CO2, CH4 or N2O even when it is '
-                        'the gas that detects best.')
+                        'the gas that detects best. "min=" and "max=" give '
+                        'the gas a valid range in its own units, e.g. '
+                        '"CO2:co2@min=200;max=900"; either may be left out. '
+                        'Values outside it are treated as missing when the '
+                        'lag is detected, and written to the output '
+                        'unchanged.')
     # --- PWB parameters ---
     p.add_argument('--hz', type=int, default=20,
                    help='Sampling frequency in Hz.')
@@ -3424,6 +3510,7 @@ def _cli_main():
     scalars = {}
     per_gas_lag: dict = {}
     lag_fallback: dict = {}
+    valid_ranges: dict = {}
     for token in args.scalars:
         try:
             label, col, overrides = parse_scalar_spec(token)
@@ -3434,6 +3521,10 @@ def _cli_main():
         donor = overrides.pop('lagfrom', None)
         if donor:
             lag_fallback[label] = donor
+        lo = overrides.pop('valid_min', None)
+        hi = overrides.pop('valid_max', None)
+        if lo is not None or hi is not None:
+            valid_ranges[label] = (lo, hi)
         if overrides:
             per_gas_lag[label] = overrides
 
@@ -3461,7 +3552,8 @@ def _cli_main():
         from dyco.tui import (
             write_run_settings_yaml)
         settings_yaml = write_run_settings_yaml(
-            output_dir, args, scalars, per_gas_lag, lag_fallback)
+            output_dir, args, scalars, per_gas_lag, lag_fallback,
+            valid_ranges)
     except Exception:
         settings_yaml = None
 
@@ -3506,6 +3598,7 @@ def _cli_main():
         uws=args.uws,
         per_gas_lag=per_gas_lag,
         lag_fallback=lag_fallback,
+        valid_ranges=valid_ranges,
     )
 
     files = sorted(input_dir.glob(args.file_pattern))
@@ -3558,7 +3651,9 @@ def _cli_main():
         src = (f'   [dim]lag from[/dim] [bold]{borrow}[/bold] '
                f'[dim]where {label} has none[/dim]'
                if borrow and borrow != label else '')
-        out(f'[dim]scalar:[/dim]  [bold]{label}[/bold]  <- {col!r}{src}')
+        rng = (f'   [dim]valid[/dim] {format_valid_range(*valid_ranges[label])}'
+               if label in valid_ranges else '')
+        out(f'[dim]scalar:[/dim]  [bold]{label}[/bold]  <- {col!r}{src}{rng}')
     out(f'[dim]PWBOPT:[/dim]  hdi-thresh {args.hdi_thresh} s    '
         f'dev-thresh {args.dev_thresh} s    '
         f'hdi-prefilter {args.hdi_prefilter} s')
@@ -3760,6 +3855,8 @@ def _cli_main():
                       f'{total_chunks_est} chunks).[/{color}]')
         out()
         out(msg_chunks)
+        for line in out_of_range_lines(summary, scalars, valid_ranges):
+            out(f'[yellow]range[/yellow]  {line}')
 
         # run() already wrote the summary CSV and (when --save-plots) the
         # batch overview plots via _write_summary_and_plots — log the paths
