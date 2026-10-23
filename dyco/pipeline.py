@@ -265,6 +265,7 @@ from dyco.rawio import (  # noqa: E402
     is_compressed as _is_compressed,
     open_binary as _open_binary,
     open_text_write as _open_text_write,
+    partial_path,
     read_preserved_lines as _read_preserved_lines,
     resolve_output_suffix as _resolve_output_suffix,
     split_header_line,
@@ -1704,10 +1705,13 @@ _SUMMARY_GENERAL_COLS = [
      "'skipped:short' (fewer than min_chunk_seconds * hz = {M} rows, too few "
      "for the bootstrap, not written), 'skipped:duplicate' (its output name "
      "collided with a lower-index chunk and was skipped to avoid overwriting "
-     "it), 'error' (processing failed - see the error column)."),
+     "it), 'skipped:stopped' (the run was stopped before this chunk was "
+     "written), 'error' (processing or writing failed - see the error "
+     "column)."),
     ('error',
      "Exception type and message when status = 'error', or the reason text "
-     "when status = 'skipped:duplicate'. Empty otherwise."),
+     "when status = 'skipped:duplicate' or 'skipped:stopped'. Empty "
+     "otherwise."),
     ('theta_deg',
      "First double-rotation angle (yaw): horizontal wind rotated into the mean "
      "wind direction, in degrees."),
@@ -1964,7 +1968,7 @@ def _summary_columns_doc(scalars: dict, lag_column_template: str,
         "neighbouring reliable lag.")
     lines.append(
         "- Only rows with `status = ok` produce an output file. "
-        "`skipped:short`, `skipped:duplicate` and `error` rows are reported "
+        "`skipped:*` and `error` rows are reported "
         "for traceability but write nothing, and their lag columns are left "
         "empty: there is no data there to align, so there is no lag to state.")
     lines.append(
@@ -2556,12 +2560,35 @@ class PerFilePipeline:
         )
 
         # ---- Merge phase-2 outcomes back into the detection summary -----
+        cancelled_in_remove = bool(cancel_event is not None
+                                   and cancel_event.is_set())
+        dispatched = {(Path(kw['input_path']).name, kw['chunk_index'])
+                      for kw in remove_kwargs_list}
         remove_by_key = {(rr['parent'], int(rr['chunk_index'])): rr
                          for rr in remove_rows}
         for idx in summary.index:
             key = (summary.at[idx, 'parent'], int(summary.at[idx, 'chunk_index']))
             rr = remove_by_key.get(key)
             if rr is None:
+                if key not in dispatched:
+                    continue
+                # Sent to phase 2 but never reported back, so no file was
+                # finished for it; left at 'ok' it would be counted as written.
+                # One worker dying (out of memory, say) breaks the whole pool,
+                # and the executor then kills every sibling mid-write, so this
+                # is usually most of the phase, not one chunk.
+                if cancelled_in_remove:
+                    summary.at[idx, 'status'] = 'skipped:stopped'
+                    summary.at[idx, 'error'] = (
+                        'alignment was stopped before this chunk was written')
+                else:
+                    summary.at[idx, 'status'] = 'error'
+                    summary.at[idx, 'error'] = (
+                        'not written: its worker process was lost before it '
+                        'reported (a worker crashed or ran out of memory; '
+                        'try fewer workers)')
+                partial_path(data_dir / summary.at[idx, 'period']).unlink(
+                    missing_ok=True)
                 continue
             for label in self.scalars:
                 pfx = label.lower()
@@ -3479,6 +3506,7 @@ def _cli_main():
     from rich.progress import (BarColumn, MofNCompleteColumn, Progress,
                                SpinnerColumn, TextColumn,
                                TimeElapsedColumn, TimeRemainingColumn)
+    from rich.markup import escape as _rich_escape
     from rich.text import Text as _RichText
     # On-screen console only. The plain-text log is built explicitly in
     # ``log_lines`` (NOT via console recording), so the animated live display
@@ -3855,6 +3883,11 @@ def _cli_main():
                       f'{total_chunks_est} chunks).[/{color}]')
         out()
         out(msg_chunks)
+        # Name each failed chunk here, in log.txt as well. The pool's own
+        # warnings go to stderr, which the live display can swallow.
+        for _, r in summary[summary['status'] == 'error'].iterrows():
+            out(f'[red]error[/red]  {_rich_escape(str(r.get("period", "")))}: '
+                f'{_rich_escape(str(r.get("error", "")))}')
         for line in out_of_range_lines(summary, scalars, valid_ranges):
             out(f'[yellow]range[/yellow]  {line}')
 
