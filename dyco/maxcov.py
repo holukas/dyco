@@ -5,10 +5,8 @@ MAXCOV: MAXIMUM COVARIANCE TIME LAG DETECTION
 Find the optimal time lag between a scalar and the vertical wind component by
 maximizing their cross-covariance.
 
-Moved here from diive (`flux/hires/lag.py`), which is where it lived while dyco
-depended on diive. dyco is its primary caller. diive keeps its own copy for now
-because `FluxDetectionLimit` still uses it; that copy goes when the rest of
-diive's `flux/hires` moves across.
+Moved here from diive (`flux/hires/lag.py`). `FluxDetectionLimit` builds on it,
+and `cross_covariance` is the covariance both of them read.
 
 Part of the dyco package: https://github.com/holukas/dyco
 """
@@ -16,15 +14,65 @@ Part of the dyco package: https://github.com/holukas/dyco
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-import polars as pl
 from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from matplotlib.transforms import blended_transform_factory
 from pandas import DataFrame
+from scipy import fft as sp_fft
 from scipy.signal import find_peaks
 
 from dyco._vendor import plotstyle as theme
 from dyco._vendor.plotstyle import default_format
+
+
+def cross_covariance(reference: np.ndarray, lagged: np.ndarray, shifts: np.ndarray) -> np.ndarray:
+    """Cross-covariance of two series at the given shifts, in records.
+
+    Langford et al. (2015), eq. 4: deviations from the means of the whole period,
+    summed over the overlapping pairs and divided by their number, ``n - t`` when
+    nothing is missing. A positive shift pairs ``reference[i]`` with
+    ``lagged[i + shift]``, i.e. the lagged series arrives later.
+
+    NaN is missing: the means skip it, and so does each lag's sum and count. A
+    shift with no overlapping pair at all gives NaN.
+
+    Computed for every lag at once by FFT, which is exact up to rounding. The
+    direct sum over a +/-180 s window at 20 Hz builds ~260 million products per
+    half hour; the earlier implementation did that and needed ~15 GB.
+    """
+    a = np.asarray(reference, dtype=float)
+    b = np.asarray(lagged, dtype=float)
+    shifts = np.asarray(shifts, dtype=int)
+    n = len(a)
+    out = np.full(len(shifts), np.nan)
+    if n == 0 or len(shifts) == 0:
+        return out
+
+    ma, mb = np.isfinite(a), np.isfinite(b)
+    a = np.where(ma, a - a[ma].mean(), 0.0) if ma.any() else np.zeros(n)
+    b = np.where(mb, b - b[mb].mean(), 0.0) if mb.any() else np.zeros(n)
+
+    # Only |shift| < n can overlap at all; the rest stay NaN.
+    usable = np.abs(shifts) < n
+    if not usable.any():
+        return out
+    max_lag = int(np.abs(shifts[usable]).max())
+    # n_fft >= n + max_lag keeps circular wraparound out of every kept lag.
+    n_fft = sp_fft.next_fast_len(n + max_lag, real=True)
+    idx = shifts[usable] % n_fft  # negative shifts sit at the end of the circle
+
+    def _corr(x, y):
+        # sum_i x[i] * y[i + t] for all t, circularly
+        return sp_fft.irfft(np.conj(sp_fft.rfft(x, n_fft)) * sp_fft.rfft(y, n_fft), n_fft)
+
+    sums = _corr(a, b)[idx]
+    if ma.all() and mb.all():
+        counts = (n - np.abs(shifts[usable])).astype(float)
+    else:
+        counts = np.rint(_corr(ma.astype(float), mb.astype(float))[idx])
+    with np.errstate(invalid='ignore', divide='ignore'):
+        out[usable] = np.where(counts > 0, sums / counts, np.nan)
+    return out
 
 
 class MaxCovariance:
@@ -55,8 +103,6 @@ class MaxCovariance:
             is found.
         idx_peak_auto (int, optional): Index of the automatically detected peak in the covariance
             data.
-        idx_instantaneous_default_lag (int, optional): Default lag index for instantaneous peak
-            detection.
 
     See Also
     --------
@@ -83,7 +129,7 @@ class MaxCovariance:
         Initializes the class with data and configuration parameters for analyzing lagged
         relationships and segments based on specific variables within a DataFrame.
 
-        Postive lag means *var_lagged* lags behind *var_reference* (arrives later).
+        Positive lag means *var_lagged* lags behind *var_reference* (arrives later).
         Negative lag means *var_lagged* lags ahead of *var_reference* (arrives earlier).
 
         Args:
@@ -92,8 +138,8 @@ class MaxCovariance:
             var_lagged (str): The name of the lagged column in the DataFrame.
             lgs_winsize_from (int): The starting size of the lagging window. Defaults to -1000.
             lgs_winsize_to (int): The ending size of the lagging window. Defaults to 1000.
-            shift_stepsize (int): The step size for shifting lagged data. Defaults to 1. Negative
-                values move lagged values upwards in the column.
+            shift_stepsize (int): Records between successive shifts. Defaults to 1. Must be
+                positive: the shifts run from *lgs_winsize_from* up to *lgs_winsize_to*.
             segment_name (str): The name of the segment for identification purposes. Defaults to
                 "segment_name_here".
         """
@@ -103,7 +149,7 @@ class MaxCovariance:
         self.var_lagged = var_lagged
         self.lgs_winsize_from = lgs_winsize_from
         self.lgs_winsize_to = lgs_winsize_to
-        self.shift_stepsize = shift_stepsize  # Negative moves lagged values "upwards" in column
+        self.shift_stepsize = shift_stepsize
         self.segment_name = segment_name
 
         # Init new variables
@@ -111,11 +157,10 @@ class MaxCovariance:
         self._cov_df = DataFrame()
         self.idx_peak_cov_abs_max = None
         self.idx_peak_auto = None
-        self.idx_instantaneous_default_lag = None
 
     @property
     def cov_df(self) -> DataFrame:
-        """Overall flag, calculated from individual flags from multiple iterations."""
+        """Covariance per shift, with the peak flags. Filled by `run`."""
         if not isinstance(self._cov_df, DataFrame):
             raise Exception('No covariance results available.')
         return self._cov_df
@@ -229,43 +274,12 @@ class MaxCovariance:
         pandas DataFrame with segment lag search results
         """
 
-        # Convert inputs to Polars for processing
-        # We only need the core data columns and the shifts
-        pl_df = pl.DataFrame(self.df[[self.var_reference, self.var_lagged]])
-        pl_cov_df = pl.DataFrame(self.cov_df[['shift']])
-
-        # Rename columns for clarity in Polars
-        ref_col = self.var_reference
-        lagged_col = self.var_lagged
-        pl_df = pl_df.rename({ref_col: "reference", lagged_col: "lagged"})
-
-        # Join the shifts onto the main data (Cartesian product)
-        # This creates a row for every combination of (data point, shift value)
-        pl_with_shifts = pl_df.join(pl_cov_df, how="cross")
-
-        # Group by the 'shift' value and calculate the covariance within each group
-        # for the lagged column relative to the reference column.
-        pl_results = (
-            pl_with_shifts.group_by("shift")
-            .agg(
-                # Calculate covariance between the 'reference' column and the 'lagged' column
-                # shifted by the current group's 'shift' value.
-                pl.cov("reference", pl.col("lagged").shift(-pl.first("shift"))).alias("cov")
-            )
-            # The 'index' and 'cov_abs' columns still need to be calculated/added
-            .with_columns(
-                # Calculate absolute covariance
-                pl.col("cov").abs().alias("cov_abs")
-            )
-            .sort("shift")  # Sort to match original output order
-        )
-
-        # Convert the results back to Pandas for the final steps
-        cov_df_new = pl_results.to_pandas()
-
-        # Merge the new cov and cov_abs columns into the original cov_df structure
-        cov_df = self.cov_df.drop(columns=['cov', 'cov_abs'], errors='ignore')
-        cov_df = cov_df.merge(cov_df_new, on='shift', how='left')
+        cov_df = self.cov_df.copy()
+        cov_df['cov'] = cross_covariance(
+            self.df[self.var_reference].to_numpy(dtype=float),
+            self.df[self.var_lagged].to_numpy(dtype=float),
+            cov_df['shift'].to_numpy(dtype=int))
+        cov_df['cov_abs'] = cov_df['cov'].abs()
 
         # Find the maximum absolute covariance
         cov_max_ix = cov_df['cov_abs'].idxmax()
@@ -329,7 +343,6 @@ class MaxCovariance:
         # Markers for points of interest, e.g. peaks
         txt_info = self.mark_max_cov_abs_peak(ax=ax, txt_info=txt_info)
         txt_info = self.mark_auto_detected_peak(ax=ax, txt_info=txt_info)
-        txt_info = self.mark_instantaneous_default_lag(ax=ax, txt_info=txt_info)
 
         arrow = r"$\rightarrow$"
         # Create a blended transform: Data coordinates for X, Axes coordinates for Y
@@ -438,34 +451,6 @@ class MaxCovariance:
                 f"    record {self.cov_df.iloc[self.idx_peak_cov_abs_max]['shift']}\n"
         else:
             txt_info += "\n(!)NO PEAK MAX ABS COV FOUND\n"
-        return txt_info
-
-    def mark_instantaneous_default_lag(self, ax, txt_info):
-        """
-        Mark instantaneous default time lag
-
-        Used in Phase 3
-
-        Parameters
-        ----------
-        ax: axis
-        txt_info: str
-            Info text about segment lag times, shown in plot
-
-        Returns
-        -------
-        Extended info text
-        """
-        if self.idx_instantaneous_default_lag:
-            ax.scatter(self.cov_df.iloc[self.idx_instantaneous_default_lag]['shift'],
-                       self.cov_df.iloc[self.idx_instantaneous_default_lag]['cov'],
-                       alpha=1, edgecolors='green', marker='o', s=200, c='None',
-                       label='instantaneous default lag', zorder=90)
-            txt_info += \
-                f"\nTIME LAG SET TO DEFAULT (PHASE 3)\n" \
-                f"    lag time was set to default\n" \
-                f"    cov {self.cov_df.iloc[self.idx_instantaneous_default_lag]['cov']:.3f}\n" \
-                f"    record {self.cov_df.iloc[self.idx_instantaneous_default_lag]['shift']}\n"
         return txt_info
 
     def mark_auto_detected_peak(self, ax, txt_info):

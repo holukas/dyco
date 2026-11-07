@@ -100,7 +100,6 @@ fdl = FluxDetectionLimit(
     lag_range=[-180, 180],  # seconds (standard range for FDL calculation)
     lag_stepsize=10,  # records
     sampling_rate=10,  # Hz
-    create_covariance_plot=True,
     title_covariance_plot='Flux Detection Limit Analysis'
 )
 

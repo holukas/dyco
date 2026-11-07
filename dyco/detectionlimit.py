@@ -52,7 +52,6 @@ References:
 import math
 import numbers
 import time
-from pathlib import Path
 
 import matplotlib
 import pandas as pd
@@ -118,8 +117,8 @@ class FluxDetectionLimit:
     5.  Calculate the noise RMSE from the covariance function at the large
         lag windows defined by `lag_range` and `noise_range`.
     6.  Determine the FDL (3 * RMSE).
-    7.  Find the maximum covariance (the flux signal) and calculate
-        signal-to-noise ratios.
+    7.  Find the lag of maximum absolute covariance, and read the flux at
+        `default_lag` as the signal for the signal-to-noise ratios.
 
     Parameters
     ----------
@@ -145,10 +144,12 @@ class FluxDetectionLimit:
         Column name for the H2O mole fraction (units: mol mol-1).
     press_col : str
         Column name for the air pressure (units: Pa).
-    default_lag : float
+    default_lag : float or None
         Default time lag (units: seconds) for calculating the flux "signal"
         in the signal-to-noise ratio. Positive lag means the scalar arrives
         after the vertical wind (e.g., due to inlet tube transit time).
+        None computes the detection limit only; the signal keys are then None,
+        and `flux_at_lag()` reads the flux at any lag afterwards.
     noise_range : int
         Width of the time window (units: seconds) at the edges of lag_range
         used to calculate noise. Example: if lag_range=[-180, 180] and
@@ -170,6 +171,10 @@ class FluxDetectionLimit:
         - If sampling_rate=20 Hz and lag_stepsize=20 records, then each step = 1 second
     sampling_rate : int
         Data sampling rate (units: Hz), e.g., 10 for 10Hz or 20 for 20Hz.
+    title_covariance_plot : str or None
+        Text appended to the title of the figure from `get_fig_cov()`.
+    verbose : bool
+        Print the run time, noise RMSE and detection limit. Default True.
 
     Attributes
     ----------
@@ -180,9 +185,10 @@ class FluxDetectionLimit:
         '{w_col}_TURB' (turbulent fluctuation of w),
         '{c_col}_TURB' (turbulent fluctuation of scalar c).
     cov_df : pd.DataFrame
-        DataFrame holding cross-covariance calculation results with columns:
-        'shift' (lag in records), 'cov' (covariance), 'cov_flux' (converted
-        to physical flux units using ideal gas law).
+        DataFrame holding cross-covariance calculation results, including the
+        columns 'shift' (lag in records, positive when the scalar arrives after
+        the wind), 'cov' (covariance), 'cov_abs' (its absolute value) and
+        'cov_flux' (converted to physical flux units using ideal gas law).
     results : dict
         Dictionary containing final results after `run()` is called. Keys:
         - 'flux_detection_limit' : Detection limit (3 * RMSE), units depend
@@ -238,13 +244,13 @@ class FluxDetectionLimit:
             ts_col: str,
             h2o_col: str,
             press_col: str,
-            default_lag: float,
+            default_lag: float | None,
             noise_range: int,
             lag_range: list,
             lag_stepsize: int,
             sampling_rate: int,
-            create_covariance_plot: bool = True,
-            title_covariance_plot: str = None
+            title_covariance_plot: str = None,
+            verbose: bool = True,
     ):
         """Set up flux detection-limit estimation. See the class docstring."""
         self.hires_df = df.copy()
@@ -260,8 +266,8 @@ class FluxDetectionLimit:
         self.default_lag = default_lag
         self.lag_stepsize = lag_stepsize
         self.sampling_rate = sampling_rate
-        self.create_covariance_plot = create_covariance_plot
         self.title_covariance_plot = title_covariance_plot
+        self.verbose = verbose
 
         # Convert s to number or records,
         #   e.g. for 20Hz data (20 records = 1s): 180s * 20 = 3600 records
@@ -292,9 +298,9 @@ class FluxDetectionLimit:
         self.maxcov_obj = None  # Stores covariances from lag search
 
     def run(self):
+        """Run the flux detection-limit estimation."""
 
         # Calculate turbulent fluctuations
-        """Run the flux detection-limit estimation."""
         self.hires_df = self._turbulent_fluctuations(df=self.hires_df)
 
         # Calculate covariances
@@ -308,10 +314,10 @@ class FluxDetectionLimit:
         # Flux detection limit
         flux_detection_limit, flux_noise_rmse = self._flux_detection_limit(cov_df=self.cov_df.copy())
 
-        # Calculate flux at default lag, this is the "signal" in the signal-to-noise ratio
-        # Default lag is given as seconds, here it is converted to shift of "number of records", i.e.,
-        # by how many records the time series needs to be shifted in one direction.
-        flux = self.cov_df.loc[self.cov_df['shift'] == -self.default_lag * self.sampling_rate]['cov_flux'].values[0]
+        # Calculate flux at default lag, this is the "signal" in the signal-to-noise ratio.
+        # None leaves the signal out, for a caller that only knows the lag later
+        # (see flux_at_lag).
+        flux = None if self.default_lag is None else self.flux_at_lag(self.default_lag)
 
         # Get flux at maximum covariance lag
         if isinstance(cov_max_ix, numbers.Integral):
@@ -326,32 +332,27 @@ class FluxDetectionLimit:
             'cov_max_shift': cov_max_shift,
             'flux_signal_at_default_lag': flux,
             'flux_signal_at_cov_max_lag': maxcovflux,
-            'signal_to_noise': abs(flux) / flux_noise_rmse if flux else None,
-            'signal_to_detection_limit': abs(flux) / flux_detection_limit if flux else None
+            'signal_to_noise': abs(flux) / flux_noise_rmse if flux is not None else None,
+            'signal_to_detection_limit': abs(flux) / flux_detection_limit if flux is not None else None
         }
 
-    def _max_abs_covariance(self, cov_df: DataFrame):
-        """Get index of max covariance and respective lag time (shift in records)"""
+    def flux_at_lag(self, lag_s: float) -> float:
+        """Flux read off the cross-covariance at *lag_s* seconds; call after `run()`.
 
-        # The realistic time window for lag search is 0-5s
-        # This corresponds to records with shifts -99 (5s) and 0 (0s)
-        # Here we search for the max covariance in the realistic time window
-        subset_df = cov_df.loc[(cov_df['shift'] >= -99) & (cov_df['shift'] <= 0), :].copy()
-        subset_cov_max_ix = subset_df['cov_abs'].idxmax()
-        subset_cov_max_shift = int(subset_df.loc[subset_df.index == subset_cov_max_ix, 'shift'])
-
-        # Check if cov max within allowed range
-        # Allowed range here:
-        #   5s (record -99, fringe record not allowed i.e. -99 not allowed)
-        #   0s (record 0, fringe records not allowed i.e. 0 not allowed)
-        # Negative shift means scalar arrived after wind
-        if (subset_cov_max_shift > -99) and (subset_cov_max_shift < 0):
-            pass
-        else:
-            subset_cov_max_shift = -28  # Set to nominal time lag, in 2020 = 1.40s for both N2O and CH4
-            subset_cov_max_ix = subset_df.loc[subset_df['shift'] == subset_cov_max_shift].index[0]
-            # subset_cov_max_shift = subset_df.loc[subset_df.index == subset_cov_max_ix, 'shift'].index[0]
-        return subset_cov_max_ix, subset_cov_max_shift
+        Positive means the scalar arrives after the wind, the same convention as
+        `default_lag` and as the PWB lag, so a lag detected there can be passed
+        straight in.
+        """
+        # MaxCovariance puts a scalar that arrives after the wind at a positive shift.
+        # Rounding absorbs float error in s * Hz.
+        shift = round(lag_s * self.sampling_rate)
+        at_lag = self.cov_df.loc[self.cov_df['shift'] == shift, 'cov_flux']
+        if at_lag.empty:
+            raise ValueError(
+                f"lag {lag_s} s is shift {shift} records, which is not on the lag grid "
+                f"({self.lag_from} to {self.lag_to} in steps of {self.lag_stepsize} records). "
+                f"Choose a lag on that grid, or a smaller lag_stepsize.")
+        return float(at_lag.values[0])
 
     def get_detection_limit(self) -> dict:
         """Return the estimated flux detection limit."""
@@ -375,13 +376,6 @@ class FluxDetectionLimit:
         return df
 
     def _crosscovariance(self) -> tuple[pd.DataFrame, int, int, MaxCovariance]:
-        # # 20 Hz data: 1 record = 0.05s, 20 records = 1s
-        # # we want to shift from -180s to -160s and from +160s to +180s
-        # sampling_rate = 20  # Hz
-        # lag_from = -180 * sampling_rate  # 160s * 20 = 3200 records
-        # lag_to = -160 * sampling_rate
-        # shift_stepsize = 1
-
         start_time = time.perf_counter()
         maxcov_obj = MaxCovariance(
             df=self.hires_df,
@@ -396,7 +390,8 @@ class FluxDetectionLimit:
         maxcov_obj.run()
         end_time = time.perf_counter()
         elapsed_time_seconds = end_time - start_time
-        info(f"Time needed for covariance calculation: {elapsed_time_seconds:0.3f}s")
+        if self.verbose:
+            info(f"Time needed for covariance calculation: {elapsed_time_seconds:0.3f}s")
         cov_df, props_peak_auto = maxcov_obj.get()
 
         # Max covariance
@@ -437,11 +432,13 @@ class FluxDetectionLimit:
     def _flux_detection_limit(self, cov_df: DataFrame):
         """Calculate flux detection limit
 
-        Flux noise criterium using RMSE noise of covariance between +/- 160-180s
-        see LAN15
+        Flux noise criterion: RMSE of the covariance in the two noise windows,
+        each `noise_range` seconds wide, at the ends of `lag_range` (e.g.
+        +/- 160-180 s), see LAN15
 
         """
 
+        # e.g. lag_range [-180, 180] at 20 Hz:
         # from -3600 to -3200 (-180 to -160s)
         # from +3200 to +3600 (+160 to +180s)
 
@@ -467,104 +464,8 @@ class FluxDetectionLimit:
                 (cov_df_right['cov_flux'].std()) ** 2 + (cov_df_right['cov_flux'].mean()) ** 2
         ))
         flux_detection_limit = flux_noise_rmse * 3
-        info(f"Flux noise RMSE: {flux_noise_rmse}")
-        info(f"Flux detection limit: {flux_detection_limit}")
+        if self.verbose:
+            info(f"Flux noise RMSE: {flux_noise_rmse}")
+            info(f"Flux detection limit: {flux_detection_limit}")
         return flux_detection_limit, flux_noise_rmse
 
-
-def _example():
-    from dyco._vendor.fileio import search_files
-
-    # Dirs
-    INDIR = [r'F:\Sync\luhk_work\CURRENT\flux_detection_limit\raw']
-    OUTDIR = r'F:\Sync\luhk_work\CURRENT\flux_detection_limit\OUT'
-
-    # Search high-res data files (30MIN files in this example)
-    filepaths = search_files(INDIR, "*.txt")
-
-    # Column names
-    u_col = 'x'  # m s-1
-    v_col = 'y'  # m s-1
-    w_col = 'z'  # m s-1
-    n2o_col = 'N2Od'  # dry umol mol-1 (ppm), but must be dry mole fraction in nmol mol-1 (ppb)
-    h2o_col = 'H2O'  # umol mol-1 (ppm), but needs to be in mol mol-1 (ppt)
-    press_col = 'Pressure'  # Pa, example value
-    ta_col = 'Ts'  # °C, sonic temperature
-
-    file_results_df = pd.DataFrame()
-
-    fig_cov = None
-    for ix, fp in enumerate(filepaths):
-        # # todo testing
-        # if ix > 1:
-        #     break
-
-        # Load data
-        print(f"Reading file #{ix}: {fp} ...")
-        try:
-            df = pd.read_csv(fp)
-        except UnicodeDecodeError:
-            continue
-
-        # Conversions
-        df[n2o_col] = df[n2o_col].multiply(10 ** 3)  # Convert from umol mol-1 to nmol mol-1
-        df[h2o_col] = df[h2o_col].div(10 ** 6)  # Convert from umol mol-1 to mol mol-1
-        df[press_col] = 100_000  # Pa, example value
-        # df[press_col] = df[press_col].multiply(133.322)  # From Torr to Pa
-        df[ta_col] = df[ta_col].add(273.15)  # From degC to K
-
-        fdl = FluxDetectionLimit(
-            df=df,
-            u_col=u_col,  # m s-1
-            v_col=v_col,  # m s-1
-            w_col=w_col,  # m s-1
-            c_col=n2o_col,  # nmol mol-1 (ppb)
-            ts_col=ta_col,  # degC
-            h2o_col=h2o_col,  # mol mol-1
-            press_col=press_col,  # Pa
-            noise_range=20,  # seconds
-            default_lag=3,  # seconds, positive number means c lags behind turbulent w
-            lag_range=[-180, 180],  # seconds
-            lag_stepsize=10,
-            sampling_rate=10,
-            create_covariance_plot=True,
-            title_covariance_plot=fp.name)  # Hz
-
-        fdl.run()
-
-        results = fdl.get_detection_limit()
-        fig_cov = fdl.get_fig_cov()
-
-        # Organize results dataframe
-        results['filename'] = fp.name
-        new_results = pd.DataFrame([results])
-        first_col = 'filename'
-        other_cols = [col for col in new_results.columns if col != first_col]
-        new_column_order = [first_col] + other_cols
-        new_results = new_results[new_column_order]
-
-        if ix == 0:
-            file_results_df = new_results.copy()
-        else:
-            file_results_df = pd.concat([file_results_df, new_results], axis=0, ignore_index=True)
-
-
-        # if fig_cov:
-        #     # outpath = Path(OUTDIR) / f'cov_{fp.name}.png'
-        #     # fig_cov.savefig(outpath)
-        #     # print(f"Saved figure {outpath}")
-        #     fig_cov.show()
-
-
-    print(file_results_df)
-
-    # Save
-    outfile = Path(OUTDIR) / 'results_N2O.csv'
-    # outfile = Path(outdir) / 'results_CH4.csv'
-    file_results_df.to_csv(outfile)
-
-    # print(file_results_df)
-
-
-if __name__ == '__main__':
-    _example()
