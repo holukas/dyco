@@ -122,7 +122,7 @@ def main():
             # File format: one file, gzip-compressed CSV, 3 header rows. Row 0
             # carries the column names; rows 1-2 (units, instrument) are the
             # 'extra' header rows that are preserved in the output.
-            file_pattern='*.csv.gz',
+            file_pattern='CH-LAE_*.csv.gz',  # examples/data/ holds other sites' files too
             skiprows=0,
             extra_rows=2,
             sep=',',
