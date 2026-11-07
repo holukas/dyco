@@ -19,7 +19,7 @@ A `dyco detect-remove` run fills `--output-dir` like this:
     Lag-corrected chunk files, and only those.
 
 run_settings.txt    every setting used, each with a one-line explanation
-detect_remove_tui_settings.yaml   reloadable by `dyco tui`
+detect_remove_tui_settings.yaml   reloadable by `dyco tui` (TUI runs only)
 log.txt             plain-text console log
 README.txt          this layout, written into the folder itself
 ```
@@ -28,7 +28,9 @@ README.txt          this layout, written into the folder itself
 `--detect-subdir` and `--data-subdir` if you want different ones.
 
 `pwb-batch` and `apply-batch` write their own `log.txt` beside their results. `pwb-batch`'s results
-file is called `tlag_results.csv`, which is what `apply-batch --results-csv` expects.
+file is called `tlag_results.csv`, which is what `apply-batch --results-csv` expects. `dyco fdl`
+writes `pwb_fdl_results.csv` and `log.txt`, described in
+[Flux detection limit](fdl.md#output).
 
 :::{note}
 **Lag is expressed in seconds.** The covariance-maximization method removed in v3 counted records
@@ -65,16 +67,16 @@ reliability flag, the PWBOPT columns and the records actually applied. Its schem
 `tlag_results.csv` from `pwb-batch`, plus the columns this pipeline adds at the removal step.
 
 **Every column is described in `detect_and_remove_tlag_summary_columns.md`, written next to the CSV
-by the same run.** That file is generated from the run's own settings — it names your gases, your
-sampling rate and the specific lag column that was applied — so it is always more accurate than a
-list in these docs could be. Read it first.
+by the same run.** That file is generated from the run's own settings (it names your gases, your
+sampling rate and the specific lag column that was applied), so it is more accurate than a
+list in these docs can be.
 
-The parts worth knowing before you open either file:
+The columns most often needed:
 
 `{gas}_lag_applied_s`
 : **The lag that was actually removed**, in seconds. Derived from the record shift the pipeline
-  made, so it describes the files on disk rather than what was asked for — and it is always a whole
-  number of records, which is why it can sit up to half a record from the requested lag. Six other
+  made, so it describes the files on disk rather than what was asked for. It is always a whole
+  number of records, which is why it can differ by up to half a record from the requested lag. Six other
   lag columns exist per gas; they are the working steps that led to this one.
 
 `{gas}_lag_reason`
@@ -82,7 +84,7 @@ The parts worth knowing before you open either file:
 
 `{gas}_tlag_s`
 : The **raw** per-chunk detection, before PWBOPT. This is not necessarily what was removed. A
-  wide-HDI chunk's raw lag can be spurious, which is the entire reason PWBOPT exists.
+  wide-HDI chunk's raw lag can be spurious; PWBOPT exists to replace such lags.
 
 `{gas}_hdi_range_s`
 : The width of the 95% interval, and the number every PWBOPT decision turns on. Below
@@ -102,11 +104,11 @@ The parts worth knowing before you open either file:
 `{gas}_best_combination`
 : Which of the four pre-whitening combinations won: `cw` and `wc` are the gas against vertical wind,
   `ct` and `tc` the gas against sonic temperature. Strong fluxes usually win on `cw`/`wc`. A trace
-  gas that keeps falling back to the temperature pair is telling you its own signal against `W` is
-  too weak to work with.
+  gas that repeatedly falls back to the temperature pair has a signal against `W` too weak for
+  detection.
 
 `{gas}_tlag_final_pf_s`
-: The PWBOPT-optimised, pre-filtered, gap-filled lag — the default value of
+: The PWBOPT-optimised, pre-filtered, gap-filled lag. It is the default value of
   `--lag-column-template`, and so by default the column that was *requested* for removal. The data
   dictionary flags whichever column your run used.
 
@@ -125,9 +127,9 @@ The parts worth knowing before you open either file:
 : The shift in records, which is `{gas}_lag_applied_s * hz`.
 
 `status` and `{gas}_status`
-: Two different things. The row-level `status` is the chunk's fate — only `ok` rows produced an
-  output file, while `skipped:short`, `skipped:duplicate` and `error` rows are reported for
-  traceability and write nothing. The per-gas `{gas}_status` is that gas's phase-2 outcome within an
+: Two different things. The row-level `status` is the chunk's outcome: only `ok` rows produced an
+  output file, while `skipped:short`, `skipped:duplicate`, `skipped:stopped` and `error` rows are
+  reported for traceability and write nothing. The per-gas `{gas}_status` is that gas's phase-2 outcome within an
   otherwise fine chunk: `ok`, `skipped:lag_nan` (no finite PWBOPT lag to apply), or `pending` (the
   chunk never reached phase 2).
 
@@ -139,8 +141,8 @@ columns are untouched.
 :::
 
 :::{tip}
-A run where many periods show `median` in `{gas}_lag_source` is telling you that gas could not locate
-its own lag and had no donor. Give it one with `@lagfrom=`, and set `--max-carry` alongside it —
+Many periods with `median` in `{gas}_lag_source` mean that the gas could not locate its own lag
+and had no donor. Give it one with `@lagfrom=`, and set `--max-carry` alongside it:
 without a carry limit the gas keeps reaching every period with its own lag and the donor is never
 consulted.
 :::
@@ -157,9 +159,8 @@ Three panels, left to right (`PreWhiteningBootstrap.plot`):
 1. **The pre-whitened cross-correlation**, grey stems with the smoothed line over them, a Bartlett
    significance band, and a red marker at the detected lag. If the peak does not clear the band,
    there was nothing to find in that period.
-2. **The raw cross-covariance**, same layout, with the same lag marked. This is the curve the old
-   covariance-maximization method worked on, so comparing the two panels shows what pre-whitening
-   bought.
+2. **The raw cross-covariance**, same layout, with the same lag marked. This is the curve that
+   covariance maximization works on, so comparing the two panels shows the effect of pre-whitening.
 3. **The bootstrap lag distribution** for the winning combination: a histogram of the peak found in
    each resample, the 95% interval shaded, and the mode marked. A tight cluster is a reliable lag; a
    spread-out or multi-peaked one is what a wide interval looks like. The panel title names the

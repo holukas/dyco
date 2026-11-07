@@ -235,7 +235,7 @@ well inside the 0.5 s reliability threshold.
 
 :::{note}
 This record also contains literal `-Inf` values, written by the logger into H₂O. Nothing needs
-configuring, because dyco treats any non-finite value as missing, like `-9999`. Just as well, since
-`--na-values` cannot express it. `argparse` reads a leading `-Inf` as an option name and refuses the
+configuring, because dyco treats any non-finite value as missing, like `-9999`. `--na-values` could
+not express it in any case: `argparse` reads a leading `-Inf` as an option name and refuses the
 command. Non-finite values are left out of `{gas}_n_valid`.
 :::

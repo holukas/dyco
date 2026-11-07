@@ -13,12 +13,14 @@ dyco <command> --help   # options for one of them
 | [`dyco detect-remove`](detect-remove.md) | **The main command.** Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass, one output folder. | Almost always. Scripting, or when you prefer a command line. |
 | [`dyco pwb-batch`](pwb-batch.md) | Detect only, on files that are *already* split into averaging periods. Writes `tlag_results.csv` and stops. | Step 1 of the two-step route. |
 | [`dyco apply-batch`](apply-batch.md) | Remove lags listed in an existing `tlag_results.csv`. Detects nothing. | Step 2 of the two-step route. |
+| [`dyco fdl`](fdl.md) | Detect the lag as `detect-remove` does, then compute each period's flux detection limit and the flux at that lag. Writes `pwb_fdl_results.csv`, no data files. | To find out which fluxes stand out from noise. See [Flux detection limit](../fdl.md). |
 
 Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`, `dyco-pwb-batch`,
-`dyco-apply-batch`.
+`dyco-apply-batch`, `dyco-fdl`.
 
-Everything else in `dyco` is a library API with no command of its own: the file splitter, the flux
-detection limit, the covariance-maximization estimator.
+The file splitter and the covariance-maximization estimator are library APIs with no command of their
+own. The flux detection limit has both: `dyco fdl`, and the classes described in the
+[Library API](../library.md).
 
 :::{note}
 The pages below are generated from the argparse parsers themselves, so they always match what
@@ -31,6 +33,7 @@ The pages below are generated from the argparse parsers themselves, so they alwa
 detect-remove
 pwb-batch
 apply-batch
+fdl
 tui
 ```
 
@@ -47,14 +50,14 @@ dyco detect-remove ... --scalar "CO2:CO2_DRY_[IRGA72-A]" --scalar "N2O:N2O_DRY_[
 ```
 
 N₂O keeps every lag it *detects and PWBOPT accepts* (S1 or S2), and it keeps its own lag carried
-forward from an earlier period for as long as that lag is allowed to travel — see the carry limit
-below. Only past that does it take the CO₂ lag, **for that same period**, so a donor lag that drifts
+forward from an earlier period for as long as that lag is allowed to travel (see the carry limit
+below). Only past that does it take the CO₂ lag, **for that same period**, so a donor lag that drifts
 is followed rather than flattened into a constant. The summary records the choice for every period
 in `{gas}_lag_source` (`own`, `from:CO2`, `median`), so a borrowed lag is never mistaken for a
 detected one.
 
 The gas's own lag comes first at both tiers on purpose. Two gases down one tube still have different
-delays — a systematic 0.35 s between CH₄ and N₂O is ordinary — so borrowing swaps a stale number for
+delays (a systematic 0.35 s between CH₄ and N₂O is ordinary), so borrowing swaps a stale number for
 a biased one. It is worth doing once the gas's own lag is old enough that staleness is the bigger
 error, and that is a judgement the carry limit expresses.
 
@@ -70,7 +73,7 @@ Chains work (`CH4` from `N2O` from `CO2`); circular ones are rejected.
 ## Limiting how far a lag may be carried
 
 PWBOPT's S3 rule gives a period with no usable detection the nearest earlier optimal lag, with no
-limit on the distance — one good half hour can supply the rest of a week. `--max-carry N`
+limit on the distance: one good half hour can supply the rest of a week. `--max-carry N`
 (**Max carry** in the TUI) caps it at N averaging periods. Beyond that the lag expires
 (`{gas}_flag_* = S3_expired`) and the period falls through to the donor gas, or to the median.
 
@@ -104,9 +107,9 @@ e.g. EddyPro "Advanced" rotated output). A non-zero mean `W` corrupts the cross-
 | `--na-values` / `--na-rep` | What counts as missing on the way in, what is written for it on the way out. |
 | `--lineterm` | `auto` reproduces the input's CRLF or LF. Force it with `\r\n` or `\n`. |
 | `--file-pattern` | Which files to read. Compression is transparent: `.gz`, `.bz2`, `.xz` and `.zip` are read as the text they contain. |
-| `--output-suffix` | The extension the written chunks carry, dot included. Give the whole thing (`.csv`, `.csv.gz`, `.dat.zip`), just the text format (`.csv`, which writes plain text and drops any compression), or just the compression (`.zip`, which keeps the input's text format, so `file1.csv` gives `file1.csv.zip`). `auto` (default) reuses the input's own extension. A suffix without the leading dot is refused, so `.csv` is written the same way as `.csv.gz`. |
+| `--output-suffix` | The extension the written chunks carry, dot included. Give the whole thing (`.csv`, `.csv.gz`, `.dat.zip`), just the text format (`.csv`, which writes plain text and drops any compression), or just the compression (`.zip`, which keeps the input's text format, so `file1.csv` gives `file1.csv.zip`). `auto` (default) reuses the input's own extension. The leading dot is required (`.csv`, not `csv`), as it is for `.csv.gz`. |
 
-Two limits worth knowing. This path reads **delimited text only**; Parquet is read by
+Two limits apply. This path reads **delimited text only**; Parquet is read by
 `dyco.files.read_raw_data`, which serves the file splitter, not this pipeline. And it needs **no
 data-timestamp column**: chunking is driven by `--hz` and record count, and the wall-clock time comes
 from the filename via `--start-time-regex`.

@@ -57,7 +57,7 @@ flowchart TD
 Detection and removal are separate phases because PWBOPT cannot decide anything about one chunk until
 it has seen the whole sequence.
 
-## Why chunks
+## Chunks
 
 A multi-hour raw file is the wrong granularity for lag detection: both the rotation angles and the
 tube delay drift over hours. Chunk boundaries snap to the wall-clock grid (:00 / :30) when the file
@@ -99,7 +99,7 @@ failure is enough to difference everything.
 
 This is not the edge case it looks like. It fires on ordinary data, because sonic temperature drifts
 with the diurnal cycle over half an hour: on the bundled CH-LAE chunk the test fails on `T_SONIC`
-with p = 0.057, and all three series are differenced as a result. Expect to meet this branch.
+with p = 0.057, and all three series are differenced as a result. The branch is taken routinely.
 
 Differencing feeds the **AR filters only**. The raw cross-covariance reported as `{gas}_cov_pwb` is
 computed from the original, undifferenced series, which is what the reference implementation does.
@@ -109,8 +109,8 @@ and fixed it; the detected lag was never affected, only the reported covariance.
 
 ## Block-bootstrap
 
-Block-bootstrap answers a question conventional lag detection cannot: *how sure are we?* Rather than
-one cross-correlation over the whole averaging period, the method draws resampled series using
+Block-bootstrap quantifies the uncertainty of the lag estimate, which conventional lag detection
+does not provide. Rather than one cross-correlation over the whole averaging period, the method draws resampled series using
 overlapping blocks that preserve local autocorrelation, finds the peak lag in each, and summarises
 the resulting distribution as a mode (the estimate) plus a 95% highest-density interval (HDI). A
 narrow HDI means repeated resampling keeps finding the same lag.
@@ -143,8 +143,8 @@ Then, per chunk, in time order:
 
 `S2_optimal`
 : HDI range at or above that threshold, **but** the lag is within `--dev-thresh` (default `0.5` s)
-  of the preceding optimal lag. The detection is uncertain on its own terms, yet it agrees with a
-  neighbour that was not — so it is accepted.
+  of the preceding optimal lag. The detection is uncertain on its own, but it agrees with the last
+  lag that was accepted, so it is accepted too.
 
 `S3_unreliable`
 : Neither. The chunk's own lag is discarded and the last known optimal lag is carried forward.
@@ -153,18 +153,18 @@ Then, per chunk, in time order:
 : Neither, **and** the last optimal lag is further back than `--max-carry` periods, so it is no
   longer offered. Only occurs when that limit is set; see below.
 
-### How far a lag may travel
+### Limiting the carry distance
 
 The carry in S3 is unbounded in the paper: once an optimal lag exists, every later period that has
 none inherits it, however distant. On a long run that means a single good half hour can supply days.
 
 `--max-carry N` (**Max carry** in the TUI) caps the distance at N averaging periods, in **both**
-directions — the forward carry above, and the backward fill below. Beyond it the period is left for
+directions: the forward carry above and the backward fill below. Beyond it the period is left for
 a donor gas or the median instead.
 
 The limit has to cover both directions, or it does nothing. With detections either side of a long
-unusable stretch, an unbounded backward fill would cover the whole of it from the later detection —
-precisely the span the forward carry had just been forbidden to cross.
+unusable stretch, an unbounded backward fill would cover the whole of it from the later detection,
+which is exactly the span the forward carry was not allowed to cross.
 
 `{gas}_carry_periods` reports the distance for every period: `0` where the lag was detected there,
 `n` where it travelled `n` periods, empty where it came from somewhere else. The default is
@@ -181,54 +181,54 @@ comparison against the reference R implementation.
 ### Periods still without a lag
 
 S3 carries a lag *forward*, so a period before the gas's first S1 or S2 detection has nothing to
-inherit — and with `--max-carry` set, so does any period past the end of the carry's reach. Those are
-filled afterwards, best source first:
+inherit. With `--max-carry` set, the same applies to any period beyond the reach of the carry. These
+periods are filled afterwards, best source first:
 
 1. **The gas's own lag, filled backward** from its next trusted detection, within `--max-carry`
    periods.
 2. **A donor gas**, if you asked for one with `@lagfrom=`. Taken period by period, so a donor lag
    that drifts is followed rather than flattened into a constant.
-3. **The median of this gas's raw detections** — every one of which PWBOPT has just rejected. This is
+3. **The median of this gas's raw detections**, all of which PWBOPT has rejected. This is
    a last resort, and on real data it is often a negative lag that no tube can produce. If a gas
    lands here, give it a donor.
 
 So the full order of preference, per period, is: its own detection → its own lag carried forward →
 its own lag filled backward → the donor's lag for that period → the median.
 
-**The gas's own lag comes first in all three of its forms, and that is deliberate.** Two gases down
-one tube still have different delays — a systematic 0.35 s between CH₄ and N₂O is ordinary — so
-borrowing swaps a stale number for a biased one. Whether staleness has become the larger error is a
-judgement about your site, and `--max-carry` is where you express it. Which also means the two
-settings belong together: with no carry limit a gas reaches every period with its own lag, and a
+**The gas's own lag comes first in all three of its forms, and that is deliberate.** Two gases in
+one tube still have different delays (a systematic 0.35 s between CH₄ and N₂O is ordinary), so
+borrowing replaces a stale lag with a biased one. Whether staleness has become the larger error is a
+judgement about the site, and `--max-carry` is where it is expressed. The two settings therefore
+belong together: with no carry limit a gas reaches every period with its own lag, and a
 donor is only consulted for a gas that never detects at all. dyco warns when a donor is named without
 one.
 
 `{gas}_lag_source` in the summary records which of these produced each period's lag, so a borrowed or
 median-filled lag is never mistaken for a detected one.
 
-### Which lag actually gets removed
+### The lag that is removed
 
-`--lag-column-template` decides, and its default is `{prefix}_tlag_final_pf_s` — the **pre-filtered**
+`--lag-column-template` decides, and its default is `{prefix}_tlag_final_pf_s`, the **pre-filtered**
 PWBOPT column. The summary CSV carries the unfiltered variant alongside it, so both are available for
 comparison after the fact, but only one is applied to the data.
 
-To read a finished run, though, you want neither: **`{gas}_lag_applied_s`** is the lag that reached
+To inspect a finished run, read neither of them. **`{gas}_lag_applied_s`** is the lag that reached
 the data, measured back off the record shift, and `{gas}_lag_reason` says in words why that value was
 chosen. The same reasoning, one block per output file, is written to
 `detect_and_remove_tlag_decisions.txt`. See [What a run writes](output.md#the-summary-csv).
 
-## Search windows are doing real work
+## Effect of the search window
 
-`--lws` and `--uws` bound the search to physically possible lags. That sounds like a convenience. On
-real data it is load-bearing.
+`--lws` and `--uws` bound the search to physically possible lags. On real data this bound can decide
+the result.
 
-On the bundled CH-LAE half hour, an *unwindowed* PWB search is unreliable — and unreliable in the
+On the bundled CH-LAE half hour, an *unwindowed* PWB search is unreliable, and unreliable in the
 same way in both `dyco` and the reference R implementation. The cross-covariance peaks at **−7.45 s**,
 which no tube delay can be, because a closed-path delay is always positive. The pipeline reports a
 usable **8.45 s** for that same half hour only because `--lws 0 --uws 10` confines the search to lags
 that could physically occur.
 
-The consequence is worth internalising when you read a flag:
+This affects how an S1 flag should be read:
 
 :::{important}
 **An S1 flag from a windowed search is a weaker claim than an S1 flag from an unwindowed one.** A
@@ -255,8 +255,8 @@ docstring in `dyco/pwb.py`; in summary:
 **Differences that could move a number, all small.** dyco resamples with moving blocks starting
 anywhere from 0 to `n - L`, while R's `tsboot` wraps around by default, joining the end of a
 turbulence record to its start. The bootstrap mode comes from a Gaussian KDE rather than R's
-`map_estimate`, a different bandwidth and grid but well inside bootstrap noise. AR-filter
-initialisation NaN are zeroed where R's `acf` skips NA pairs, affecting about 1% of positions with
+`map_estimate`, a different bandwidth and grid but well inside bootstrap noise. The NaNs left
+by the AR-filter initialisation are set to zero where R's `acf` skips NA pairs, affecting about 1% of positions with
 the same numerator. And an S2 acceptance updates the carry-forward reference, so a run of S2 periods
 can drift; the paper's Section 2.3 is ambiguous and its S3 wording implies this reading.
 

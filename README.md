@@ -27,7 +27,7 @@ place. This is what makes low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub
 |---|---|
 | [Installation](https://dyco.readthedocs.io/en/latest/install.html) | Requirements, and how to run it without your own data |
 | [The terminal UI](https://dyco.readthedocs.io/en/latest/tui.html) | **Start here.** The recommended way to run dyco |
-| [Command reference](https://dyco.readthedocs.io/en/latest/cli/index.html) | All four commands and every option, generated from the parsers |
+| [Command reference](https://dyco.readthedocs.io/en/latest/cli/index.html) | Every command and option, generated from the parsers |
 | [What a run writes](https://dyco.readthedocs.io/en/latest/output.html) | Output folders, the summary CSV, `log.txt` |
 | [The PWB method](https://dyco.readthedocs.io/en/latest/method.html) | Pre-whitening, block-bootstrap, PWBOPT, and the validation against RFlux |
 | [Motivation and background](https://dyco.readthedocs.io/en/latest/background.html) | Why low-SNR gases need this, and the literature |
@@ -48,11 +48,10 @@ Requires Python 3.12 or 3.13.
 pip install dyco
 ```
 
-`dyco` has no dependency on `diive`. Everything it needs is bundled. See
-[Installation](https://dyco.readthedocs.io/en/latest/install.html) for a checkout, and for how to
-run the whole pipeline on data that ships with the repository.
+See [Installation](https://dyco.readthedocs.io/en/latest/install.html) for a checkout, and for how
+to run the whole pipeline on data that ships with the repository.
 
-## Start here: the terminal UI
+## The terminal UI
 
 ```bash
 dyco tui
@@ -86,23 +85,24 @@ dyco <command> --help   # options for one of them
 | [`dyco detect-remove`](https://dyco.readthedocs.io/en/latest/cli/detect-remove.html) | **The main command.** Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass, one output folder. | Almost always. Scripting, or when you prefer a command line. |
 | [`dyco pwb-batch`](https://dyco.readthedocs.io/en/latest/cli/pwb-batch.html) | Detect only, on files that are *already* split into averaging periods. Writes `tlag_results.csv` and stops. | Step 1 of the two-step route. |
 | [`dyco apply-batch`](https://dyco.readthedocs.io/en/latest/cli/apply-batch.html) | Remove lags listed in an existing `tlag_results.csv`. Detects nothing. | Step 2 of the two-step route. |
+| [`dyco fdl`](https://dyco.readthedocs.io/en/latest/fdl.html) | Detect the lag per averaging period, then compute the flux at that lag and its flux detection limit (Langford et al., 2015). Writes `pwb_fdl_results.csv` and no data files. | To check which fluxes are distinguishable from noise. |
 
 Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`, `dyco-pwb-batch`,
-`dyco-apply-batch`.
+`dyco-apply-batch`, `dyco-fdl`.
 
 A gas too noisy to locate its own lag can borrow one from a reference gas in the same tube, per
-period, with `--scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"` — paired with `--max-carry`, which says
-how long the gas's own lag stays good before borrowing is the better answer. See
+period, with `--scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"`. Use it together with `--max-carry`,
+which sets how many periods the gas's own lag may be carried before the borrowed lag is used. See
 [Taking a gas's lag from another gas](https://dyco.readthedocs.io/en/latest/cli/index.html#taking-a-gas-s-lag-from-another-gas).
 
-Every run explains itself: `detect_and_remove_tlag_decisions.txt` names the lag applied to each
+Each run records its decisions: `detect_and_remove_tlag_decisions.txt` names the lag applied to each
 output file and why it was chosen, and `{gas}_lag_applied_s` in the summary CSV is the lag that
 actually reached the data.
 
 > **Important:** downstream flux processing must run with time-lag maximization **disabled**. The lag
 > has already been removed.
 
-## Try it
+## Running the bundled example
 
 A real 1-hour raw file from CH-LAE (Lägeren) ships with the repository, so the primary pipeline can be
 run without supplying data:
@@ -112,7 +112,7 @@ uv run python examples/detect_remove_tlag_realdata.py
 ```
 
 That detects and removes the tube delay for CO<sub>2</sub> and H<sub>2</sub>O across two 30-minute
-chunks, and prints what was detected against what was actually applied. Expect about a minute.
+chunks, and prints what was detected against what was actually applied. It takes well under a minute.
 `examples/detect_remove_tlag.py` is the synthetic counterpart, where the lag is known in advance and
 can be checked.
 
@@ -173,7 +173,7 @@ flowchart TD
 Detection and removal are separate phases because PWBOPT cannot decide anything about one chunk until
 it has seen the whole sequence. [The PWB method](https://dyco.readthedocs.io/en/latest/method.html) walks through each step.
 
-## Why it exists
+## Motivation
 
 Covariance maximization works for compounds with high signal-to-noise ratio such as CO<sub>2</sub>.
 For N<sub>2</sub>O and CH<sub>4</sub> the cross-covariance function is noisy, fluxes are biased toward
@@ -218,11 +218,11 @@ resolves to the latest version and is the one to use for all versions. Zenodo al
 each individual release, if the work depends on a particular one. `CITATION.cff` carries the full
 metadata.
 
-## Notes
+## Publication history
 
 `dyco` was first published in 2021 and has kept developing since. The
 [JOSS paper](https://doi.org/10.21105/joss.02575) describes **v1.1.2**, released for that
-publication on 16 Jun 2021, and documents the covariance-maximization method — which v3 removed.
-What the paper describes is not what this version does. See `CHANGELOG.md`, and
+publication on 16 Jun 2021. It documents the covariance-maximization method, which v3 removed, so
+the paper does not describe what this version does. See `CHANGELOG.md`, and
 [Migrating from v2](https://dyco.readthedocs.io/en/latest/migrating-from-v2.html).
 [![DOI](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)

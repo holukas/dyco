@@ -1,7 +1,7 @@
 # dyco pwb-batch
 
 Detect lags only, across files that are **already** split into averaging periods. Writes
-`tlag_results.csv` and stops — nothing is shifted and no corrected raw data is produced. Pair it with
+`tlag_results.csv` and stops: nothing is shifted and no corrected raw data is produced. Pair it with
 [`dyco apply-batch`](apply-batch.md).
 
 Also available as the standalone `dyco-pwb-batch`.

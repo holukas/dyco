@@ -18,7 +18,7 @@ run started in the TUI can be repeated exactly.
 
 `dyco tui --demo` explores the interface with no data at all.
 
-## Its relationship to the command line
+## Relationship to the command line
 
 The TUI drives one command, `dyco detect-remove`, which is the whole job in one pass. That covers the
 normal case, including [taking a weak gas's lag from a strong one](cli/index.md#taking-a-gass-lag-from-another-gas).
@@ -68,9 +68,9 @@ second rather than after a long run. It reports, in order:
 - How many files the glob matched.
 - How many columns were parsed out of the header, with the `skiprows` and `extra-rows` it used, then
   the column names themselves.
-- One line per configured column, ticked if it is in the header and crossed if not. This is the check
-  that earns its keep: a wrong separator or `skiprows` shows up here as every column missing, rather
-  than as a failed run an hour later.
+- One line per configured column, ticked if it is in the header and crossed if not. A wrong
+  separator or `skiprows` shows up here as every column missing, rather than as a failed run an
+  hour later.
 - The chunk plan: roughly how many data rows the file holds, how many chunks that becomes, and the
   total across all matched files.
 - The name the first output file would get, and a note if the compression is about to change between
