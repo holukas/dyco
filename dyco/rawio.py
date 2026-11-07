@@ -7,11 +7,13 @@ and it is routinely shipped compressed. dyco's own file splitter writes
 ``.csv.gz``. Whether a file is compressed is a property of how it was stored,
 not of what it contains, so nothing above this module should have to care.
 
-Every module that reads or writes raw files goes through here. That was not
-always so: ``pipeline.py``, ``apply_tlag.py`` and ``tui.py`` each grew their own
-``open()`` calls, and each was found, separately and by accident, to break on
-compressed input -- the last one silently, returning five columns of mojibake
-decoded from gzip bytes. One copy of this knowledge, not four.
+Every module that opens raw files itself goes through here. Earlier,
+``pipeline.py``, ``apply_tlag.py`` and ``tui.py`` each had their own ``open()``
+calls, and each was found, separately and by accident, to break on compressed
+input -- the last one silently, returning five columns of mojibake decoded from
+gzip bytes. One copy of this knowledge, not four. The exception is ``files.py``
+(used by ``split.py``), which passes paths straight to pandas and lets it infer
+the compression.
 
 Supported: ``.gz``/``.gzip``, ``.bz2``, ``.xz``/``.lzma`` and ``.zip``, all from
 the standard library. A ``.zip`` must hold exactly one file; an archive of many

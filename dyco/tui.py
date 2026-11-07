@@ -1,5 +1,5 @@
 """
-DETECT_AND_REMOVE_TLAG_TUI: Textual front-end for dyco-detect-remove
+TUI: Textual front-end for dyco detect-remove (dyco tui)
 ==============================================================================
 
 A two-column terminal UI (Textual) around ``PerFilePipeline``
@@ -41,7 +41,9 @@ Convenience:
 - ``run()`` writes the summary CSV and, when *Save plots* is on, the
   batch overview figures — so they appear from the TUI exactly as from
   the CLI.
-- The form exposes every CLI option. Defaults worth noting: random seed
+- The form exposes every CLI option except ``--wdt`` and ``--block-length``,
+  which keep their defaults (5 records, 20 s; a per-gas window still widens
+  that gas's block). Defaults worth noting: random seed
   42 (reproducible — clear it for a random run) and line terminator
   ``auto`` (the output matches the input file's CRLF/LF convention).
 

@@ -5,7 +5,8 @@ CONSOLE: MINIMAL PROGRESS OUTPUT
 Stand-ins for the console helpers dyco used to import from diive
 (`core/utils/console.py`). diive's versions render through Rich and honour a
 package-wide verbosity level; these keep the same call signatures and the same
-verbosity thresholds but write plain text, so dyco pulls in no console library.
+verbosity thresholds but write plain text, so library code needs no console
+library. (The CLIs use Rich directly.)
 
 Verbosity levels match diive: 0 silent, 1 errors only, 2 progress (default),
 3 debug.

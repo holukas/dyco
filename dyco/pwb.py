@@ -1,6 +1,6 @@
 """
-LAG_PWB: PRE-WHITENING WITH BLOCK-BOOTSTRAP TIME LAG DETECTION
-===============================================================
+PWB: PRE-WHITENING WITH BLOCK-BOOTSTRAP TIME LAG DETECTION
+===========================================================
 
 In eddy covariance systems, gas analyzers connected via a sample tube receive
 the air parcel slightly later than the sonic anemometer measures the vertical
@@ -71,7 +71,7 @@ Implementation notes:
   full symmetric search, byte-identical to prior behaviour.  A positive-only
   window (e.g. lws=0, uws=25) keeps only physical tube-delay lags -- useful for
   a long-inlet gas such as H2O.  See window_to_lag_params in
-  detect_and_remove_tlag.py for the window -> (lag_max, block) mapping used by
+  pipeline.py for the window -> (lag_max, block) mapping used by
   the pipeline.
 
 Differences from RFlux v3.2.0 (tlag_detection.R):
@@ -236,8 +236,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
 
-# Suppress the runpy double-import warning that fires in every worker process
-# when the package init has already imported this module before -m re-executes it.
+# Suppress runpy's double-import RuntimeWarning under ``-m``. It fired when
+# the package __init__ imported this module; __init__ now imports nothing,
+# so the filter may no longer be needed.
 warnings.filterwarnings('ignore', category=RuntimeWarning, module='runpy')
 
 import matplotlib.dates as mdates
@@ -409,12 +410,12 @@ class PreWhiteningBootstrap:
         only of turbulent fluctuations.  A non-zero mean W biases the
         cross-correlation and produces an unreliable lag estimate.
 
-    **Why pre-whitening?**  Turbulent wind and scalar series carry strong
+    **Pre-whitening.**  Turbulent wind and scalar series carry strong
     autocorrelation that broadens the raw CCF peak.  An AR(p) filter estimated
     by AIC transforms each series into approximate white noise; the CCF of the
     filtered residuals has a sharper peak, making the lag easier to locate.
 
-    **Why block-bootstrap?**  A single CCF can be noisy.  The bootstrap draws
+    **Block bootstrap.**  A single CCF can be noisy.  The bootstrap draws
     N_B resampled series (moving-block resampling with overlapping blocks of
     length L to preserve local autocorrelation; R's ``tsboot(sim="fixed",
     l=LAG.MAX*2)`` wraps its blocks around, this does not) and detects the peak
@@ -424,7 +425,7 @@ class PreWhiteningBootstrap:
     how consistently the resampling agrees on that lag.  A narrow HDI means
     the lag is robust; a wide HDI signals an unreliable estimate.
 
-    **Why four combinations?**  *var_tsonic* is required, so four pre-whitened
+    **Four combinations.**  *var_tsonic* is required, so four pre-whitened
     CCF variants are always computed (matching R and the paper).  T_SONIC and W
     co-vary through buoyant turbulent structures; for trace gases (N2O, CH4) the
     scalar x W signal is often too weak to produce a clear peak, whereas
@@ -446,7 +447,7 @@ class PreWhiteningBootstrap:
 
     **Reliability criterion (S1):** HDI range < 0.5 s.  Use *is_reliable* to
     check; unreliable segments should fall back to a carry-forward strategy
-    (PWBOPT S2/S3, see PwboptLagDetection).
+    (PWBOPT S2/S3, see ``PwbBatchDetection.apply_pwbopt``).
 
     The *plot()* method shows three diagnostic panels:
 
@@ -1617,8 +1618,10 @@ class PwboptLagPlot:
     Typical use cases:
 
     - **Strategy comparison**: standard PWBOPT (left) vs pre-filtered PWBOPT
-      (right) -- using columns produced by ``flux_lag_pwbopt.py``.
-    - **Method comparison**: CM covariance-max lags (left) vs PWB lags (right).
+      (right) -- the ``_pwbopt_s_std`` and ``_pwbopt_s_pf`` columns that
+      ``dyco-pwb-batch`` writes.
+    - **Method comparison**: lags from another method, e.g. covariance
+      maximization (left), vs PWB lags (right).
 
     Layout (2 rows x 5 cols via GridSpec, width_ratios=[5,1,0.25,5,1])::
 
