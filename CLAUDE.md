@@ -20,8 +20,8 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Detection | `dyco/pwb.py` |
 | Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
 | Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
-| Removal | `dyco/apply_tlag.py` `TlagApplier` |
-| Tests | `tests/test_pwb.py` + 15 more, 242 total |
+| Removal | phase 2 of `dyco/pipeline.py` (`remove_one_chunk`); `dyco/apply_tlag.py` `TlagApplier` for lags in an existing `tlag_results.csv` |
+| Tests | `tests/test_pwb.py` + 17 more, 254 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -61,7 +61,7 @@ The migration is **done**: all of diive's `flux/hires/` plus `filesplitter.py`
 now live here, and the diive dependency is gone.
 
 `cli.py` is now the unified `dyco` dispatcher (`detect-remove`, `tui`, `pwb-batch`,
-`apply-batch`); the standalone `dyco-*` scripts still work.
+`apply-batch`, `fdl`); the standalone `dyco-*` scripts still work.
 
 ## [DONE] dyco no longer depends on diive
 
@@ -85,8 +85,11 @@ What that involved:
 **Verified end-to-end on real data.** `examples/detect_remove_tlag_realdata.py`
 runs the full PWB pipeline over a bundled 1-hour CH-LAE file: correct chunking,
 genuinely gzipped output, headers byte-identical to the source, and scalar
-columns shifted by exactly the applied lag. `FluxDetectionLimit` also reproduces
-diive's numbers to 10 decimal places.
+columns shifted by exactly the applied lag. `FluxDetectionLimit` is checked
+against Langford et al. (2015) eq. 4 and 9, recomputed independently, and agrees
+to ~1e-15. It deliberately no longer matches diive (~3% lower RMSE): diive's
+estimator re-centred each lag on its own overlap. diive also read the signal at
+`-default_lag`, the wrong side of the cross-covariance; fixed 2026-11-06.
 
 ---
 
@@ -103,8 +106,8 @@ features, abstractions for single-use code, or error handling for impossible
 scenarios.
 
 **Surgical changes:** Touch only what you must. Don't "improve" adjacent code.
-Match existing style. **Mention dead code — don't delete it** (nothing is
-catalogued as dead right now; the rule stands for whatever turns up). Remove
+Match existing style. **Mention dead code — don't delete it** (see **Known
+Dead Code** for what is catalogued). Remove
 only imports and variables that YOUR changes made unused.
 
 **Goal-driven execution:** For multi-step tasks, state a plan with verifiable
@@ -139,7 +142,7 @@ and releasing** for how a release is cut.
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 242 passed
+uv run pytest tests/ -q                                  # 254 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -152,24 +155,25 @@ came from.
 
 ## Current Architecture
 
-~10,600 lines across 11 modules plus ~400 in `_vendor/`. Pipeline:
+~14,400 lines across 12 modules plus ~500 in `_vendor/`. Pipeline:
 **split into chunks → rotate → detect per chunk → PWBOPT across the sequence →
 shift and write**.
 
 | Module | LOC | Role |
 |---|---|---|
-| `dyco/pipeline.py` | 3,436 | `PerFilePipeline`, `process_one_file`. The primary workflow, and its own raw-file reader/writer |
-| `dyco/pwb.py` | 3,089 | `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. The detection method itself |
-| `dyco/tui.py` | 2,110 | Textual UI over the pipeline. `--demo` needs no data |
-| `dyco/apply_tlag.py` | 833 | `TlagApplier` — remove lags listed in an existing `tlag_results.csv` |
-| `dyco/split.py` | 524 | `FileSplitter`, `FileSplitterMulti` — divide a long raw file into averaging-period parts |
-| `dyco/detectionlimit.py` | 476 | `FluxDetectionLimit` — minimum detectable flux, read off the far tail of the cross-covariance function |
-| `dyco/maxcov.py` | 417 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it |
+| `dyco/pipeline.py` | 3,965 | `PerFilePipeline`, `process_one_file`. The primary workflow, and its own raw-file reader/writer |
+| `dyco/pwb.py` | 3,328 | `PreWhiteningBootstrap`, `PwbBatchDetection`, `PwboptLagPlot`. The detection method itself |
+| `dyco/tui.py` | 2,535 | Textual UI over the pipeline. `--demo` needs no data |
+| `dyco/apply_tlag.py` | 834 | `TlagApplier` — remove lags listed in an existing `tlag_results.csv` |
+| `dyco/split.py` | 593 | `FileSplitter`, `FileSplitterMulti` — divide a long raw file into averaging-period parts |
+| `dyco/detectionlimit.py` | 605 | `FluxDetectionLimit` — minimum detectable flux, read off the far tail of the cross-covariance function |
+| `dyco/pwbfdl.py` | 1,175 | `PwbFdl`, `PwbFdlBatch`, and `dyco fdl` — PWB lag, PWBOPT and the flux detection limit in one run, flux read at the PWBOPT lag. Writes no data |
+| `dyco/maxcov.py` | 521 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it. Its covariance is `cross_covariance`, by FFT |
 | `dyco/files.py` | 243 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
-| `dyco/rotation.py` | 138 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
-| `dyco/rawio.py` | 240 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it |
-| `dyco/cli.py` | 125 | Unified `dyco` dispatcher |
-| `dyco/_vendor/` | ~400 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
+| `dyco/rotation.py` | 178 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
+| `dyco/rawio.py` | 319 | Opening raw files, compressed or not (`.gz`, `.bz2`, `.xz`, `.zip`). Every reader and writer goes through it, except `files.py`, which leaves compression to pandas |
+| `dyco/cli.py` | 130 | Unified `dyco` dispatcher |
+| `dyco/_vendor/` | ~500 | Leaf utilities copied from diive; see its `__init__.py` for the rationale |
 | `dyco/__init__.py` | 2 | A comment. **No public API is defined** |
 
 **Lag is expressed in seconds.** The removed v2 path counted records instead, so
@@ -413,7 +417,18 @@ URL, because a relative path renders as a broken image on PyPI — same reason
 
 ## Open
 
-One item, not urgent. Anything else belongs in the GitHub issue tracker.
+Two items, not urgent. Anything else belongs in the GitHub issue tracker.
+
+**FDL inside the PWB run (future).** The flux detection limit runs as its own
+command (`dyco fdl`, `dyco/pwbfdl.py`) and writes no data. Not in the TUI yet,
+and not needed yet. A later option could add it to `dyco detect-remove` and the
+TUI, so one run both removes the lag and reports each period's detection limit
+and flux at the applied lag. The pieces already fit: phase 1 of the pipeline
+has the rotated chunk in memory, the FDL needs only that plus H2O and ambient
+pressure, and `PwbFdl.flux_curve` keeps the covariance so the flux can be read
+at the PWBOPT lag once phase 1 is done. What it would add is the extra columns
+(`--col-h2o`, `--col-press`, `--scale`) to a command that does not need them
+today, so make it opt-in.
 
 **`rawio` unification, part two.** The *opening* layer is done — `rawio.py`
 owns compression for every module. What is still split is *parsing*:
@@ -427,8 +442,10 @@ defect class that motivated it lived in the opening layer, which is now shared.
 
 ## Known Dead Code
 
-None catalogued. The two known-dead blocks (`plot.py`'s `SummaryPlots`,
-`setup.py`'s `FilesDetector`) went with the v2 path.
+None catalogued. The last four items (`FluxDetectionLimit._max_abs_covariance`, the
+ignored `create_covariance_plot` argument, `MaxCovariance`'s v2 "PHASE 3" default-lag
+marker, and `detectionlimit._example()` with its hardcoded local paths) were removed on
+2026-11-07 at the user's instruction.
 
 **The standing rule still holds: mention dead code, don't delete it.** Flag it
 and let the user decide.
@@ -525,12 +542,12 @@ nothing or worse, and the one that paid was a single constant. See
 
 ## Testing
 
-`tests/` holds **242 tests plus 148 subtests**, seeded by diive's
+`tests/` holds **254 tests plus 149 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 242 passed, 148 subtests
+uv run pytest tests/ -q     # 254 passed, 149 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving
@@ -554,7 +571,8 @@ running the code.
 - **Console strings must be cp1252-safe** (Windows stdout): use ASCII `->`,
   not `→`. This bites through libraries too: Rich's default spinner is braille,
   and it crashed `dyco apply-batch` with `UnicodeEncodeError` before the run
-  started. All three CLIs pass `SpinnerColumn('line')`.
+  started. The three CLIs with a progress bar (`detect-remove`, `pwb-batch`,
+  `apply-batch`) pass `SpinnerColumn('line')`.
 
 ### Module docstring format
 
@@ -569,8 +587,8 @@ Part of the dyco package: https://github.com/holukas/dyco
 """
 ```
 
-Existing modules carry the GPL-3.0 header block instead. Keep it when editing
-them; new modules should have both.
+`files.py` still carries the GPL-3.0 header block instead. Keep it when
+editing it; new modules should have both.
 
 ---
 
@@ -655,4 +673,4 @@ repo (`holukas/ms_fluxnet_ch4_n2o_timelag`).
 
 ---
 
-**Last Updated:** 2026-08-06
+**Last Updated:** 2026-11-07

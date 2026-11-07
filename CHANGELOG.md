@@ -2,8 +2,31 @@
 
 ## Unreleased
 
+The time lag and the flux detection limit in one run, a detection limit that follows Langford et
+al. (2015) exactly, and a valid range per gas for lag detection.
+
 ### Added
 
+- **Time lag and flux detection limit in one run**, in the new `dyco.pwbfdl` module. `PwbFdlBatch`
+  cuts raw files into 30-minute periods, detects each gas's lag with PWB, picks the lag across the
+  sequence with PWBOPT, and reads the flux at that lag next to the period's detection limit
+  (Langford et al. 2015). Reading the flux at a prescribed lag rather than at the covariance
+  maximum is what the paper recommends for low-SNR gases such as N<sub>2</sub>O and
+  CH<sub>4</sub>. The results say whether each flux is above its detection limit
+  (`{gas}_above_fdl`) and why each lag is what it is (`{gas}_lag_reason`), and are written to
+  `pwb_fdl_results.csv`. `PwbFdl` does the same for one period already in memory. Units are
+  converted with `scale`, and implausible sonic temperature, H<sub>2</sub>O or pressure is refused
+  rather than turned into a detection limit a factor of 100 or 1000 off.
+  `examples/pwb_fdl_realdata.py` runs it on a bundled 6-hour CH-CHA file
+- **`dyco fdl`** runs that workflow from the command line (also `dyco-fdl`). It takes the `dyco detect-remove` options for
+  files, columns, periods, PWB and PWBOPT, including per-gas windows, `@lagfrom=` and valid ranges in
+  `--scalar`, plus `--col-h2o`, `--col-press` (the ambient pressure, not an analyser cell's),
+  `--scale COLUMN=FACTOR` and `--tsonic-unit`. It writes `pwb_fdl_results.csv` and `log.txt` and no
+  data files. The docs have a new page on the detection limit, and the install guide says how to use
+  only this part
+- **The detection limit can be computed without a lag.** `FluxDetectionLimit(default_lag=None)`
+  skips the signal, and the new `flux_at_lag()` reads the flux at any lag afterwards.
+  `verbose=False` silences its console output
 - **A valid range per gas, for lag detection.** Values outside it are treated as missing while the
   lag is searched for, the same way `Inf` already was: `--scalar "CO2:co2@min=200;max=900"`, either
   bound optional, in `dyco detect-remove` and `dyco pwb-batch`. The written files are unchanged and
@@ -11,14 +34,44 @@
   logger fault seen at CH-LAE in 2016 and 2017, where LI-7500 values landed in the LI-7200 record
   about once a second (CO<sub>2</sub> near 15 instead of 400 µmol/mol) with a clean status byte.
   The summary gains `{gas}_n_out_of_range`, `{gas}_n_valid` no longer counts those values, a period
-  with nothing in range is treated as `no_data`, and `log.txt` names each gas that had any
+  with nothing in range is treated as `no_data`, and `log.txt` names each gas that had values out
+  of range
 - **Valid range** in the TUI, filled in from the units row of the first input file with EddyPro's
   absolute-limit defaults: CO<sub>2</sub> 200 to 900, CH<sub>4</sub> 0.17 to 1000 and
   N<sub>2</sub>O 0.032 to 1000 µmol/mol, and H<sub>2</sub>O 0 to 40 mmol/mol. A gas whose unit is
   unknown, or is a density, gets no range. The ⟳ button fills the field in again
 
+### Changed
+
+- **The flux detection limit now follows Langford et al. (2015) exactly, and comes out slightly
+  higher.** The cross-covariance at each lag used to be centred on the means of the overlapping part
+  only, which removed part of the offset from zero that the noise estimate is built from. It now uses
+  the means of the whole period, as in the paper's eq. 4. On the bundled 10 Hz example the noise
+  RMSE rises from 0.643 to 0.662 nmol m<sup>-2</sup> s<sup>-1</sup> (+2.9%). `MaxCovariance` uses
+  the same definition, so its covariances shift by the same small amount; the lag it finds does not
+- **`polars` is no longer a dependency.** It was only used for the cross-covariance, which is now
+  computed by FFT (see Fixed)
+
+### Removed
+
+- **`FluxDetectionLimit(create_covariance_plot=...)`.** The argument was accepted and ignored;
+  `get_fig_cov()` returns the figure after `run()` regardless. Code that passes it now raises a
+  `TypeError`: delete the argument
+- **The "PHASE 3" default-lag marker in the `MaxCovariance` covariance plot**, a leftover of the
+  v2 workflow that nothing set any more
+
 ### Fixed
 
+- **The flux detection limit's signal-to-noise ratios were wrong.** The flux signal was read at
+  `-default_lag` rather than `default_lag`, the mirror image of the lag the gas actually arrives at,
+  so `flux_signal_at_default_lag`, `signal_to_noise` and `signal_to_detection_limit` described the
+  wrong side of the cross-covariance. On the bundled 10 Hz example the signal came out as 0.88
+  instead of 2.01 nmol m<sup>-2</sup> s<sup>-1</sup>. The detection limit itself was not affected
+- **The detection limit ran out of memory at 20 Hz.** The cross-covariance over ±180 s needed about
+  15 GB for one 20 Hz half hour at every lag, so a lag step of one record was out of reach. It is now
+  computed by FFT, with the same result to rounding
+- **A `default_lag` that is not on the lag grid now raises a clear error.** It used to fail with a
+  bare `IndexError`, for example 2.8 s at 10 Hz with a `lag_stepsize` of 10 records
 - **A crashed worker could leave truncated output files that were counted as written.** When one
   alignment worker died, for example by running out of memory with many workers, every other worker
   was stopped mid-write as well. `dyco detect-remove` still reported all chunks written, and the
