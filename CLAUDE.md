@@ -21,7 +21,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
 | Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
 | Removal | phase 2 of `dyco/pipeline.py` (`remove_one_chunk`); `dyco/apply_tlag.py` `TlagApplier` for lags in an existing `tlag_results.csv` |
-| Tests | `tests/test_pwb.py` + 18 more, 266 total |
+| Tests | `tests/test_pwb.py` + 18 more, 268 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -148,7 +148,7 @@ and releasing** for how a release is cut.
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 266 passed
+uv run pytest tests/ -q                                  # 268 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -423,7 +423,7 @@ URL, because a relative path renders as a broken image on PyPI — same reason
 
 ## Open
 
-Two items, not urgent. Anything else belongs in the GitHub issue tracker.
+Two items, not urgent. Planned work, by target release, is in `ROADMAP.md`; keep the two in step.
 
 **FDL inside the PWB run (future).** The flux detection limit runs as its own
 command (`dyco fdl`, `dyco/pwbfdl.py`) and writes no data. Not in the TUI yet,
@@ -548,12 +548,12 @@ nothing or worse, and the one that paid was a single constant. See
 
 ## Testing
 
-`tests/` holds **266 tests plus 154 subtests**, seeded by diive's
+`tests/` holds **268 tests plus 154 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 266 passed, 154 subtests
+uv run pytest tests/ -q     # 268 passed, 154 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving
