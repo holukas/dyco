@@ -8,8 +8,8 @@ authors:
 title: "dyco"
 abstract: "Time-lag detection and compensation for eddy covariance raw data, using pre-whitening
   with block-bootstrap so that every detected lag carries an uncertainty interval."
-version: 3.0.0
-date-released: 2026-08-06
+version: 3.1.0
+date-released: 2026-11-10
 # SPDX. Not the bare "GPL-3.0", which SPDX deprecated. LICENSE grants version 3 "or (at your
 # option) any later version", so this is the identifier that matches it.
 license: GPL-3.0-or-later

@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v3.1.0 | unreleased
+## v3.1.0 | 10 Nov 2026
 
 The time lag and the flux detection limit in one run, with the numbers to report and a figure per
 gas, a detection limit that follows Langford et al. (2015) exactly, and a valid range per gas for
@@ -85,6 +85,9 @@ lag detection.
   median of detections PWBOPT had all rejected, when it is the median of all the gas's raw
   detections, accepted or not; `{gas}_lag_reason`, the decisions report and
   `detect_and_remove_tlag_summary_columns.md` now say so.
+- **An old command line that starts with column names got only "unknown command"**, without the
+  pointer to `dyco detect-remove` that v3.0.0 meant to give, and now gets it whenever an old short
+  flag such as `-lsw` appears anywhere in the line.
 - **The file splitter named CSV splits with a double dot**, such as `20230101000000_TRIM..csv.gz`,
   and now writes `20230101000000_TRIM.csv.gz`.
 - **`FileSplitterMulti` always trimmed its splits**, whatever `split_trim` said, so `split_trim=False`
@@ -112,7 +115,7 @@ trusted. That is what low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub> ne
 is too noisy to place the peak reliably. Lags are now in **seconds**, not records. The two methods
 take different parameters, so there is no flag-for-flag migration.
 
-**[BREAKING] `diive` is no longer a dependency.** The coupling introduced in v2.0.3 broke `dyco`
+**[BREAKING] `diive` is no longer a dependency.** The coupling, there since v2.0.0, broke `dyco`
 four ways when `diive` restructured: two import paths moved, and the Python and pandas floors
 diverged until the two could not be installed together. That code lives here now, with the small
 generic helpers in `dyco/_vendor/`.
@@ -164,7 +167,7 @@ generic helpers in `dyco/_vendor/`.
   shift itself rather than from what was requested. There were six lag columns per gas and none of
   them answered that. Beside it, `{gas}_lag_reason` gives the decision in words and
   `{gas}_lag_source` says where the lag came from: the gas itself, another gas, the median of the
-  detections PWBOPT rejected, a constant you supplied, or nothing at all
+  gas's raw detections, a constant you supplied, or nothing at all
 - **A report explaining every decision** (`detect_and_remove_tlag_decisions.txt`): one block per
   output file, naming the lag applied to each gas and why. The thresholds behind the decisions head
   the file and a tally closes it

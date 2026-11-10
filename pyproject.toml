@@ -1,6 +1,6 @@
 [project]
 name = "dyco"
-version = "3.0.0"
+version = "3.1.0"
 description = "Dynamic lag compensation for eddy covariance raw data"
 authors = [
     { name = "Lukas Hörtnagl", email = "lukas.hoertnagl@usys.ethz.ch" }
