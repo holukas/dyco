@@ -19,7 +19,7 @@ file glob) and the chunk-naming rule (start-time regex/format and filename
 template). The naming fields let each 30-min output chunk be named by its
 own start time — e.g. ``CH-CHA_{starttime}{suffix}`` with regex
 ``(\\d{12})`` turns ``CH-CHA_202107271300.csv`` into per-chunk files
-``CH-CHA_202107271300.csv`` (00:00), ``CH-CHA_202107271330.csv`` (00:30), …
+``CH-CHA_202107271300.csv`` (13:00), ``CH-CHA_202107271330.csv`` (13:30), …
 
 Settings persist between sessions in a small YAML file
 (``~/.dyco/detect_remove_tui.yaml``): they are loaded on start, and saved on

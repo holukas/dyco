@@ -651,8 +651,8 @@ def _build_parser():
                    help=r"Field separator. Default: whitespace (regex '\s+'). "
                         r"Use ',' for CSV, '\t' for TSV.")
     p.add_argument('--lineterm', default='\n',
-                   help=r"Line terminator written between data rows. "
-                        r"Default '\n'; use '\r\n' to match Windows-CRLF input.")
+                   help=r"Line terminator written between data rows. Use '\r\n' "
+                        r"to match Windows-CRLF input. (default: %(default)r)")
     p.add_argument('--na-values', nargs='+',
                    default=list(_DEFAULT_NA_VALUES),
                    help='Strings to treat as NaN on read.')
