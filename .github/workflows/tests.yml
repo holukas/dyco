@@ -57,7 +57,7 @@ jobs:
           wheel = sorted(glob.glob("dist/*.whl"))[-1]
           names = zipfile.ZipFile(wheel).namelist()
           wanted = ["pipeline", "pwb", "tui", "apply_tlag", "split", "detectionlimit",
-                    "maxcov", "files", "rotation", "rawio", "cli"]
+                    "maxcov", "pwbfdl", "files", "rotation", "rawio", "cli"]
           missing = [m for m in wanted if f"dyco/{m}.py" not in names]
           if missing:
               raise SystemExit(f"{wheel} is missing {', '.join(missing)}")

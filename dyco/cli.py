@@ -8,6 +8,7 @@ One entry point that dispatches to every dyco workflow::
     dyco tui ...             the same pipeline behind a terminal UI
     dyco pwb-batch ...       detect only, across pre-split files
     dyco apply-batch ...     remove lags from an existing results CSV
+    dyco fdl ...             lag and flux detection limit per period, no data written
 
 Each delegates to the entry point that backs the standalone ``dyco-*`` console
 script, which keeps working unchanged - this module only adds a single
@@ -40,6 +41,9 @@ _DELEGATED = {
                   'Detect lags only, across many already-split files.'),
     'apply-batch': ('dyco.apply_tlag', '_cli_main', 'dyco-apply-batch',
                     'Remove lags listed in an existing tlag_results.csv.'),
+    'fdl': ('dyco.pwbfdl', '_cli_main', 'dyco-fdl',
+            'Detect the lag per period with PWB and compute the flux detection '
+            'limit at it. Writes no data files.'),
 }
 
 def _usage() -> str:
@@ -50,7 +54,8 @@ def _usage() -> str:
         lines.append(f'  {name:<{width}}  {summary}')
     lines += ['', 'Run `dyco <command> --help` for a command\'s options.',
               '', 'Each command is also available standalone:',
-              '  dyco-detect-remove, dyco-detect-remove-tui, dyco-pwb-batch, dyco-apply-batch']
+              '  dyco-detect-remove, dyco-detect-remove-tui, dyco-pwb-batch, dyco-apply-batch,',
+              '  dyco-fdl']
     return '\n'.join(lines)
 
 
@@ -118,7 +123,11 @@ def main(argv: list = None) -> None:
             hint = f"\n\nThat looks like a v2 command line. {_CM_GONE}"
         sys.exit(f"dyco: expected a command, got the option {command!r}.{hint}\n\n{_usage()}")
 
-    sys.exit(f"dyco: unknown command {command!r}.\n\n{_usage()}")
+    # A v1/v2 line starts with column names, not a flag, so look at the rest too.
+    hint = ''
+    if any(a in _V2_FLAGS for a in rest):
+        hint = f"\n\nThat looks like a v2 command line. {_CM_GONE}"
+    sys.exit(f"dyco: unknown command {command!r}.{hint}\n\n{_usage()}")
 
 
 if __name__ == '__main__':

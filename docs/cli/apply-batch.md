@@ -1,6 +1,6 @@
 # dyco apply-batch
 
-Remove lags listed in an existing `tlag_results.csv`. Detects nothing — it reads the numbers another
+Remove lags listed in an existing `tlag_results.csv`. It detects nothing: it reads the numbers another
 run produced and shifts columns by them. Step 2 of the two-step route, after
 [`dyco pwb-batch`](pwb-batch.md).
 

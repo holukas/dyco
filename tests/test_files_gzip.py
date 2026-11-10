@@ -4,8 +4,8 @@ TEST_FILES_GZIP: `files.read_raw_data` ACCEPTS COMPRESSED INPUT
 
 `read_raw_data` dispatched on `Path(filepath).suffix`, which for `raw.csv.gz` is
 `.gz` - so every compressed file was rejected outright with "File extension must
-be '.csv' or '.parquet'". This is the reader the v2 path and `FileSplitter` use,
-and `FileSplitterMulti` writes `.csv.gz` when `compress_splits=True`, so the
+be '.csv' or '.parquet'". This is the reader `FileSplitter` uses (the removed v2
+path used it too), and `FileSplitterMulti` writes `.csv.gz` when `compress_splits=True`, so the
 splitter's own output could not be read back in.
 
 Distinct from the faults fixed in `dyco.pipeline` (see `test_rawio_gzip.py`).

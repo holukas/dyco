@@ -10,7 +10,7 @@ flowchart TD
     RAW["Raw EC file<br/>unrotated delimited text, plain or compressed<br/>--input-dir, --file-pattern"]
     RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30<br/>a remainder under --min-chunk-seconds writes nothing"]
 
-    subgraph P1["Phase 1: detect (nothing is written yet)"]
+    subgraph P1["Phase 1: detect (no output files yet)"]
         direction TB
         ROT["Double rotation<br/>in memory only, never reaches disk"]
         PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC<br/>all three series differenced first if any fails the unit-root test"]
@@ -35,7 +35,7 @@ flowchart TD
         GAP{"any period still without a lag"}
         GAP -->|"its own trusted lag is within reach"| BFILL["fill backward from it<br/>--max-carry bounds this too"]
         GAP -->|"--scalar ...@lagfrom=CO2"| DONOR["take that period's lag from the other gas"]
-        GAP -->|"nothing else left"| MED["median of this gas's raw detections<br/>(all of them rejected, a last resort)"]
+        GAP -->|"nothing else left"| MED["median of all of this gas's raw detections<br/>(a last resort)"]
     end
 
     BFILL --> APPLY
@@ -57,17 +57,19 @@ flowchart TD
 Detection and removal are separate phases because PWBOPT cannot decide anything about one chunk until
 it has seen the whole sequence.
 
-## Why chunks
+## Chunks
 
 A multi-hour raw file is the wrong granularity for lag detection: both the rotation angles and the
-tube delay drift over hours. Chunk boundaries snap to the wall-clock grid (:00 / :30) when the file
-start time can be parsed, so downstream software bins them correctly. A file starting off-grid
-produces a shorter leading chunk.
+tube delay drift over hours. Chunk boundaries snap to the wall-clock grid of `--chunk-seconds` (:00
+/ :30 for the default 1800 s) when the file start time can be parsed, so downstream software bins
+them correctly. A file starting off-grid produces a shorter leading chunk. A chunk shorter than
+`--min-chunk-seconds` (default 300 s) is skipped.
 
 ## The two phases
 
 **Phase 1, detect.** Each chunk is read, double-rotated in memory, and passed to the PWB detector.
-Nothing is written yet. Rotation happens in memory only; the rotated data never reach disk.
+The rotated data never reach disk, and no output file is written yet, only a checkpoint of the
+detections.
 
 **PWBOPT.** With every chunk's raw detection in hand, the decision rule runs across the whole
 sequence in temporal order. This is why the two phases are separate: the rule cannot decide anything
@@ -86,20 +88,19 @@ of the cross-correlation function and blurs the lag estimate. Pre-whitening fits
 peak.
 
 The AR order is allowed to go high: the ceiling is `floor(100 * log10(N))`, which for a 30-minute
-20 Hz chunk is 455. Real chunks use a good deal of it. On the bundled CH-LAE half hour the three
-fitted orders are 133, 87 and 312, which is what long-range turbulent autocorrelation costs to
+20 Hz chunk is 455. Real chunks use a good deal of it. On the bundled CH-LAE 13:00 half hour the
+three fitted orders are 299, 87 and 312, which is what long-range turbulent autocorrelation costs to
 capture.
 
 ### The differencing branch
 
 An AR fit assumes the series is stationary, so each of the three series is first put through a
 Breitung variance-ratio unit-root test. **If any one of them fails (p ≥ 0.01), all three are
-first-differenced** before fitting. Stationarity of all three is required to use the originals; one
-failure is enough to difference everything.
+first-differenced** before fitting. The originals are used only when all three pass.
 
 This is not the edge case it looks like. It fires on ordinary data, because sonic temperature drifts
 with the diurnal cycle over half an hour: on the bundled CH-LAE chunk the test fails on `T_SONIC`
-with p = 0.057, and all three series are differenced as a result. Expect to meet this branch.
+with p = 0.057, and all three series are differenced as a result. The branch is taken routinely.
 
 Differencing feeds the **AR filters only**. The raw cross-covariance reported as `{gas}_cov_pwb` is
 computed from the original, undifferenced series, which is what the reference implementation does.
@@ -109,9 +110,10 @@ and fixed it; the detected lag was never affected, only the reported covariance.
 
 ## Block-bootstrap
 
-Block-bootstrap answers a question conventional lag detection cannot: *how sure are we?* Rather than
-one cross-correlation over the whole averaging period, the method draws resampled series using
-overlapping blocks that preserve local autocorrelation, finds the peak lag in each, and summarises
+Block-bootstrap quantifies the uncertainty of the lag estimate, which conventional lag detection
+does not provide. Rather than one cross-correlation over the whole averaging period, the method
+draws `--n-bootstrap` resampled series (default 99) from overlapping blocks of `--block-length`
+(default 20 s) that preserve local autocorrelation. It finds the peak lag in each and summarises
 the resulting distribution as a mode (the estimate) plus a 95% highest-density interval (HDI). A
 narrow HDI means repeated resampling keeps finding the same lag.
 
@@ -120,8 +122,9 @@ narrow HDI means repeated resampling keeps finding the same lag.
 Four cross-correlation combinations are evaluated per period, using either `W` or sonic temperature
 `T_SONIC` as the reference and applying the AR filter to either the scalar or the reference. Because
 `T_SONIC` and `W` are coupled through buoyant turbulence, the `T_SONIC` combinations often expose a
-cleaner peak for gases whose direct scalar × `W` signal is weak. The combination with the highest
-smoothed peak wins. **`T_SONIC` is required.**
+cleaner peak for gases whose direct scalar × `W` signal is weak. The combination whose smoothed mean
+bootstrap cross-correlation is largest in absolute value at its mode lag wins, and `{gas}_best_combination` records
+which one it was. **`T_SONIC` is required.**
 
 ## PWBOPT: S1, S2, S3
 
@@ -143,8 +146,8 @@ Then, per chunk, in time order:
 
 `S2_optimal`
 : HDI range at or above that threshold, **but** the lag is within `--dev-thresh` (default `0.5` s)
-  of the preceding optimal lag. The detection is uncertain on its own terms, yet it agrees with a
-  neighbour that was not — so it is accepted.
+  of the preceding optimal lag. The detection is uncertain on its own, but it agrees with the last
+  lag that was accepted, so it is accepted too.
 
 `S3_unreliable`
 : Neither. The chunk's own lag is discarded and the last known optimal lag is carried forward.
@@ -153,22 +156,22 @@ Then, per chunk, in time order:
 : Neither, **and** the last optimal lag is further back than `--max-carry` periods, so it is no
   longer offered. Only occurs when that limit is set; see below.
 
-### How far a lag may travel
+### Limiting the carry distance
 
 The carry in S3 is unbounded in the paper: once an optimal lag exists, every later period that has
 none inherits it, however distant. On a long run that means a single good half hour can supply days.
 
 `--max-carry N` (**Max carry** in the TUI) caps the distance at N averaging periods, in **both**
-directions — the forward carry above, and the backward fill below. Beyond it the period is left for
-a donor gas or the median instead.
+directions: the forward carry above and the backward fill below. Beyond it the period is left for
+a donor gas or the median instead, and the expired lag no longer serves as the reference for S2.
 
 The limit has to cover both directions, or it does nothing. With detections either side of a long
-unusable stretch, an unbounded backward fill would cover the whole of it from the later detection —
-precisely the span the forward carry had just been forbidden to cross.
+unusable stretch, an unbounded backward fill would cover the whole of it from the later detection,
+which is exactly the span the forward carry was not allowed to cross.
 
 `{gas}_carry_periods` reports the distance for every period: `0` where the lag was detected there,
-`n` where it travelled `n` periods, empty where it came from somewhere else. The default is
-unlimited, which is the published behaviour.
+`n` where it was carried forward `n` periods, and empty where it was filled backward, borrowed or
+set to the median. The default is unlimited, which is the published behaviour.
 
 :::{note}
 **One deliberate difference from the paper.** In `dyco`, an S2 acceptance *updates* the
@@ -181,54 +184,58 @@ comparison against the reference R implementation.
 ### Periods still without a lag
 
 S3 carries a lag *forward*, so a period before the gas's first S1 or S2 detection has nothing to
-inherit — and with `--max-carry` set, so does any period past the end of the carry's reach. Those are
-filled afterwards, best source first:
+inherit. With `--max-carry` set, the same applies to any period beyond the reach of the carry. These
+periods are filled afterwards, best source first:
 
 1. **The gas's own lag, filled backward** from its next trusted detection, within `--max-carry`
    periods.
 2. **A donor gas**, if you asked for one with `@lagfrom=`. Taken period by period, so a donor lag
    that drifts is followed rather than flattened into a constant.
-3. **The median of this gas's raw detections** — every one of which PWBOPT has just rejected. This is
-   a last resort, and on real data it is often a negative lag that no tube can produce. If a gas
-   lands here, give it a donor.
+3. **The median of all of this gas's raw detections**, accepted or not. Without `--max-carry`, a
+   gas only gets here when PWBOPT accepted none of them. This is a last resort, and on real data it
+   is often a negative lag that no tube can produce. If a gas lands here, give it a donor.
 
 So the full order of preference, per period, is: its own detection → its own lag carried forward →
 its own lag filled backward → the donor's lag for that period → the median.
 
-**The gas's own lag comes first in all three of its forms, and that is deliberate.** Two gases down
-one tube still have different delays — a systematic 0.35 s between CH₄ and N₂O is ordinary — so
-borrowing swaps a stale number for a biased one. Whether staleness has become the larger error is a
-judgement about your site, and `--max-carry` is where you express it. Which also means the two
-settings belong together: with no carry limit a gas reaches every period with its own lag, and a
-donor is only consulted for a gas that never detects at all. dyco warns when a donor is named without
-one.
+**The gas's own lag comes first in all three of its forms, and that is deliberate.** Two gases in
+one tube still have different delays (a systematic 0.35 s between CH₄ and N₂O is ordinary), so
+borrowing replaces a stale lag with a biased one. Whether staleness has become the larger error is a
+judgement about the site, and `--max-carry` is where it is expressed. The two settings therefore
+belong together: with no carry limit a gas reaches every period with its own lag, and a
+donor is only consulted for a gas that never has a detection PWBOPT accepts. dyco warns when a donor is named without
+a carry limit.
 
 `{gas}_lag_source` in the summary records which of these produced each period's lag, so a borrowed or
-median-filled lag is never mistaken for a detected one.
+median-filled lag is never mistaken for a detected one. A period in which the gas has no valid data
+at all gets no lag, and its `{gas}_lag_source` is `no_data`: there is nothing in that column to
+shift.
 
-### Which lag actually gets removed
+### The lag that is removed
 
-`--lag-column-template` decides, and its default is `{prefix}_tlag_final_pf_s` — the **pre-filtered**
+`--lag-column-template` decides, and its default is `{prefix}_tlag_final_pf_s`, the **pre-filtered**
 PWBOPT column. The summary CSV carries the unfiltered variant alongside it, so both are available for
 comparison after the fact, but only one is applied to the data.
 
-To read a finished run, though, you want neither: **`{gas}_lag_applied_s`** is the lag that reached
+To inspect a finished run, read neither of them. **`{gas}_lag_applied_s`** is the lag that reached
 the data, measured back off the record shift, and `{gas}_lag_reason` says in words why that value was
 chosen. The same reasoning, one block per output file, is written to
 `detect_and_remove_tlag_decisions.txt`. See [What a run writes](output.md#the-summary-csv).
 
-## Search windows are doing real work
+## Effect of the search window
 
-`--lws` and `--uws` bound the search to physically possible lags. That sounds like a convenience. On
-real data it is load-bearing.
+`--lws` and `--uws` bound the search to physically possible lags. On real data this bound can decide
+the result.
 
-On the bundled CH-LAE half hour, an *unwindowed* PWB search is unreliable — and unreliable in the
-same way in both `dyco` and the reference R implementation. The cross-covariance peaks at **−7.45 s**,
-which no tube delay can be, because a closed-path delay is always positive. The pipeline reports a
-usable **8.45 s** for that same half hour only because `--lws 0 --uws 10` confines the search to lags
-that could physically occur.
+On a half hour with a clear flux the window changes little: the bundled CH-LAE 13:00 half hour gives
+CO₂ 8.45 s with an HDI of 0.00 s with or without `--lws 0 --uws 10`. On a weak or trending signal it
+decides the result. In a November half hour of the CZ-Lnz QCL record, a ±30 s search gives lags of
+0.7 to 8.5 s with HDI widths of 41 to 54 s, because the cross-covariance follows the trend in the
+data instead of the flux (see [the search window](example-qcl-10hz.md#the-search-window)). A
+closed-path delay is always positive, so a window that starts near 0 s and ends past the longest
+expected delay removes peaks no tube can produce.
 
-The consequence is worth internalising when you read a flag:
+This affects how an S1 flag should be read:
 
 :::{important}
 **An S1 flag from a windowed search is a weaker claim than an S1 flag from an unwindowed one.** A
@@ -245,7 +252,9 @@ site's lags come back suspiciously flat, widening the window is the first thing 
 
 `tests/test_pwb_reference.py` pins the deterministic half of the implementation to RFlux v3.2.0's
 `tlag_detection.R` at 12 significant digits: both branches of the unit-root test, and the bundled
-real CH-LAE half hour, where the AR orders reach 133 / 87 / 312. The R script that produced the
+real CH-LAE half hour, where the AR orders reach 133 / 87 / 312. That test case keeps the 12 `-9999`
+fill values of the CO₂ column as numbers, so R and `dyco` see identical input; a normal run reads
+them as missing and gets 299 / 87 / 312. The R script that produced the
 frozen values ships alongside the fixtures in `tests/data/`, so the comparison can be rerun.
 
 Everything deterministic matches. What is left over is the bootstrap, which is random by nature, and
@@ -255,21 +264,24 @@ docstring in `dyco/pwb.py`; in summary:
 **Differences that could move a number, all small.** dyco resamples with moving blocks starting
 anywhere from 0 to `n - L`, while R's `tsboot` wraps around by default, joining the end of a
 turbulence record to its start. The bootstrap mode comes from a Gaussian KDE rather than R's
-`map_estimate`, a different bandwidth and grid but well inside bootstrap noise. AR-filter
-initialisation NaN are zeroed where R's `acf` skips NA pairs, affecting about 1% of positions with
-the same numerator. And an S2 acceptance updates the carry-forward reference, so a run of S2 periods
-can drift; the paper's Section 2.3 is ambiguous and its S3 wording implies this reading.
+`map_estimate`, a different bandwidth and grid but well inside bootstrap noise. The NaNs left by
+the AR-filter initialisation are set to zero, where R's `acf` skips those pairs; the numerator is
+the same, and about 1% of positions are affected. And an S2 acceptance updates the carry-forward
+reference, so a run of S2 periods can drift; the paper's Section 2.3 is ambiguous and its S3
+wording implies this reading.
 
 **Differences that are choices, not approximations.** A lag pinned to the search-window boundary is
 treated as a failed detection and discarded, where R returns it: a peak on the edge is undetermined
 rather than measured, and this matches EddyPro. When `--lws`/`--uws` are set they constrain the
-returned lag, where R computes windowed variants and then returns the unwindowed ones. `--max-carry`
-and `@lagfrom=` are additions with no counterpart in R, both off unless you ask for them.
+returned lag, where R computes windowed variants and then returns the unwindowed ones. `--max-carry`,
+`@lagfrom=` and the valid range (`@min=` / `@max=`) are additions with no counterpart in R, all off
+unless you ask for them.
 
 **One place where dyco follows R against the paper.** `--wdt` defaults to 5, R's value, not the
 paper's `hz/2 + 1` (11 at 20 Hz, 6 at 10 Hz). The flag exists so you can have the paper's, and the
-choice is not cosmetic: on the bundled CH-LAE hour, `--wdt 11` widens the 95% interval from
-0.00/0.05 s to 0.30/0.20 s, against the 0.5 s threshold that decides S1.
+choice is not cosmetic: on the bundled CH-LAE hour, `--wdt 11` widens the CO₂ HDI of the two half
+hours from 0.00/0.05 s to 0.30/0.20 s, against the 0.5 s threshold that decides S1, and narrows the
+H₂O one. [Worked example: a 20 Hz IRGA file](example-irga-20hz.md) has the table.
 
 ## Further reading
 
@@ -278,5 +290,5 @@ Why this problem needs its own tool, and the literature it sits in:
 
 The method itself is Vitale, D., Fratini, G., Helfter, C., Hörtnagl, L., et al., 2024. A
 pre-whitening with block-bootstrap cross-correlation procedure for temporal alignment of data sampled
-by eddy covariance systems. *Environmental and Ecological Statistics* 31, 219–244.
+by eddy covariance systems. *Environmental and Ecological Statistics* 31, 219-244.
 <https://doi.org/10.1007/s10651-024-00615-9>

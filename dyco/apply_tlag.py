@@ -2,12 +2,12 @@
 APPLY_TLAG: APPLY PRE-WHITENING-BOOTSTRAP TIME LAGS TO RAW EC FILES
 ====================================================================
 
-After ``PwbBatchDetection`` (``lag_pwb.py``) writes a ``tlag_results.csv`` with
+After ``PwbBatchDetection`` (``pwb.py``) writes a ``tlag_results.csv`` with
 one detected lag per averaging period and gas, this module reads that file
 and applies the lags to the original high-frequency EC files by shifting each
 scalar column backward along the time axis. The result is a parallel directory
-of time-lag-corrected files ready for downstream flux calculation (e.g. via
-``diive.flux.run_chain`` or EddyPro).
+of time-lag-corrected files ready for downstream flux calculation (e.g. in
+EddyPro).
 
 Recommended workflow
 --------------------
@@ -19,7 +19,7 @@ pipeline. During that flux processing, the EC time-lag maximization step
 must be **disabled** (the lag has already been corrected here).
 
 The detection format and the apply format therefore often differ. This
-module handles arbitrary text formats via the ``--sep`` / ``--header-row`` /
+module handles arbitrary text formats via the ``--sep`` / ``--skiprows`` /
 ``--extra-rows`` / ``--lineterm`` flags (default settings target EddyPro
 rotated files; see the CLI section below for a raw CSV example). When the
 filenames in the rotated detection dir and the raw apply dir differ, the
@@ -59,8 +59,9 @@ or via the module form::
 **Required flags**
 
 ``--input-dir PATH``
-    Directory containing the original EddyPro rotated ``.txt`` files (the same
-    directory that was passed to ``dyco-pwb-batch``).
+    Directory containing the high-frequency files to shift: the files that
+    were passed to ``dyco-pwb-batch``, or the matching raw (unrotated) files
+    (see the filename mapping flags below).
 ``--output-dir PATH``
     Output directory for the lag-corrected files.
 ``--results-csv PATH``
@@ -172,8 +173,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
 
-# Suppress the runpy double-import warning that fires in every worker process
-# when the package init has already imported this module before -m re-executes it.
+# Suppress runpy's double-import RuntimeWarning under ``-m``. It fired when
+# the package __init__ imported this module; __init__ now imports nothing,
+# so the filter may no longer be needed.
 warnings.filterwarnings('ignore', category=RuntimeWarning, module='runpy')
 
 import numpy as np
@@ -623,7 +625,9 @@ def _build_parser():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument('--input-dir', required=True,
-                   help='Directory containing the original EddyPro rotated .txt files.')
+                   help='Directory containing the high-frequency files to shift: '
+                        'the files given to dyco-pwb-batch, or the matching raw '
+                        '(unrotated) files (see --period-key-regex).')
     p.add_argument('--output-dir', required=True,
                    help='Output directory for lag-corrected files.')
     p.add_argument('--results-csv', required=True,
@@ -647,8 +651,8 @@ def _build_parser():
                    help=r"Field separator. Default: whitespace (regex '\s+'). "
                         r"Use ',' for CSV, '\t' for TSV.")
     p.add_argument('--lineterm', default='\n',
-                   help=r"Line terminator written between data rows. "
-                        r"Default '\n'; use '\r\n' to match Windows-CRLF input.")
+                   help=r"Line terminator written between data rows. Use '\r\n' "
+                        r"to match Windows-CRLF input. (default: %(default)r)")
     p.add_argument('--na-values', nargs='+',
                    default=list(_DEFAULT_NA_VALUES),
                    help='Strings to treat as NaN on read.')

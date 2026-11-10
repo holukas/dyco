@@ -32,8 +32,8 @@ Run time
 --------
 This is real work, not a toy: PWB runs a block-bootstrap per gas per chunk, so
 expect something like ten seconds for the two bundled chunks. ``n_bootstrap`` is
-lowered from the paper's default here to keep the example tolerable; raise it
-for production use.
+100 here, one more than the paper's 99, so its numbers differ slightly from the
+command-line run on the IRGA example page, which uses 99.
 
 Output goes to a temporary directory that is removed at the end. Set the
 ``DYCO_OUT`` environment variable to a real path to keep the results instead.
@@ -70,7 +70,7 @@ DATA_FILE = Path(__file__).parent / 'data' / 'CH-LAE_202507251300.csv.gz'
 
 HZ = 20  # Sampling rate of the raw data
 CHUNK_SECONDS = 1800  # 30-minute averaging periods
-N_BOOTSTRAP = 100  # Lowered for runtime; the paper uses more
+N_BOOTSTRAP = 100  # The paper and the command-line default use 99
 
 # Column names as they appear in the file's first header row.
 COL_U = 'U_[HS50-B]'
@@ -122,7 +122,7 @@ def main():
             # File format: one file, gzip-compressed CSV, 3 header rows. Row 0
             # carries the column names; rows 1-2 (units, instrument) are the
             # 'extra' header rows that are preserved in the output.
-            file_pattern='*.csv.gz',
+            file_pattern='CH-LAE_*.csv.gz',  # examples/data/ holds other sites' files too
             skiprows=0,
             extra_rows=2,
             sep=',',

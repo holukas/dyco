@@ -81,9 +81,9 @@ The lag has already been corrected here, so flux processing over
 
 See Also
 --------
-- ``flux_lag_pwb.py`` — the PWB algorithm on a single averaging period.
-- ``flux_lag_pwb_batch.py`` — detection only, across many 30-min files.
-- ``flux_apply_tlag_cli.py`` — applying lags from an existing results CSV.
+- ``lag_pwb.py`` — the PWB algorithm on a single averaging period.
+- ``lag_pwb_batch.py`` — detection only, across many 30-min files.
+- ``apply_tlag_cli.py`` — applying lags from an existing results CSV.
 """
 
 # %%

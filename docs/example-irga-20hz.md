@@ -1,6 +1,6 @@
 # Worked example: a 20 Hz IRGA file
 
-One hour of 20 Hz eddy covariance from CH-LAE (Laegeren, Switzerland), recorded on 25 July 2025 from
+One hour of 20 Hz eddy covariance from CH-LAE (Lägeren, Switzerland), recorded on 25 July 2025 from
 13:00. The instruments are an HS50 sonic and a closed-path IRGA72 measuring CO₂ and H₂O. The file is
 `examples/data/CH-LAE_202507251300.csv.gz`, it ships with dyco, and it holds 72000 records in 1.4 MB
 of gzip. It is a 1-hour excerpt of a 6-hour raw file, trimmed to keep the repository small.
@@ -37,8 +37,8 @@ The instrument tags in brackets need no escaping. dyco takes column names as giv
 :::{note}
 `--extra-rows` counts the header rows after the names row. Three header rows means
 `--extra-rows 2`, which is the default. The QCL example sets it to `0` because that file has only
-the names row. Get this wrong and the units row is read as data, which shifts every column by one
-record.
+the names row. Set it too low and the units and instrument rows are read as data: the first chunk
+fails because they are not numbers, and every later chunk boundary moves by one record per row.
 :::
 
 ## There is no timestamp column
@@ -78,20 +78,20 @@ humidity and tube age. On this hour the wider window turns out to be unnecessary
 8.25 to 8.70 s against CO₂'s 8.45 s. It costs nothing, and it is what covers a humid afternoon.
 
 Note the per-gas `block=60`. R's rule is a bootstrap block of `2 × lag_max`, so a window widened to
-30 s needs a block widened to 60 s. The global `--block-length 20` matches the global `--lag-max 10`
-in the same way.
+30 s needs a block widened to 60 s. A per-gas `lag=` without `block=` already sets the block to
+`2 × lag`, so `block=60` only makes that explicit. The global `--block-length 20` matches the global
+`--lag-max 10` in the same way, but there you set both yourself.
 
 ## The command
 
 ```bash
-dyco detect-remove --input-dir ./data --output-dir ./dyco_out --file-pattern "*.csv.gz" --col-u "U_[HS50-B]" --col-v "V_[HS50-B]" --col-w "W_[HS50-B]" --col-tsonic "T_SONIC_[HS50-B]" --scalar "CO2:CO2_DRY_[IRGA72-A]" --scalar "H2O:H2O_DRY_[IRGA72-A]@lag=30;uws=30;block=60" --hz 20 --lag-max 10 --lws 0 --uws 10 --block-length 20 --n-bootstrap 99 --skiprows 0 --extra-rows 2 --sep "," --chunk-seconds 1800 --start-time-regex "(\d{12})" --start-time-format "%Y%m%d%H%M" --chunk-name-template "CH-LAE_{starttime}{suffix}" --random-state 42
+dyco detect-remove --input-dir examples/data --output-dir ./dyco_out --file-pattern "CH-LAE_*.csv.gz" --col-u "U_[HS50-B]" --col-v "V_[HS50-B]" --col-w "W_[HS50-B]" --col-tsonic "T_SONIC_[HS50-B]" --scalar "CO2:CO2_DRY_[IRGA72-A]" --scalar "H2O:H2O_DRY_[IRGA72-A]@lag=30;uws=30;block=60" --hz 20 --lag-max 10 --lws 0 --uws 10 --block-length 20 --n-bootstrap 99 --skiprows 0 --extra-rows 2 --sep "," --chunk-seconds 1800 --start-time-regex "(\d{12})" --start-time-format "%Y%m%d%H%M" --chunk-name-template "CH-LAE_{starttime}{suffix}" --random-state 42
 ```
 
 That takes about 8 seconds for the two chunks. `examples/detect_remove_tlag_realdata.py` runs the
 same file through `PerFilePipeline` if you would rather call the library. It is not quite the same
-run: the script gives H₂O the wider window but leaves the bootstrap block at the global 20 s, so its
-second chunk comes out at 8.60 s rather than the 8.25 s below. Which is itself the point of the
-`block=60` above.
+run: the script draws 100 bootstrap replicates instead of 99, so H₂O in the second chunk comes out
+at 8.60 s (HDI 0.40 s) rather than the 8.25 s below. The other three lags are the same.
 
 ## What the run found
 
@@ -107,10 +107,10 @@ interval has collapsed onto a single value, so the bootstrap replicates agree to
 order there is 299, which means the filter removed a lot of autocorrelation and the peak was still
 clean.
 
-Worth noticing in `{gas}_best_combination`: all four detections won on a **sonic temperature**
-pairing (`tc` or `ct`), not on the gas against vertical wind. That is expected for a weak trace gas
-and less so for CO₂ over a forest in July. It is a good reminder that the `T_SONIC` requirement is
-not there only for the difficult gases.
+In `{gas}_best_combination`, all four detections won on a **sonic temperature** pairing (`tc` or
+`ct`), not on the gas against vertical wind. That is expected for a weak trace gas and less so for
+CO₂ over a forest in July. The `T_SONIC` requirement therefore matters for more than the difficult
+gases.
 
 :::{note}
 `--wdt` sets the smoothing width applied to each bootstrap CCF before its peak is read. The default
@@ -146,7 +146,7 @@ All three header rows come back byte for byte, units and instrument tags include
 dyco did not shift keep their values. Three details to know before you diff an output file against
 its input:
 
-- The last 169 records of `CO2_DRY_[IRGA72-A]` are `-9999`, and the last 174 of
+- In the 13:00 file, the last 169 records of `CO2_DRY_[IRGA72-A]` are `-9999`, and the last 174 of
   `H2O_DRY_[IRGA72-A]`. Shifting a column forward by 8.45 s at 20 Hz leaves 169 records at the end
   with nothing to draw from. The data is in the next chunk. This is the cost of removing a lag, not
   a defect.
@@ -157,7 +157,7 @@ its input:
 
 So parse the output file rather than expecting it byte for byte.
 
-## Where to go next
+## Related pages
 
 [What a run writes](output.md) covers the summary CSV, the decisions report and the diagnostic plots.
 The [10 Hz QCL example](example-qcl-10hz.md) works through a harder case: three gases, one of which

@@ -2,16 +2,12 @@
 PLOTSTYLE: DEFAULT MATPLOTLIB AXIS FORMATTING
 ==============================================
 
-Chrome formatting for matplotlib axes, used by the covariance plots.
+Chrome formatting for matplotlib axes, used by the plots in `maxcov.py` and
+`pwb.py`.
 
 Copied from diive (`core/plotting/plotfuncs.py` and
 `core/plotting/styles/LightTheme.py`). Only the constants actually read by
 `default_format` are carried over; the rest of diive's theme is not.
-
-Note dyco also has an older `plot.default_format` with a different signature
-(`txt_xlabel=` rather than `ax_xlabel_txt=`). That one is used by dyco's own
-v2 modules. This one exists so the covariance plotting code copied from diive
-works unchanged. The two collapse into one during the v3 restructure.
 
 Part of the dyco package: https://github.com/holukas/dyco
 """

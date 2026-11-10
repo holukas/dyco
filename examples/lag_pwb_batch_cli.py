@@ -183,8 +183,8 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------
     # Run the CLI
     # ------------------------------------------------------------------
-    # Suppress the runpy double-import warning that appears when the package init
-    # pre-imports lag_pwb and then -m re-executes it as __main__.
+    # Suppress runpy's double-import warning under -m. It appeared when the
+    # package __init__ pre-imported dyco.pwb, which it no longer does.
     # PYTHONWARNINGS is inherited by all child processes (including workers).
     _env = {**os.environ, 'PYTHONWARNINGS': 'ignore::RuntimeWarning:runpy'}
 

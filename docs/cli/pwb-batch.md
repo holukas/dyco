@@ -1,15 +1,15 @@
 # dyco pwb-batch
 
 Detect lags only, across files that are **already** split into averaging periods. Writes
-`tlag_results.csv` and stops — nothing is shifted and no corrected raw data is produced. Pair it with
+`tlag_results.csv` and stops: nothing is shifted and no corrected raw data is produced. Pair it with
 [`dyco apply-batch`](apply-batch.md).
 
 Also available as the standalone `dyco-pwb-batch`.
 
 :::{important}
 Input files must already be **wind-rotation corrected** (double rotation or planar fit, e.g. EddyPro
-"Advanced" rotated output). This command does not rotate; a non-zero mean `W` corrupts the
-cross-correlation. [`dyco detect-remove`](detect-remove.md) handles rotation itself, and is the right
+"Advanced" rotated output). This command does not rotate. In unrotated data, `W` still contains
+part of the horizontal wind (its mean is not zero), and that distorts the cross-correlation. [`dyco detect-remove`](detect-remove.md) handles rotation itself, and is the right
 choice unless your files are already split.
 :::
 

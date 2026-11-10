@@ -27,18 +27,37 @@ place. This is what makes low-SNR gases such as N<sub>2</sub>O and CH<sub>4</sub
 |---|---|
 | [Installation](https://dyco.readthedocs.io/en/latest/install.html) | Requirements, and how to run it without your own data |
 | [The terminal UI](https://dyco.readthedocs.io/en/latest/tui.html) | **Start here.** The recommended way to run dyco |
-| [Command reference](https://dyco.readthedocs.io/en/latest/cli/index.html) | All four commands and every option, generated from the parsers |
+| [Worked example: a 20 Hz IRGA file](https://dyco.readthedocs.io/en/latest/example-irga-20hz.html) | One hour of CH-LAE data, from the raw file to the written output |
+| [Worked example: a 10 Hz QCL record](https://dyco.readthedocs.io/en/latest/example-qcl-10hz.html) | A CZ-Lnz half hour of CH<sub>4</sub>, N<sub>2</sub>O and H<sub>2</sub>O, with a donor gas and a carry limit |
+| [Flux detection limit](https://dyco.readthedocs.io/en/latest/fdl.html) | `dyco fdl`: the flux at the selected lag and its detection limit, with a worked example |
+| [Command reference](https://dyco.readthedocs.io/en/latest/cli/index.html) | Every command and option, generated from the parsers |
 | [What a run writes](https://dyco.readthedocs.io/en/latest/output.html) | Output folders, the summary CSV, `log.txt` |
 | [The PWB method](https://dyco.readthedocs.io/en/latest/method.html) | Pre-whitening, block-bootstrap, PWBOPT, and the validation against RFlux |
 | [Motivation and background](https://dyco.readthedocs.io/en/latest/background.html) | Why low-SNR gases need this, and the literature |
 | [Migrating from v2](https://dyco.readthedocs.io/en/latest/migrating-from-v2.html) | What replaced what, and why the old method went |
-| [Library API](https://dyco.readthedocs.io/en/latest/library.html) | The file splitter, wind rotation, flux detection limit |
+| [Library API](https://dyco.readthedocs.io/en/latest/library.html) | The file splitter, wind rotation, flux detection limit and covariance maximization, from Python |
 
 ## One detection method
 
 v3 has a single way of finding the time lag between the vertical wind `W` and a scalar `S`: PWB. The
 covariance-maximization method that `dyco` shipped up to v2 was removed; `CHANGELOG.md` records what
-went and why, and `pip install dyco==2.0.3` still has it.
+went and why. It remains in `dyco==2.0.3`, which needs Python 3.11 and depends on `diive`, and may
+no longer install against a current `diive`.
+
+## Flux detection limit
+
+Since v3.1.0, `dyco fdl` computes the flux detection limit (Langford et al., 2015) of each averaging
+period and gas on the command line; before, it was available only from Python, as
+`FluxDetectionLimit`. It detects the lag the same way as `dyco detect-remove`, reads the flux at
+that lag, and writes a results table, a summary of the numbers to report and a figure per gas. It
+writes no data files.
+
+```bash
+dyco fdl --help
+```
+
+The [Flux detection limit](https://dyco.readthedocs.io/en/latest/fdl.html) guide covers the method,
+the units each input needs, what to report, and two worked examples.
 
 ## Installation
 
@@ -48,11 +67,10 @@ Requires Python 3.12 or 3.13.
 pip install dyco
 ```
 
-`dyco` has no dependency on `diive`. Everything it needs is bundled. See
-[Installation](https://dyco.readthedocs.io/en/latest/install.html) for a checkout, and for how to
-run the whole pipeline on data that ships with the repository.
+See [Installation](https://dyco.readthedocs.io/en/latest/install.html) for a checkout, and for how
+to run the whole pipeline on data that ships with the repository.
 
-## Start here: the terminal UI
+## The terminal UI
 
 ```bash
 dyco tui
@@ -62,8 +80,8 @@ dyco tui
 *Settings on the left, the run on the right. This is `dyco tui --demo`, which needs no data.*
 
 **This is the recommended way to run dyco.** A detect-and-remove run takes on the order of thirty
-settings: column names, file format, chunk length, search windows per gas, PWBOPT thresholds. Getting
-one of them wrong is easy on a command line and obvious in a form. The TUI validates as you type,
+settings: column names, file format, chunk length, search windows per gas, PWBOPT thresholds. A
+wrong one is hard to spot in a long command line. The TUI validates as you type,
 scans your first file so you can pick column names from a list instead of typing bracketed names by
 hand, and runs a preflight **Check** that reads a real file and reports what it found before anything
 is processed.
@@ -83,26 +101,27 @@ dyco <command> --help   # options for one of them
 | Command | Does | When |
 |---|---|---|
 | `dyco tui` | `detect-remove` behind a form, with live validation and a preflight check. | **Start here.** |
-| [`dyco detect-remove`](https://dyco.readthedocs.io/en/latest/cli/detect-remove.html) | **The main command.** Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass, one output folder. | Almost always. Scripting, or when you prefer a command line. |
+| [`dyco detect-remove`](https://dyco.readthedocs.io/en/latest/cli/detect-remove.html) | **The main command.** Split long raw files into averaging-period chunks, rotate, detect the lag per chunk, then remove it. One pass, one output folder. | Scripted runs, or when you prefer the command line. |
 | [`dyco pwb-batch`](https://dyco.readthedocs.io/en/latest/cli/pwb-batch.html) | Detect only, on files that are *already* split into averaging periods. Writes `tlag_results.csv` and stops. | Step 1 of the two-step route. |
 | [`dyco apply-batch`](https://dyco.readthedocs.io/en/latest/cli/apply-batch.html) | Remove lags listed in an existing `tlag_results.csv`. Detects nothing. | Step 2 of the two-step route. |
+| [`dyco fdl`](https://dyco.readthedocs.io/en/latest/fdl.html) | Detect the lag per averaging period, then compute the flux at that lag and its flux detection limit (Langford et al., 2015). Writes `pwb_fdl_results.csv`, a summary of the numbers to report and a figure per gas, and no data files. | To check which fluxes are distinguishable from noise. |
 
 Each also exists standalone: `dyco-detect-remove`, `dyco-detect-remove-tui`, `dyco-pwb-batch`,
-`dyco-apply-batch`.
+`dyco-apply-batch`, `dyco-fdl`.
 
 A gas too noisy to locate its own lag can borrow one from a reference gas in the same tube, per
-period, with `--scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"` — paired with `--max-carry`, which says
-how long the gas's own lag stays good before borrowing is the better answer. See
+period, with `--scalar "N2O:N2O_DRY_[QCL-C2]@lagfrom=CO2"`. Use it together with `--max-carry`,
+which sets how many periods the gas's own lag may be carried before the borrowed lag is used. See
 [Taking a gas's lag from another gas](https://dyco.readthedocs.io/en/latest/cli/index.html#taking-a-gas-s-lag-from-another-gas).
 
-Every run explains itself: `detect_and_remove_tlag_decisions.txt` names the lag applied to each
-output file and why it was chosen, and `{gas}_lag_applied_s` in the summary CSV is the lag that
-actually reached the data.
+Each `detect-remove` run records its decisions: `detect_and_remove_tlag_decisions.txt` names the lag
+applied to each output file and why it was chosen, and `{gas}_lag_applied_s` in the summary CSV is
+the lag that actually reached the data.
 
 > **Important:** downstream flux processing must run with time-lag maximization **disabled**. The lag
 > has already been removed.
 
-## Try it
+## Running the bundled examples
 
 A real 1-hour raw file from CH-LAE (Lägeren) ships with the repository, so the primary pipeline can be
 run without supplying data:
@@ -112,9 +131,10 @@ uv run python examples/detect_remove_tlag_realdata.py
 ```
 
 That detects and removes the tube delay for CO<sub>2</sub> and H<sub>2</sub>O across two 30-minute
-chunks, and prints what was detected against what was actually applied. Expect about a minute.
+chunks, and prints what was detected against what was actually applied. It takes well under a minute.
 `examples/detect_remove_tlag.py` is the synthetic counterpart, where the lag is known in advance and
-can be checked.
+can be checked. `examples/pwb_fdl_realdata.py` computes the lag and the flux detection limit for
+CH<sub>4</sub> and N<sub>2</sub>O on a bundled 6-hour CH-CHA file.
 
 ## The PWB workflow
 
@@ -126,7 +146,7 @@ flowchart TD
     RAW["Raw EC file<br/>unrotated delimited text, plain or compressed<br/>--input-dir, --file-pattern"]
     RAW --> SPLIT["Cut into fixed-length chunks<br/>--chunk-seconds 1800<br/>boundaries snap to :00 / :30<br/>a remainder under --min-chunk-seconds writes nothing"]
 
-    subgraph P1["Phase 1: detect (nothing is written yet)"]
+    subgraph P1["Phase 1: detect (no output files yet)"]
         direction TB
         ROT["Double rotation<br/>in memory only, never reaches disk"]
         PW["Pre-whitening<br/>AR(p) filter, order chosen by AIC<br/>all three series differenced first if any fails the unit-root test"]
@@ -151,7 +171,7 @@ flowchart TD
         GAP{"any period still without a lag"}
         GAP -->|"its own trusted lag is within reach"| BFILL["fill backward from it<br/>--max-carry bounds this too"]
         GAP -->|"--scalar ...@lagfrom=CO2"| DONOR["take that period's lag from the other gas"]
-        GAP -->|"nothing else left"| MED["median of this gas's raw detections<br/>(all of them rejected, a last resort)"]
+        GAP -->|"nothing else left"| MED["median of all of this gas's raw detections<br/>(a last resort)"]
     end
 
     BFILL --> APPLY
@@ -173,17 +193,17 @@ flowchart TD
 Detection and removal are separate phases because PWBOPT cannot decide anything about one chunk until
 it has seen the whole sequence. [The PWB method](https://dyco.readthedocs.io/en/latest/method.html) walks through each step.
 
-## Why it exists
+## Motivation
 
 Covariance maximization works for compounds with high signal-to-noise ratio such as CO<sub>2</sub>.
 For N<sub>2</sub>O and CH<sub>4</sub> the cross-covariance function is noisy, fluxes are biased toward
 larger absolute values, and flux software falls back to a constant nominal lag that also fails when
 the raw data contain systematic time shifts. `dyco` gives every detection an explicit uncertainty
 interval, substitutes a trustworthy neighbouring lag where a period's own detection cannot be trusted,
-and can carry a high-SNR reference gas's lag over to a low-SNR target in the same analyzer.
+and can carry a high-SNR reference gas's lag over to a low-SNR target in the same tube.
 
-[Motivation and background](https://dyco.readthedocs.io/en/latest/background.html) has the full argument, two real sites where it
-matters, and the references.
+[Motivation and background](https://dyco.readthedocs.io/en/latest/background.html) has the full
+argument, two example cases where it matters, and the references.
 
 ## Building the documentation
 
@@ -218,11 +238,11 @@ resolves to the latest version and is the one to use for all versions. Zenodo al
 each individual release, if the work depends on a particular one. `CITATION.cff` carries the full
 metadata.
 
-## Notes
+## Publication history
 
 `dyco` was first published in 2021 and has kept developing since. The
 [JOSS paper](https://doi.org/10.21105/joss.02575) describes **v1.1.2**, released for that
-publication on 16 Jun 2021, and documents the covariance-maximization method — which v3 removed.
-What the paper describes is not what this version does. See `CHANGELOG.md`, and
+publication on 16 Jun 2021. It documents the covariance-maximization method, which v3 removed, so
+the paper does not describe what this version does. See `CHANGELOG.md`, and
 [Migrating from v2](https://dyco.readthedocs.io/en/latest/migrating-from-v2.html).
-[![DOI](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)
+[![JOSS](https://raw.githubusercontent.com/holukas/dyco/refs/heads/main/status.svg)](https://doi.org/10.21105/joss.02575) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4964067.svg)](https://doi.org/10.5281/zenodo.4964067)

@@ -6,9 +6,8 @@ Rotate wind vectors to account for sonic anemometer tilt relative to true vertic
 
 Moved here from diive (`flux/hires/windrotation.py`). Rotation is a prerequisite
 for lag detection - the pipeline rotates each chunk before searching for the lag
-- so it belongs with the lag code. diive keeps a copy for now because
-`detect_and_remove_tlag.py` and `filesplitter.py` still use it; that copy goes
-when the rest of diive's `flux/hires` moves across.
+- so it belongs with the lag code. `split.py` and `FluxDetectionLimit` use it
+too.
 
 Part of the dyco package: https://github.com/holukas/dyco
 

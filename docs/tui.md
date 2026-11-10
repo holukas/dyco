@@ -9,8 +9,8 @@ dyco tui
 *Settings on the left, the run on the right. This is `dyco tui --demo`, which needs no data.*
 
 **This is the recommended way to run dyco.** A detect-and-remove run takes on the order of thirty
-settings: column names, file format, chunk length, search windows per gas, PWBOPT thresholds. Getting
-one of them wrong is easy on a command line and obvious in a form. The TUI validates as you type,
+settings: column names, file format, chunk length, search windows per gas, PWBOPT thresholds. A
+wrong one is hard to spot in a long command line. The TUI validates as you type,
 scans your first file so you can pick column names from a list instead of typing bracketed names by
 hand, and runs a preflight **Check** that reads a real file and reports what it found before anything
 is processed. It saves and reloads settings, and every run writes its configuration back out, so a
@@ -18,25 +18,27 @@ run started in the TUI can be repeated exactly.
 
 `dyco tui --demo` explores the interface with no data at all.
 
-## Its relationship to the command line
+## Relationship to the command line
 
 The TUI drives one command, `dyco detect-remove`, which is the whole job in one pass. That covers the
 normal case, including [taking a weak gas's lag from a strong one](cli/index.md#taking-a-gass-lag-from-another-gas).
 
-**The CLI and the TUI take the same format settings.** The TUI is a front end over the same parser,
-building its configuration from the identical arguments, so anything you can describe in the TUI you
-can pass on the command line. The difference is that the TUI validates as you type and can scan a
-file to show you its columns first.
+**The CLI and the TUI run the same pipeline.** Every TUI field maps to a `dyco detect-remove`
+option, so anything you set in the TUI you can pass on the command line. The reverse holds except
+for `--wdt` and `--block-length`, which have no field: the TUI leaves them at their defaults (5
+records, 20 s), and a per-gas window sets that gas's block to twice its `lag_max`, but not below
+20 s. The TUI also validates as you type and can scan a file to show you its columns first.
 
-Every TUI run writes a `detect_remove_tui_settings.yaml` next to its results, and the TUI can reload
-it. Build the configuration interactively, then automate the command.
+Every run writes a `detect_remove_tui_settings.yaml` next to its results, from the TUI and from
+`dyco detect-remove` alike. The TUI reloads it with **Load**, or when you drop the file onto the
+window. Build the configuration interactively, then automate the command.
 
 ## Settings file location
 
 The TUI's saved settings live at `~/.dyco/detect_remove_tui.yaml`.
 
 :::{note}
-An existing `~/.diive/` configuration from before the v3 migration will not be found.
+An existing `~/.diive/` configuration, from when this code was part of diive, is not read.
 :::
 
 Settings are loaded at start and saved on **Run**, or with the **Save** button, so column names and
@@ -45,12 +47,15 @@ paths are entered once and then stay.
 ## The two panes
 
 **Left, the form.** Paths, the four wind and sonic columns, the gases, the PWB and chunking
-parameters, the raw file format (skip-rows, extra header rows, separator, file glob) and the naming
-rule for output chunks. Every field has a tooltip on hover, and focusing a field echoes the same help
-into the status line, so the keyboard route shows as much as the mouse one.
+parameters (including the per-gas search window, donor gas and valid range), the PWBOPT thresholds,
+the raw file format (skip-rows, extra header rows, separator, file glob), the naming rule for output
+chunks, and the worker count and random seed. Every field has a tooltip on hover, and focusing a
+field echoes the same help into the status line, so the keyboard route shows as much as the mouse
+one.
 
-You can drag a folder onto the window to fill a path field. The drop prefers an empty field, so once
-**Input dir** is set the next drop lands in **Output dir** without clicking anything. Some terminals
+You can drag a folder onto the window to fill a path field; a dropped file fills it with its
+folder. The drop prefers an empty field, so once **Input dir** is set the next drop lands in
+**Output dir** without clicking anything. Some terminals
 type the dropped path into whatever field has focus instead of pasting it; there, click the target
 field first. The ✕ button clears a field.
 
@@ -62,15 +67,15 @@ rather than only what has landed. Each log line is stamped with the wall-clock t
 
 ## The Check preflight
 
-**Check** (or `k`) reads only the header of the first matching file, so it answers in well under a
-second rather than after a long run. It reports, in order:
+**Check** (or `k`) reads the header of the first matching file and counts its lines. It processes no
+data, so it answers in seconds rather than after a long run. It reports, in order:
 
 - How many files the glob matched.
 - How many columns were parsed out of the header, with the `skiprows` and `extra-rows` it used, then
   the column names themselves.
-- One line per configured column, ticked if it is in the header and crossed if not. This is the check
-  that earns its keep: a wrong separator or `skiprows` shows up here as every column missing, rather
-  than as a failed run an hour later.
+- One line per configured column, ticked if it is in the header and crossed if not. A wrong
+  separator or `skiprows` shows up here as every column missing, rather than as a failed run an
+  hour later.
 - The chunk plan: roughly how many data rows the file holds, how many chunks that becomes, and the
   total across all matched files.
 - The name the first output file would get, and a note if the compression is about to change between
@@ -78,10 +83,14 @@ second rather than after a long run. It reports, in order:
 
 It finishes with **check passed, ready to Run**, or points you at the log.
 
+**Run** (or `r`) repeats the file and column part of this check on its own, and does not start if a
+file or a column is missing.
+
 ## Stopping a run
 
-**Stop** cancels the phase in flight, not the whole run. Pressing it during detection lets the chunks
-already detected be aligned and written, so a long run leaves usable data behind rather than nothing.
+**Stop** (or `x`) cancels the phase in flight, not the whole run. Pressing it during detection lets
+the chunks already detected be aligned and written, so a long run leaves usable data behind rather
+than nothing.
 The button re-enables when alignment starts; press it again to skip that too and keep whatever has
 been written by then.
 

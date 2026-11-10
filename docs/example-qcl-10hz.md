@@ -136,7 +136,7 @@ Point `--input-dir` at the folder holding the file. The settings that need expla
 |---|---|
 | `--extra-rows 0` | The file has no units row. The default of 2 would read data as header. |
 | `--hz 10` | From the 0.1 s timestamp step. |
-| `--wdt 6` | The paper sets the CCF smoothing width to `hz/2 + 1`, which is 6 at 10 Hz. The default of 5 follows RFlux, which assumes 20 Hz. |
+| `--wdt 6` | The paper sets the CCF smoothing width to `hz/2 + 1`, which is 6 at 10 Hz. The default of 5 is the RFlux default. |
 | `--lws 4 --uws 16` | Covers 8 to 14 s and excludes the unphysical peaks a wider window attracts. |
 | `--lag-max 20` `--block-length 40` | The window has to fit inside `lag_max`. Block length follows R's `2 × lag_max` rule. The CLI default of 20 s breaks that link and costs reliability here: CH₄ S1 drops from 27% to 18%. |
 | `@lagfrom=CH4` | N₂O rarely detects on its own. CH₄ is inert like N₂O, H₂O is not. |
@@ -191,7 +191,7 @@ The header row comes back byte for byte, and the columns dyco did not shift keep
 Removing a lag costs the tail of the period. CH₄ shifts forward by 8.90 s, so its last 89 records
 have nothing to draw from and are written as `-9999`. H₂O loses 91. The data is in the next file, so
 this cannot be avoided. It is also why flux software should read these files with time-lag
-maximization switched **off**, not just set to a narrow window.
+maximization switched **off**, not merely set to a narrow window.
 
 Two formatting details change on the way through. The timestamp is written without its quotes, and a
 value that happens to be a whole number gains a trailing `.0` (`0` becomes `0.0`, 75 times in the
@@ -208,10 +208,11 @@ byte-identical to the input.
 | Input dir / Output dir | as above |
 | Wind U / V / W, Sonic T | `u` `v` `w` `Ts` |
 | Scalars | `CH4:CH4,N2O:N2O,H2O:H2O` |
-| Lag from | `N2O:CH4` |
+| Lag from | `CH4:CH4,N2O:CH4,H2O:H2O` |
 | Frequency | `10` |
 | Lag max s | `16` |
 | Win s | `CH4:[4,16],N2O:[4,16],H2O:[4,16]` |
+| Valid range | `CH4:[,],N2O:[,],H2O:[,]` |
 | Chunk s | `1800` |
 | Bootstraps | `99` |
 | Max carry | `48` |
@@ -223,19 +224,24 @@ byte-identical to the input.
 | Random seed | `42` |
 | Save plots | on |
 
-Three things differ from the command line. The donor goes in the **Lag from** field, not in
-**Scalars**. Type **Win s** by hand instead of pressing ⟳, which re-seeds the window symmetrically
-from **Lag max** and drops the lower bound of 4.
+Two things differ from the command line. The donor goes in the **Lag from** field, not in
+**Scalars**: the field starts with each gas pointing at itself, and you change N₂O's entry to `CH4`.
+Type **Win s** by hand instead of pressing ⟳, which re-seeds the window symmetrically from **Lag
+max** and drops the lower bound of 4.
+
+**Valid range** stays `[,]` (no range) for every gas, because the file has no units row to fill it
+in from. That matches the command above.
 
 The TUI also has no field for `--wdt` or `--block-length`. It leaves `wdt` at 5 and derives the block
-length from the window, so `[4,16]` gives `lag_max 16` and `block 32` instead of 20 and 40. That is
-why **Lag max s** is 16 above. On the same 60 half hours, the largest difference from the
+length from the window, so `[4,16]` gives `lag_max 16` and `block 32` instead of 20 and 40. **Lag max
+s** only seeds **Win s** and is ignored once a gas has a window; 16 above matches the `lag_max` the
+run uses. On the same 60 half hours, the largest difference from the
 command-line settings is 0.20 s among detections that reach the data. That is two records at 10 Hz,
 well inside the 0.5 s reliability threshold.
 
 :::{note}
 This record also contains literal `-Inf` values, written by the logger into H₂O. Nothing needs
-configuring, because dyco treats any non-finite value as missing, like `-9999`. Just as well, since
-`--na-values` cannot express it. `argparse` reads a leading `-Inf` as an option name and refuses the
+configuring, because dyco treats any non-finite value as missing, like `-9999`. `--na-values` could
+not express it in any case: `argparse` reads a leading `-Inf` as an option name and refuses the
 command. Non-finite values are left out of `{gas}_n_valid`.
 :::
