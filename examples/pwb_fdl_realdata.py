@@ -25,7 +25,7 @@ the analyser cell, not the air.
 
 CH4 borrows N2O's lag. Both are measured in the same LGR cell through the same
 tube, and neither sticks to the tube wall, so their delays are the same. On this
-file N2O is detected reliably (S1) in every period and CH4 in none.
+file N2O's own lag is accepted in every period (11 S1, 1 S2) and CH4's in none.
 
 Output goes to a temporary directory that is removed at the end. Set the
 ``DYCO_OUT`` environment variable to a real path to keep the results instead.
