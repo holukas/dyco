@@ -21,9 +21,8 @@ stays: the flux detection limit is built on it, and it can be used on its own (s
 | Depends on [diive](https://github.com/holukas/diive) | Standalone |
 
 There is **no flag-for-flag mapping**. The two methods take different parameters, so an old command
-line cannot be mechanically translated. `dyco cm`, and `dyco` followed by an old short flag such as
-`-lsw`, exit with a pointer to `dyco detect-remove`. An old line that starts with column names gets
-"unknown command" and the list of commands, without the pointer.
+line cannot be mechanically translated. `dyco cm`, and any old command line that contains an old
+short flag such as `-lsw`, exit with a pointer to `dyco detect-remove` instead of a parse error.
 
 ## Reasons for removing covariance maximization
 

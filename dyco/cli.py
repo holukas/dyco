@@ -123,7 +123,11 @@ def main(argv: list = None) -> None:
             hint = f"\n\nThat looks like a v2 command line. {_CM_GONE}"
         sys.exit(f"dyco: expected a command, got the option {command!r}.{hint}\n\n{_usage()}")
 
-    sys.exit(f"dyco: unknown command {command!r}.\n\n{_usage()}")
+    # A v1/v2 line starts with column names, not a flag, so look at the rest too.
+    hint = ''
+    if any(a in _V2_FLAGS for a in rest):
+        hint = f"\n\nThat looks like a v2 command line. {_CM_GONE}"
+    sys.exit(f"dyco: unknown command {command!r}.{hint}\n\n{_usage()}")
 
 
 if __name__ == '__main__':

@@ -74,6 +74,19 @@ class TestDispatch(unittest.TestCase):
         self.assertIn('v2 command line', msg)
         self.assertIn('detect-remove', msg)
 
+    def test_an_old_line_starting_with_column_names_gets_the_pointer(self):
+        # v1 and v2 lines began with column names, so the flags come later.
+        with self.assertRaises(SystemExit) as ctx:
+            cli.main(['W_rot', 'co2', 'co2', '-lsw', '1000'])
+        msg = str(ctx.exception)
+        self.assertIn("unknown command 'W_rot'", msg)
+        self.assertIn('v2 command line', msg)
+
+    def test_a_typo_gets_no_v2_pointer(self):
+        with self.assertRaises(SystemExit) as ctx:
+            cli.main(['detect-remov', '--input-dir', 'x'])
+        self.assertNotIn('v2 command line', str(ctx.exception))
+
     def test_cm_is_gone_and_says_so(self):
         # `cm` shipped in no release, but the removal is worth naming: a bare
         # "unknown command" would read as a typo, not as a method that went away.
