@@ -19,45 +19,46 @@ A `dyco detect-remove` run fills `--output-dir` like this:
     Lag-corrected chunk files, and only those.
 
 run_settings.txt    every setting used, each with a one-line explanation
-detect_remove_tui_settings.yaml   reloadable by `dyco tui` (TUI runs only)
-log.txt             plain-text console log
+detect_remove_tui_settings.yaml   the settings `dyco tui` can show, reloadable by `dyco tui`
+log.txt             plain-text console log (command-line runs only)
 README.txt          this layout, written into the folder itself
 ```
 
-**`2_lag_removed/` is the one to hand to your flux software.** The subdirectory names come from
-`--detect-subdir` and `--data-subdir` if you want different ones.
+**`2_lag_removed/` is the one to hand to your flux software.** `--detect-subdir` and
+`--data-subdir` rename the two subfolders.
 
 `pwb-batch` and `apply-batch` write their own `log.txt` beside their results. `pwb-batch`'s results
 file is called `tlag_results.csv`, which is what `apply-batch --results-csv` expects. `dyco fdl`
-writes `pwb_fdl_results.csv` and `log.txt`, described in
+writes `pwb_fdl_results.csv`, `log.txt` and one figure per gas, described in
 [Flux detection limit](fdl.md#output).
 
 :::{note}
-**Lag is expressed in seconds.** The covariance-maximization method removed in v3 counted records
-instead, so older notes, plots and result files may mean something different by "lag".
+**Lag is expressed in seconds.** The covariance-maximization method of earlier dyco versions counted
+records instead, so older notes, plots and result files may mean something different by "lag".
 :::
 
 ## Which lag was applied, and why
 
-`detect_and_remove_tlag_decisions.txt` answers both, one block per written file:
+`detect_and_remove_tlag_decisions.txt` answers both, one block per written file. In this excerpt
+from a run with `--max-carry 2`, long lines are wrapped:
 
 ```text
 CH-CHA_202110080730.csv
   CH4     +2.20 s (+44 rec)  detected here and reliable (S1): HDI 0.40 s < 0.50 s
-  N2O     +1.85 s (+37 rec)  nothing had been detected yet at this point in the run,
-                             so the lag was filled 2 period(s) back from
-                             CH-CHA_202110080900.csv, the first period that did
+  N2O     +2.20 s (+44 rec)  borrowed from CH4: HDI 9.15 s, wider than the 1.00 s
+                             prefilter, and no detection of its own within
+                             2 period(s) either side
 
 CH-CHA_202110080800.csv
   CH4     +2.20 s (+44 rec)  carried 1 period(s) forward from CH-CHA_202110080730.csv:
                              HDI 2.70 s, wider than the 1.00 s prefilter
-  N2O     +1.85 s (+37 rec)  borrowed from CH4: HDI 9.15 s, wider than the 1.00 s
-                             prefilter, and no detection of its own within
-                             2 period(s) either side
+  N2O     +1.85 s (+37 rec)  nothing had been detected yet at this point in the run,
+                             so the lag was filled 2 period(s) back from
+                             CH-CHA_202110080900.csv, the first period that did
 ```
 
 The thresholds behind the decisions head the file, periods that produced no output file are listed
-at the foot, and a tally closes it. The same sentences are in the summary CSV as
+at the foot, and a tally of where the lags came from (`{gas}_lag_source`) closes it. The same sentences are in the summary CSV as
 `{gas}_lag_reason`, if you would rather join them to the numbers.
 
 ## The summary CSV
@@ -113,15 +114,16 @@ The columns most often needed:
   dictionary flags whichever column your run used.
 
 `{gas}_lag_source`
-: Where the period's lag came from: `own` (the gas detected it here, or carried it from one of its
-  own nearby periods), `from:CO2` (borrowed from a donor gas), `median` (the last-resort median of
-  rejected detections), `no_data` (the gas was missing for the whole period, or entirely outside its
+: Where the period's lag came from: `own` (the gas detected it here, or carried it forward or back
+  from another of its own periods), `from:CO2` (borrowed from a donor gas), `median` (the last
+  resort: the median of all the gas's raw detections in the run, accepted or not; without
+  `--max-carry` it is reached only when none was accepted), `no_data` (the gas was missing for the whole period, or entirely outside its
   valid range, so no lag was needed and none was applied), or `none`. See [PWBOPT](method.md#periods-still-without-a-lag).
 
 `{gas}_carry_periods`
-: How far that lag travelled: `0` if it was detected in this very period, `n` if it came from `n`
-  periods away, empty if it came from somewhere other than the gas's own carry. `own` alone cannot
-  distinguish a fresh detection from an inherited one; this can.
+: How far that lag travelled: `0` if it was detected in this very period, `n` if it was carried
+  forward from `n` periods earlier, empty if it was filled back from a later period, borrowed, or the
+  median. `own` alone cannot distinguish a fresh detection from an inherited one; this can.
 
 `{gas}_applied_records`
 : The shift in records, which is `{gas}_lag_applied_s * hz`.
@@ -143,8 +145,8 @@ columns are untouched.
 :::{tip}
 Many periods with `median` in `{gas}_lag_source` mean that the gas could not locate its own lag
 and had no donor. Give it one with `@lagfrom=`, and set `--max-carry` alongside it:
-without a carry limit the gas keeps reaching every period with its own lag and the donor is never
-consulted.
+without a carry limit, a single accepted detection reaches every period of the run and the donor is
+never consulted.
 :::
 
 ## Diagnostic plots
@@ -157,12 +159,13 @@ on a long run.
 Three panels, left to right (`PreWhiteningBootstrap.plot`):
 
 1. **The pre-whitened cross-correlation**, grey stems with the smoothed line over them, a Bartlett
-   significance band, and a red marker at the detected lag. If the peak does not clear the band,
-   there was nothing to find in that period.
+   significance band, and a red line at its peak (`{gas}_tlag_pw_s`, the single pre-whitened
+   estimate, not the bootstrap lag). If the peak does not clear the band, there was nothing to find
+   in that period.
 2. **The raw cross-covariance**, same layout, with the same lag marked. This is the curve that
    covariance maximization works on, so comparing the two panels shows the effect of pre-whitening.
 3. **The bootstrap lag distribution** for the winning combination: a histogram of the peak found in
-   each resample, the 95% interval shaded, and the mode marked. A tight cluster is a reliable lag; a
+   each resample, the 95% interval shaded, and the mode (the detected lag, `{gas}_tlag_s`) marked. A tight cluster is a reliable lag; a
    spread-out or multi-peaked one is what a wide interval looks like. The panel title names the
    combination that won.
 
@@ -170,26 +173,31 @@ Three panels, left to right (`PreWhiteningBootstrap.plot`):
 
 Five panels per gas, plus one cross-gas comparison figure (`PwbBatchDetection.plot_summary`):
 
-1. Detected lags over the run, coloured by S1/S2/S3 flag.
-2. The final gap-filled lags, with the S1/S2 detections that anchor them drawn as filled markers and
-   the applied lag as open circles. This is the panel that shows carry and borrowing at a glance.
+1. Detected lags over the run, coloured by the standard rule's S1/S2/S3 flag.
+2. The applied lag (`{gas}_tlag_final_pf_s`) as a black line, over the S1 and S2 detections as faint
+   points. This is the panel that shows carry and borrowing at a glance.
 3. Interval width per period, against the S1 threshold and the pre-filter threshold as lines.
 4. Flag counts per period, standard rule beside pre-filtered.
 5. A histogram of every detected lag, with the mode marked.
 
-The comparison figure puts all gases on one scatter with a density curve per gas, which is where a
+The comparison figure, `summary_lag_comparison.png`, has one row per gas: the PWBOPT lag over the
+run, standard rule beside pre-filtered, each with a density curve of its values. With exactly two
+gases, a last row overlays their pre-filtered lags and plots one against the other, which is where a
 systematic offset between two gases in the same tube shows up.
 
 ## log.txt and run_settings.txt
 
-Every CLI writes a `log.txt` to its output folder: the run header, the per-file and per-chunk lines,
-and the finish time. The animated progress display is deliberately kept out of it, so the log stays
-readable as plain text. When a gas had values outside its valid range, the log ends with one line
-for that gas, giving the count and how many periods they were in.
+Every command-line run writes a `log.txt` to its output folder: the run header, the per-file and per-chunk
+lines, and the finish time. The animated progress display is deliberately kept out of it, so the log
+stays readable as plain text. After the chunk tally, the log has one line for each gas that had
+values outside its valid range, giving the count and how many periods they were in. A run from
+`dyco tui` writes no `log.txt`; its **Copy log** button copies the on-screen log instead.
 
 `run_settings.txt` is written at the *start* of the run and records every setting with a one-line
-explanation of what it does. Between it and `detect_remove_tui_settings.yaml`, a finished run carries
-enough to reproduce itself.
+explanation of what it does. `detect_remove_tui_settings.yaml` holds the settings the TUI has
+fields for, in a form `dyco tui` can load. The TUI has no field for `--wdt` or `--block-length`, so
+only `run_settings.txt` records those. Between the two files, a finished run carries enough to
+reproduce itself.
 
 ## Feeding the output to flux software
 

@@ -3,21 +3,27 @@
 v3 carries **one** lag-detection method: pre-whitening block-bootstrap. The covariance-maximization
 method that `dyco` shipped up to v2 was removed, and with it the v2 command-line interface.
 
-`pip install dyco==2.0.3` still has the old method if you need it.
+The old method remains in `dyco==2.0.3`. That release needs Python 3.11 and depends on
+[diive](https://github.com/holukas/diive), and it may no longer install against a current `diive`.
+
+The covariance-maximization estimator itself was not removed. `MaxCovariance` in `dyco.maxcov`
+stays: the flux detection limit is built on it, and it can be used on its own (see
+[Library API](library.md#covariance-maximization)).
 
 ## Replacement for the v2 workflow
 
 | v2 | v3 |
 |---|---|
-| `dyco` with short flags (`-lsw`, `-lsi`, `-lsf`, …) | [`dyco detect-remove`](cli/detect-remove.md), or [`dyco tui`](tui.md) |
+| `dyco` (v1) or `python dyco.py` (v2) with column names and short flags (`-lsw`, `-lsi`, `-lsf`, ...) | [`dyco detect-remove`](cli/detect-remove.md), or [`dyco tui`](tui.md) |
 | Covariance maximization | Pre-whitening block-bootstrap |
 | Daily median lookup table, normalized toward a target lag | PWBOPT S1/S2/S3, per chunk, driven by each detection's own uncertainty interval |
 | Lag counted in **records** | Lag expressed in **seconds** |
 | Depends on [diive](https://github.com/holukas/diive) | Standalone |
 
 There is **no flag-for-flag mapping**. The two methods take different parameters, so an old command
-line cannot be mechanically translated. `dyco cm` and old v2 flags are still recognised by the
-dispatcher, only so that an old command gets a pointer instead of a parse error.
+line cannot be mechanically translated. `dyco cm`, and `dyco` followed by an old short flag such as
+`-lsw`, exit with a pointer to `dyco detect-remove`. An old line that starts with column names gets
+"unknown command" and the list of commands, without the pointer.
 
 ## Reasons for removing covariance maximization
 

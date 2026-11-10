@@ -78,5 +78,5 @@ uv run python examples/detect_remove_tlag_realdata.py
 
 That detects and removes the tube delay for CO₂ and H₂O across two 30-minute chunks, and prints what
 was detected against what was actually applied. Set `DYCO_OUT` to a path to keep the results. Expect
-about a minute. `examples/detect_remove_tlag.py` is the synthetic counterpart, where the lag is known
+about 20 s. `examples/detect_remove_tlag.py` is the synthetic counterpart, where the lag is known
 in advance and can be checked.

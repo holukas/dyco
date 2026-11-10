@@ -6,11 +6,11 @@ Contributions of code, bug reports, comments and general feedback are welcome, a
 
 To contribute new functionality or a performance improvement, fork the repository on GitHub, push the change to your fork and open a [pull request](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork).
 
-Please include tests in your pull requests.
+Include tests with the pull request.
 
 ## Issues
 
-Report a problem in the [issue tracker](https://github.com/holukas/dyco/issues) with the label 'bug', and include a minimal code example that reproduces it.
+Report a problem in the [issue tracker](https://github.com/holukas/dyco/issues) with the label 'bug', and include a minimal command or code example that reproduces it, and the output of `dyco --version`.
 
 ## Feature requests
 

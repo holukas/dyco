@@ -14,8 +14,8 @@ their place. This is what makes low-SNR gases such as N₂O and CH₄ workable.
 Start with [the terminal UI](tui.md), or run `dyco detect-remove` on the
 [command line](cli/index.md).
 
-`dyco fdl` uses the same lag detection to compute the [flux detection limit](fdl.md) of each
-averaging period, and the flux at the detected lag, so you can tell which fluxes stand out from
+`dyco fdl` detects and selects the lag the same way, then computes the flux at that lag and the
+[flux detection limit](fdl.md) of each averaging period, so you can tell which fluxes stand out from
 noise.
 
 ## One detection method
@@ -60,9 +60,9 @@ That is the concept DOI: it resolves to the latest version and is the one to use
 Zenodo also mints a DOI for each individual release, if the work depends on a particular one.
 `CITATION.cff` in the repository carries the full metadata.
 
-`dyco` was first published in 2021 and has kept developing since. The detection method was replaced
-in v3, so the paper from that first release describes an algorithm the current version does not
-implement; see [Migrating from v2](migrating-from-v2.md).
+`dyco` was first published in 2021 and has kept developing since. The 2021 paper describes the
+covariance-maximization method, which v3 replaced, so it does not describe what the current version
+does; see [Migrating from v2](migrating-from-v2.md).
 
 For the method itself, cite Vitale et al. (2024); [the PWB method](method.md) carries the
 reference.
