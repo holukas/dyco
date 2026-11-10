@@ -105,6 +105,9 @@ class TestFdlCli(unittest.TestCase):
             self.assertEqual(code, 0, stdout)
             res = pd.read_csv(out / 'pwb_fdl_results.csv')
             log = (out / 'log.txt').read_text(encoding='utf-8')
+            for gas in ('ch4', 'n2o'):
+                for suffix in ('.png', '.pdf'):
+                    self.assertTrue((out / f'fdl_{gas}{suffix}').is_file(), gas + suffix)
 
         self.assertEqual(list(res['period']),
                          ['2021-07-22 11:00', '2021-07-22 11:05', '2021-07-22 11:10'])
@@ -119,8 +122,14 @@ class TestFdlCli(unittest.TestCase):
         self.assertIn('finished: ', log)
         for period in res['period']:
             self.assertIn(period, log)
-        self.assertIn('N2O: 3 of 3 periods with a flux are above the FDL', stdout)
-        self.assertIn('N2O lag 2.00 s', stdout)
+        self.assertIn('N2O lag 2.00 s [own]', stdout)
+        self.assertIn('(HDI ', stdout)
+        # The end summary goes to the log as well as the console.
+        for text in ('Summary', 'above : 3 of 3 period(s) (100.0 %) with abs(flux) above',
+                     'per period: median', 'FDL of the mean', 'own detections: 3, HDI',
+                     'day 06-18 h', 'check : flux / RE'):
+            self.assertIn(text, stdout)
+            self.assertIn(text, log)
         self.assertTrue(stdout.isascii())
 
     def test_standalone_entry_point(self):

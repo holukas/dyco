@@ -18,7 +18,7 @@ import pandas as pd
 
 matplotlib.use('Agg')
 
-from dyco.pwbfdl import PwbFdl, PwbFdlBatch
+from dyco.pwbfdl import PwbFdl, PwbFdlBatch, plot_fdl_summary, run_summary
 
 HZ = 10
 FAST = dict(hz=HZ, lag_max_s=5.0, n_bootstrap=9, fdl_lag_range_s=60, noise_range_s=10)
@@ -74,6 +74,17 @@ class TestPwbFdl(unittest.TestCase):
         self.assertTrue(np.isnan(row['ch4_tlag_s']))
         self.assertTrue(np.isnan(row['ch4_fdl']))
 
+    def test_short_period_gets_flux_but_no_limit(self):
+        """200 s against a +/-60 s lag range: the limit would be inflated, so it is withheld."""
+        df = _synthetic(2000, {'n2o': 20})
+        row = PwbFdl(df, scalars={'N2O': 'n2o'}, scale=SCALE, lws=0, uws=5,
+                     random_state=1, **COLS, **FAST).run()
+        self.assertTrue(np.isnan(row['n2o_fdl']))
+        self.assertTrue(np.isnan(row['n2o_fdl_noise_rmse']))
+        self.assertTrue(np.isnan(row['n2o_flux_to_fdl_at_tlag']))
+        self.assertTrue(np.isfinite(row['n2o_flux_at_tlag']))
+        self.assertIn('FDL withheld', row['n2o_error'])
+
     def test_unscaled_pressure_is_refused(self):
         df = _synthetic(3000, {'ch4': 15})
         scale = {k: v for k, v in SCALE.items() if k != 'p'}
@@ -122,6 +133,82 @@ class TestPwbFdlBatch(unittest.TestCase):
         self.assertTrue(np.isnan(offline['ch4_lag_s']))
         self.assertTrue(np.isnan(offline['ch4_flux']))
         self.assertIn('no lag needed', offline['ch4_lag_reason'])
+
+
+class TestRunSummary(unittest.TestCase):
+
+    @staticmethod
+    def _results():
+        """Four periods: two own S1 lags, one carried, one skipped as short."""
+        return pd.DataFrame({
+            'period': ['2021-07-22 11:00', '2021-07-22 11:30', '2021-07-22 12:00',
+                       '2021-07-22 12:30'],
+            'file': ['a.csv'] * 4,
+            'timestamp': ['2021-07-22T11:00:00', '2021-07-22T11:30:00',
+                          '2021-07-22T12:00:00', '2021-07-22T12:30:00'],
+            'status': ['ok', 'ok', 'ok', 'skipped:short'],
+            'n2o_lag_source': ['own', 'own', 'own', 'none'],
+            'n2o_flag_pf': ['S1_optimal', 'S1_optimal', 'S3_unreliable', ''],
+            'n2o_carry_periods': [0, 0, 1, np.nan],
+            'n2o_lag_s': [2.0, 2.1, 2.1, np.nan],
+            'n2o_tlag_s': [2.0, 2.1, 4.0, np.nan],
+            'n2o_hdi_lo_s': [1.9, 1.95, 1.0, np.nan],
+            'n2o_hdi_hi_s': [2.1, 2.25, 7.0, np.nan],
+            'n2o_hdi_range_s': [0.2, 0.3, 6.0, np.nan],
+            'n2o_fdl': [1.0, 2.0, 4.0, np.nan],
+            'n2o_fdl_noise_rmse': [1 / 3, 2 / 3, 4 / 3, np.nan],
+            'n2o_flux': [3.0, 0.5, 0.4, np.nan],
+            'n2o_above_fdl': [True, False, False, pd.NA],
+            'n2o_error': ['', '', '', ''],
+        })
+
+    def test_counts_sources_hdi_and_mean(self):
+        text = '\n'.join(run_summary(self._results(), {'N2O': 'n2o'}, scale={'n2o': 1e3},
+                                     hdi_thresh=0.5, hdi_prefilter=1.0, day_hours=(11, 12)))
+        self.assertIn('4 from 1 file(s), 2021-07-22 11:00 to 2021-07-22 12:00', text)
+        self.assertIn('3 ok, 1 short (under 300 s), 0 error(s)', text)
+        self.assertIn("(unit of 'n2o' x 1000) m-2 s-1", text)
+        self.assertIn('detected here 2 (S1 2, S2 0), carried 1, back-filled 0', text)
+        self.assertIn('2 narrower than --hdi-thresh 0.5 s, 2 within --hdi-prefilter 1 s', text)
+        self.assertIn('noise from -180 to -160 s and +160 to +180 s', text)
+        # FDL 1, 2, 4: median 2, quartiles 1.5 and 3
+        self.assertIn('per period: median 2, IQR 1.5 to 3,', text)
+        self.assertIn('RE_RMSE (= FDL / 3): median 0.6667', text)
+        self.assertIn('above : 1 of 3 period(s) (33.3 %) with abs(flux) above their FDL', text)
+        # mean 1.3 against sqrt(1 + 4 + 16) / 3 = 1.528 (Langford et al. 2015, eq. 10)
+        self.assertIn('all           : 1.3, N 3, FDL of the mean 1.528: below', text)
+        # 11:00 and 11:30 are day: mean 1.75 against sqrt(1 + 4) / 2 = 1.118
+        self.assertIn('day 11-12 h   : 1.75, N 2, FDL of the mean 1.118: above', text)
+        self.assertIn('night         : 0.4, N 1, FDL of the mean 4: below', text)
+        self.assertIn('check : flux / RE has sd', text)
+        self.assertNotIn('NOTE', text)
+        self.assertTrue(text.isascii())
+
+    def test_figure_has_four_panels_and_saves(self):
+        fig = plot_fdl_summary(self._results(), 'N2O', unit='umol m-2 s-1', day_hours=(11, 12))
+        self.assertEqual(len(fig.axes), 4)
+        with TemporaryDirectory() as tmp:
+            for suffix in ('.png', '.pdf'):
+                path = Path(tmp) / f'fdl_n2o{suffix}'
+                fig.savefig(path, dpi=100)
+                self.assertGreater(path.stat().st_size, 1000)
+        texts = ' '.join(t.get_text() for t in fig.texts)
+        self.assertIn('1 of 3 periods above their FDL', texts)
+        self.assertIn('$\\mu$mol m$^{-2}$ s$^{-1}$', texts)
+        self.assertIn('N$_{2}$O', fig._suptitle.get_text())
+
+    def test_no_day_night_split_on_request(self):
+        text = '\n'.join(run_summary(self._results(), {'N2O': 'n2o'}, day_hours=None))
+        self.assertIn('all           :', text)
+        self.assertNotIn('night', text)
+
+    def test_median_lag_is_flagged(self):
+        res = self._results()
+        res['n2o_lag_source'] = ['median', 'median', 'median', 'none']
+        res['n2o_flag_pf'] = ['S3_unreliable'] * 3 + ['']
+        text = '\n'.join(run_summary(res, {'N2O': 'n2o'}))
+        self.assertIn('median 3', text)
+        self.assertIn('3 of 3 period(s) read the flux at the median', text)
 
 
 if __name__ == '__main__':

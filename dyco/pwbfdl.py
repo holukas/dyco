@@ -96,6 +96,14 @@ _PLAUSIBLE = {
     'pressure': (40_000.0, 110_000.0, 'Pa'),
 }
 
+# The shortest period, in multiples of fdl_lag_range_s, that gets a detection
+# limit. The covariance at a far lag t only has the period minus t to pair up,
+# so the noise windows use less data than the flux they are compared with and
+# the limit comes out too high by about sqrt(L / (L - t)): 5 % for 30 min at
+# +/-180 s, 11 % at 5 x 180 s = 15 min, 50 % for a 5-min period. Below this the
+# limit is withheld rather than reported inflated. The flux is still read.
+_FDL_MIN_PERIOD_FACTOR = 5
+
 _PWB_KEYS = ('tlag_s', 'hdi_lo_s', 'hdi_hi_s', 'hdi_range_s', 'tlag_pw_s',
              'cov_pwb', 'ar_order')
 
@@ -194,7 +202,10 @@ class PwbFdl:
     random_state : int, optional
         Seed for the bootstrap; each gas gets ``random_state + its position``.
     fdl_lag_range_s : int
-        Half-width of the cross-covariance for the detection limit, s.
+        Half-width of the cross-covariance for the detection limit, s. A period
+        shorter than 5 times this (15 min at the default) gets no detection
+        limit, only the flux: its far-lag covariances pair up too little data,
+        which makes the limit too high. ``{gas}_error`` says so.
     noise_range_s : int
         Width of each noise window at the ends of that range, s. The defaults
         give +/-160 to 180 s, as in Striednig et al. (2020).
@@ -314,6 +325,13 @@ class PwbFdl:
         _check_plausible('H2O', h2o, self.col_h2o)
         _check_plausible('pressure', press, self.col_press)
 
+        min_fdl_s = _FDL_MIN_PERIOD_FACTOR * self.fdl_lag_range_s
+        fdl_withheld = (
+            '' if len(df) >= min_fdl_s * self.hz else
+            f'FDL withheld: the period is {len(df) / self.hz:g} s, shorter than '
+            f'{_FDL_MIN_PERIOD_FACTOR} x fdl_lag_range_s ({min_fdl_s} s); its limit '
+            f'would come out too high')
+
         for gi, (label, column) in enumerate(self.scalars.items()):
             p = label.lower()
             g_min, g_max = self.valid_ranges.get(label, (None, None))
@@ -366,8 +384,12 @@ class PwbFdl:
                     verbose=False)
                 fdl.run()
                 self.fdl[label] = fdl
-                row[f'{p}_fdl'] = fdl.results['flux_detection_limit']
-                row[f'{p}_fdl_noise_rmse'] = fdl.results['flux_noise_rmse']
+                if fdl_withheld:
+                    sep = '; ' if row[f'{p}_error'] else ''
+                    row[f'{p}_error'] += f'{sep}{fdl_withheld}'
+                else:
+                    row[f'{p}_fdl'] = fdl.results['flux_detection_limit']
+                    row[f'{p}_fdl_noise_rmse'] = fdl.results['flux_noise_rmse']
                 if np.isfinite(row[f'{p}_tlag_s']):
                     flux = fdl.flux_at_lag(row[f'{p}_tlag_s'])
                     row[f'{p}_flux_at_tlag'] = flux
@@ -740,6 +762,33 @@ def _scale_token(token: str) -> tuple:
     return column, value
 
 
+def _day_hours_token(token: str) -> tuple | None:
+    """Parse ``--day-hours START-END`` (whole hours, e.g. ``6-18``), or ``none``."""
+    import argparse
+    if token.strip().lower() == 'none':
+        return None
+    start, dash, end = token.partition('-')
+    try:
+        start, end = int(start), int(end)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"expected START-END in whole hours, e.g. 6-18, or none; got {token!r}") from None
+    if not dash or not 0 <= start < end <= 24:
+        raise argparse.ArgumentTypeError(
+            f"need 0 <= START < END <= 24, got {token!r}")
+    return start, end
+
+
+def _unit_token(token: str) -> tuple:
+    """Parse one ``--flux-unit LABEL=TEXT`` into ``(label, text)``."""
+    import argparse
+    label, eq, text = token.partition('=')
+    if not eq or not label.strip() or not text.strip():
+        raise argparse.ArgumentTypeError(f"expected LABEL=TEXT, e.g. CH4='nmol m-2 s-1', "
+                                         f"got {token!r}")
+    return label.strip(), text.strip()
+
+
 def _build_parser():
     import argparse
 
@@ -759,7 +808,8 @@ def _build_parser():
             '`dyco detect-remove`, but no data files are written. The output, in\n'
             '--output-dir, is pwb_fdl_results.csv, with one row per period giving\n'
             'the lag, the flux, the detection limit and whether the flux is above\n'
-            'it for each gas, and log.txt, a record of the run.\n'
+            'it for each gas; log.txt, a record of the run that ends with the\n'
+            'numbers to report; and one figure per gas, fdl_{gas}.png and .pdf.\n'
             '\n'
             'The detection limit needs physical units: sonic temperature in K (or\n'
             'degC with --tsonic-unit), H2O as a mole fraction in mol mol-1, and the\n'
@@ -784,8 +834,8 @@ def _build_parser():
     p.add_argument('--input-dir', required=True,
                    help='Directory containing the raw (unrotated) EC files.')
     p.add_argument('--output-dir', required=True,
-                   help='Directory for pwb_fdl_results.csv and log.txt. It is '
-                        'created if it does not exist.')
+                   help='Directory for pwb_fdl_results.csv, log.txt and the '
+                        'figures. It is created if it does not exist.')
     p.add_argument('--file-pattern', default='*.csv',
                    help='Glob pattern for the input files. The files are sorted '
                         'by name and that order is taken as time order, which '
@@ -916,12 +966,26 @@ def _build_parser():
     p.add_argument('--fdl-lag-range', type=int, default=180,
                    help='Half-width [s] of the cross-covariance used for the '
                         'detection limit. It must reach well beyond any real '
-                        'lag, since the noise is read from its far ends.')
+                        'lag, since the noise is read from its far ends. Periods '
+                        'shorter than 5 times this get no detection limit.')
     p.add_argument('--noise-range', type=int, default=20,
                    help='Width [s] of each noise window at the two ends of the '
                         'cross-covariance. The detection limit is 3 times the '
                         'RMSE of the flux there. With the defaults the windows '
                         'run from -180 to -160 s and from 160 to 180 s.')
+    # A string default goes through `type`, and the help shows it as typed.
+    p.add_argument('--day-hours', type=_day_hours_token, default='6-18',
+                   metavar='START-END',
+                   help='Day for the day/night means in the summary, by the start '
+                        'time of each period: START <= hour < END, in the time the '
+                        'file names give. "none" leaves the split out.')
+    p.add_argument('--flux-unit', type=_unit_token, action='append', default=None,
+                   metavar='LABEL=TEXT', dest='flux_units',
+                   help='The unit of a gas\'s flux and FDL, for the summary and the '
+                        'figure, e.g. --flux-unit "CH4=nmol m-2 s-1". Repeat per gas. '
+                        'Write it in ASCII; the figure sets "u" before mol as a '
+                        'micro sign and exponents as superscripts. Without it the '
+                        'unit is given as that of the scaled gas column, m-2 s-1.')
     # --- Execution ---
     p.add_argument('--n-workers', type=int, default=None,
                    help='Parallel worker processes. Default: os.cpu_count(). '
@@ -949,16 +1013,484 @@ def _fmt_lag(x) -> str:
     return f'{x:.2f} s' if np.isfinite(x) else '--'
 
 
+def _detected_cell(row, label: str) -> str:
+    """``N2O 1.80 s (HDI 0.20 s)``: one gas's own detection in one period."""
+    p = label.lower()
+    hdi = row.get(f'{p}_hdi_range_s')
+    hdi_txt = f' (HDI {_fmt_lag(hdi)})' if _fmt_lag(hdi) != '--' else ''
+    return f'{label} {_fmt_lag(row.get(f"{p}_tlag_s"))}{hdi_txt}'
+
+
 def _result_cell(row, label: str) -> str:
-    """``N2O lag 1.80 s flux 2.12 fdl 0.829 ABOVE`` for one gas in one period."""
+    """``N2O lag 1.80 s [own] flux 2.12 fdl 0.829 ABOVE`` for one gas in one period."""
     p = label.lower()
     above = row.get(f'{p}_above_fdl')
     verdict = ''
     if isinstance(above, (bool, np.bool_)):
         verdict = ' ABOVE' if above else ' below'
-    return (f'{label} lag {_fmt_lag(row.get(f"{p}_lag_s"))} '
+    source = row.get(f'{p}_lag_source')
+    source_txt = f' [{source}]' if isinstance(source, str) and source else ''
+    return (f'{label} lag {_fmt_lag(row.get(f"{p}_lag_s"))}{source_txt} '
             f'flux {_fmt_num(row.get(f"{p}_flux"))} '
             f'fdl {_fmt_num(row.get(f"{p}_fdl"))}{verdict}')
+
+
+def _range_txt(values: pd.Series, seconds: bool = False) -> str:
+    """``0.30 to 1.47, median 0.66`` over the finite values, or ``none``.
+
+    Seconds get two decimals and an ``s``, as lags do everywhere else."""
+    v = pd.to_numeric(values, errors='coerce')
+    v = v[np.isfinite(v)]
+    if v.empty:
+        return 'none'
+    fmt = _fmt_lag if seconds else _fmt_num
+    return f'{fmt(v.min())} to {fmt(v.max())}, median {fmt(v.median())}'
+
+
+def run_summary(res: DataFrame, scalars: dict, scale: dict | None = None,
+                hdi_thresh: float = 0.5, hdi_prefilter: float = 1.0,
+                min_chunk_seconds: float = 300, fdl_lag_range_s: int = 180,
+                noise_range_s: int = 20, day_hours: tuple | None = (6, 18),
+                units: dict | None = None) -> list:
+    """The end-of-run summary of ``dyco fdl``, as lines of ASCII text.
+
+    Per gas, everything a report of the detection limit needs: where the lag
+    of each period came from and how wide the HDI of the gas's own detections
+    was; how the limit was computed; its median, interquartile and 10-90 %
+    range over the periods; the share of periods whose absolute flux is above
+    it; and the mean flux of the run, of the day and of the night, each with N
+    and the detection limit of that mean (Langford et al. 2015, eq. 10). The
+    lag part comes first because it decides how far the flux can be trusted:
+    a flux read at the median of the gas's raw detections is read at a lag
+    that was not measured in its period.
+
+    ``day_hours=(start, end)`` sets the day by the start time of the period,
+    ``start <= hour < end``, in whatever time the file names give; None leaves
+    the split out. ``units`` maps a gas label to its flux unit as text; a gas
+    not in it is described by its scaled column.
+    """
+    scale = scale or {}
+    lines = ['Summary']
+    status = res['status'].astype(str)
+    ok = status.eq('ok')
+    n_short = int(status.eq('skipped:short').sum())
+    n_err = int(status.eq('error').sum())
+    span = ''
+    if ok.any():
+        periods = res.loc[ok, 'period'].astype(str)
+        span = f', {periods.iloc[0]} to {periods.iloc[-1]}'
+    n_files = res['file'].nunique() if 'file' in res.columns else 0
+    lines.append(f'  periods : {len(res)} from {n_files} file(s){span}')
+    lines.append(f'            {int(ok.sum())} ok, {n_short} short (under '
+                 f'{min_chunk_seconds:g} s), {n_err} error(s)')
+
+    for label, column in scalars.items():
+        p = label.lower()
+        r = res.loc[ok]
+        factor = scale.get(column)
+        if (units or {}).get(label):
+            unit = units[label]
+        else:
+            unit = (f"(unit of {column!r} x {factor:g}) m-2 s-1" if factor is not None
+                    else f"(unit of {column!r}) m-2 s-1")
+        lines.append('')
+        lines.append(f'  {label}: flux and FDL in {unit}')
+
+        # Where each period's lag came from. 'own' splits further into a
+        # detection accepted here, a carried one and a back-filled one.
+        source = r[f'{p}_lag_source'].astype(str)
+        flag = r[f'{p}_flag_pf'].astype(str)
+        carry = pd.to_numeric(r[f'{p}_carry_periods'], errors='coerce')
+        own = source.eq('own')
+        n_s1 = int((own & flag.eq('S1_optimal')).sum())
+        n_s2 = int((own & flag.eq('S2_optimal')).sum())
+        n_carried = int((own & ~flag.isin(['S1_optimal', 'S2_optimal'])
+                         & (carry > 0)).sum())
+        n_back = int(own.sum()) - n_s1 - n_s2 - n_carried
+        borrowed = source[source.str.startswith('from:')]
+        n_median = int(source.eq('median').sum())
+        n_none = int(source.eq('none').sum())
+        n_nodata = int(source.eq('no_data').sum())
+        parts = [f'detected here {n_s1 + n_s2} (S1 {n_s1}, S2 {n_s2})',
+                 f'carried {n_carried}', f'back-filled {n_back}']
+        parts += [f'borrowed {c} ({s})' for s, c in borrowed.value_counts().items()]
+        parts += [f'median {n_median}', f'none {n_none}']
+        if n_nodata:
+            parts.append(f'no data {n_nodata}')
+        lines.append(f'    lag   : used {_range_txt(r[f"{p}_lag_s"], seconds=True)}')
+        lines.append(f'            source: {", ".join(parts)}')
+
+        hdi = pd.to_numeric(r[f'{p}_hdi_range_s'], errors='coerce')
+        hdi = hdi[np.isfinite(hdi)]
+        if hdi.empty:
+            lines.append('            own detections: none')
+        else:
+            lines.append(f'            own detections: {len(hdi)}, HDI '
+                         f'{_range_txt(hdi, seconds=True)}')
+            # The same comparisons PWBOPT makes: S1 needs HDI < hdi_thresh, and the
+            # prefilter (off at 0) drops detections with HDI > hdi_prefilter.
+            prefilter = (f', {int((hdi <= hdi_prefilter).sum())} within '
+                         f'--hdi-prefilter {hdi_prefilter:g} s' if hdi_prefilter > 0 else '')
+            lines.append(f'            {int((hdi < hdi_thresh).sum())} narrower than '
+                         f'--hdi-thresh {hdi_thresh:g} s{prefilter}')
+        n_lagged = int(len(source)) - n_nodata
+        if n_median:
+            lines.append(f'    NOTE  : {n_median} of {n_lagged} period(s) read the flux at '
+                         f'the median of all raw detections, not at a lag measured '
+                         f'in the period')
+        if n_s1 + n_s2 == 0 and n_median < n_lagged:
+            lines.append(f'    NOTE  : {label} has no reliable lag of its own in any period')
+
+        errors = r[f'{p}_error'].astype(str).replace('nan', '')
+        withheld = int(errors.str.contains('FDL withheld').sum())
+        failed = int((errors.ne('') & ~errors.str.contains('FDL withheld')).sum())
+        fdl = pd.to_numeric(r[f'{p}_fdl'], errors='coerce')
+        rmse = pd.to_numeric(r[f'{p}_fdl_noise_rmse'], errors='coerce')
+        flux = pd.to_numeric(r[f'{p}_flux'], errors='coerce')
+        both = np.isfinite(flux) & np.isfinite(fdl)
+
+        lines.append(f'    FDL   : 3 x RE_RMSE (Langford et al. 2015, eq. 9), noise from '
+                     f'-{fdl_lag_range_s} to -{fdl_lag_range_s - noise_range_s} s and '
+                     f'+{fdl_lag_range_s - noise_range_s} to +{fdl_lag_range_s} s')
+        f = fdl[np.isfinite(fdl)]
+        if f.empty:
+            lines.append('            none computed')
+        else:
+            q10, q25, q50, q75, q90 = np.percentile(f, [10, 25, 50, 75, 90])
+            lines.append(f'            per period: median {_fmt_num(q50)}, IQR {_fmt_num(q25)} '
+                         f'to {_fmt_num(q75)}, 10-90 % {_fmt_num(q10)} to {_fmt_num(q90)}, '
+                         f'range {_fmt_num(f.min())} to {_fmt_num(f.max())} ({len(f)} period(s)'
+                         f'{f", {withheld} withheld as too short" if withheld else ""})')
+            lines.append(f'            random error RE_RMSE (= FDL / 3): median '
+                         f'{_fmt_num(rmse[np.isfinite(rmse)].median())}')
+        lines.append(f'    flux  : {_range_txt(flux)} ({int(np.isfinite(flux).sum())} period(s))')
+        above = r[f'{p}_above_fdl']
+        has = above.notna()
+        n_above, n_has = int(above[has].astype(bool).sum()), int(has.sum())
+        share = f' ({100 * n_above / n_has:.1f} %)' if n_has else ''
+        lines.append(f'    above : {n_above} of {n_has} period(s){share} with abs(flux) '
+                     f'above their FDL')
+
+        # The averages to report, each with the detection limit of that mean
+        # (eq. 10). Every period enters both, including those below their limit:
+        # leaving them out biases the mean away from zero.
+        groups = [('all', both)]
+        hours = None
+        if day_hours is not None and 'timestamp' in r.columns:
+            stamps = pd.to_datetime(r['timestamp'], errors='coerce')
+            if stamps.notna().all():
+                hours = stamps.dt.hour + stamps.dt.minute / 60
+        if hours is not None:
+            start, end = day_hours
+            day = (hours >= start) & (hours < end)
+            groups += [(f'day {start:02d}-{end:02d} h', both & day),
+                       ('night', both & ~day)]
+        if both.any():
+            lines.append('    means : mean flux, N, FDL of the mean = sqrt(sum FDL**2) / N '
+                         '(Langford et al. 2015, eq. 10)')
+            for name, m in groups:
+                if not m.any():
+                    lines.append(f'            {name:<14}: no period')
+                    continue
+                mean = float(flux[m].mean())
+                fdl_mean = float(np.sqrt((fdl[m] ** 2).sum()) / m.sum())
+                verdict = 'above' if abs(mean) > fdl_mean else 'below'
+                median_txt = (f', median FDL {_fmt_num(fdl[m].median())}'
+                              if name != 'all' else '')
+                lines.append(f'            {name:<14}: {_fmt_num(mean)}, N {int(m.sum())}, '
+                             f'FDL of the mean {_fmt_num(fdl_mean)}: {verdict}{median_txt}')
+            if hours is None and day_hours is not None:
+                lines.append('            (no day/night split: the periods have no start time)')
+
+            # With the right noise estimate and no real flux, flux / RE is
+            # standard normal. A real flux widens it, and so does an RE that is
+            # too small; the numbers cannot tell the two apart.
+            z = (flux[both] / rmse[both]).to_numpy(dtype=float)
+            z = z[np.isfinite(z)]
+            if len(z) > 1:
+                lines.append(f'    check : flux / RE has sd {np.std(z, ddof=1):.2f} and '
+                             f'{100 * np.mean(np.abs(z) > 3):.1f} % beyond 3; pure noise '
+                             f'gives 1.00 and 0.3 %, a real flux or a too small RE more')
+        if failed:
+            lines.append(f'    errors: {failed} period(s), see {p}_error')
+    return lines
+
+
+# Figure style: the reference palette of the dyco docs' chart guidance. Day and
+# night are its first two categorical slots, which stay apart under every
+# colour-vision deficiency; each also has its own marker, so print in grey and
+# readers who see no hue still tell them apart. Everything else is ink.
+_INK, _INK_2, _MUTED = '#0b0b0b', '#52514e', '#898781'
+_GRID, _AXIS, _BAND = '#e1e0d9', '#c3c2b7', '#ecebe6'
+_DAY, _NIGHT = '#eb6834', '#2a78d6'
+
+
+def _fmt3(x) -> str:
+    """Three significant digits, the precision a figure label needs."""
+    return f'{x:.3g}' if np.isfinite(x) else '--'
+
+
+def _gas_tex(label: str) -> str:
+    """``CH4`` -> ``CH$_4$``, ``N2O`` -> ``N$_2$O``: chemical subscripts for labels."""
+    import re
+    return re.sub(r'(?<=[A-Za-z])(\d+)', r'$_{\1}$', label)
+
+
+def _unit_tex(unit: str) -> str:
+    """``umol m-2 s-1`` -> ``$\\mu$mol m$^{-2}$ s$^{-1}$`` for matplotlib labels.
+
+    The CLI takes the unit as ASCII, since console text has to be; the figure
+    can show the real symbols."""
+    import re
+    unit = re.sub(r'\bu(?=(mol|g)\b)', r'$\\mu$', unit)
+    return re.sub(r'(?<=[A-Za-z])(-?\d+)\b', r'$^{\1}$', unit)
+
+
+def plot_fdl_summary(res: DataFrame, label: str, unit: str | None = None,
+                     day_hours: tuple | None = (6, 18), fdl_lag_range_s: int = 180,
+                     noise_range_s: int = 20, title: str | None = None):
+    """A four-panel figure of one gas's flux, lag and detection limit, for publication.
+
+    (a) The flux of every period against its detection limit: the grey band is
+    +/-FDL, so a point outside it is distinguishable from zero. Filled points
+    are above their FDL, open ones below it.
+    (b) The lag the flux was read at, and the gas's own PWB detections with
+    their 95 % HDI. Filled detections were accepted (S1/S2), open ones
+    rejected; where none was accepted, the lag is not a measured one.
+    (c) The detection limit of every period, all, by day and by night, with
+    the median and the interquartile range, on a log axis.
+    (d) The mean flux of the run, the day and the night, each with the
+    detection limit of that mean (Langford et al. 2015, eq. 10) as its bar.
+
+    A footer gives the numbers a report needs. *res* is a ``PwbFdlBatch``
+    result; *unit* is the flux unit as text (e.g. ``'nmol m-2 s-1'``), written
+    with superscripts. 180 mm wide, the full width of a two-column journal
+    page. Returns the matplotlib Figure.
+    """
+    import textwrap
+
+    from dyco.pipeline import _ensure_headless_backend
+    _ensure_headless_backend()
+    import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    p = label.lower()
+    r = res.loc[res['status'].astype(str).eq('ok')].copy()
+    flux = pd.to_numeric(r[f'{p}_flux'], errors='coerce').to_numpy(dtype=float)
+    fdl = pd.to_numeric(r[f'{p}_fdl'], errors='coerce').to_numpy(dtype=float)
+    stamps = pd.to_datetime(r['timestamp'], errors='coerce') if 'timestamp' in r else None
+    has_time = stamps is not None and len(stamps) > 0 and bool(stamps.notna().all())
+    x = stamps.to_numpy() if has_time else np.arange(len(r))
+    split = has_time and day_hours is not None
+    if split:
+        hours = (stamps.dt.hour + stamps.dt.minute / 60).to_numpy()
+        day = (hours >= day_hours[0]) & (hours < day_hours[1])
+    else:
+        day = np.ones(len(r), dtype=bool)
+    unit_txt = _unit_tex(unit) if unit else 'flux units'
+    gas = _gas_tex(label)
+    both = np.isfinite(flux) & np.isfinite(fdl)
+
+    style_rc = {
+        'font.family': 'sans-serif', 'font.size': 8, 'axes.labelsize': 8,
+        'xtick.labelsize': 7, 'ytick.labelsize': 7, 'legend.fontsize': 7,
+        'axes.edgecolor': _AXIS, 'axes.linewidth': 0.6, 'xtick.color': _INK_2,
+        'ytick.color': _INK_2, 'axes.labelcolor': _INK, 'text.color': _INK,
+        'xtick.major.width': 0.6, 'ytick.major.width': 0.6, 'xtick.major.size': 3,
+        'ytick.major.size': 3, 'pdf.fonttype': 42, 'svg.fonttype': 'none',
+    }
+    with plt.rc_context(style_rc):
+        fig = plt.figure(figsize=(7.09, 7.6), facecolor='white')
+        # Two grids: the time series share one left edge, and the bottom row
+        # gets a wider one for its two-line category labels.
+        top = fig.add_gridspec(2, 1, height_ratios=[1.25, 1.0], hspace=0.62, left=0.10,
+                               right=0.98, top=0.885, bottom=0.445)
+        bottom = fig.add_gridspec(1, 2, width_ratios=[3, 2], wspace=0.62, left=0.155,
+                                  right=0.98, top=0.335, bottom=0.165)
+        ax_a = fig.add_subplot(top[0])
+        ax_b = fig.add_subplot(top[1], sharex=ax_a)
+        ax_c = fig.add_subplot(bottom[0])
+        ax_d = fig.add_subplot(bottom[1])
+
+        def style(ax, letter, heading, title_y=1.04):
+            # Panel titles are placed by hand, so a legend can sit between the
+            # title and the plot.
+            ax.spines[['top', 'right']].set_visible(False)
+            ax.grid(axis='y', color=_GRID, linewidth=0.5)
+            ax.set_axisbelow(True)
+            ax.text(0, title_y, f'({letter})  {heading}', transform=ax.transAxes,
+                    fontweight='bold', ha='left', va='bottom')
+
+        def legend_above(ax, handles):
+            ax.legend(handles=handles, ncol=len(handles), frameon=False, loc='lower left',
+                      bbox_to_anchor=(0, 1.0), borderaxespad=0.2, handletextpad=0.4,
+                      columnspacing=1.2)
+
+        groups = ([('day', day, _DAY, 'o'), ('night', ~day, _NIGHT, 's')] if split
+                  else [('all', day, _INK_2, 'o')])
+        xs = np.asarray(x)
+
+        # (a) every period's flux against its own detection limit
+        style(ax_a, 'a', 'Flux and its detection limit, per period', title_y=1.17)
+        ax_a.fill_between(x, -fdl, fdl, step='mid', color=_BAND, linewidth=0, zorder=1)
+        ax_a.axhline(0, color=_AXIS, linewidth=0.8, zorder=2)
+        above = np.abs(flux) > fdl
+        for _, m, color, marker in groups:
+            for sel, face in ((m & above, color), (m & ~above, 'white')):
+                ax_a.scatter(xs[sel], flux[sel], s=20, marker=marker, facecolor=face,
+                             edgecolor=color, linewidth=1.0, zorder=3)
+        ax_a.set_ylabel(f'{gas} flux\n({unit_txt})')
+        # Scale to the fluxes, not to the widest band: a few noisy periods would
+        # otherwise flatten every point. A band cut by the axis runs off it.
+        reach = np.nanmax(np.r_[np.abs(flux), 2 * np.nanmedian(fdl)]) if both.any() else np.nan
+        if np.isfinite(reach) and reach > 0:
+            ax_a.set_ylim(-1.25 * reach, 1.25 * reach)
+        handles = [Patch(facecolor=_BAND, label=r'$\pm$FDL (3 $\times$ RE$_{\mathrm{RMSE}}$)')]
+        handles += [Line2D([], [], linestyle='', marker=mk, markersize=5, markerfacecolor=c,
+                           markeredgecolor=c, label=n) for n, _, c, mk in groups if split]
+        handles += [Line2D([], [], linestyle='', marker='o', markersize=5,
+                           markerfacecolor=_INK_2, markeredgecolor=_INK_2, label='above FDL'),
+                    Line2D([], [], linestyle='', marker='o', markersize=5,
+                           markerfacecolor='white', markeredgecolor=_INK_2, label='below FDL')]
+        legend_above(ax_a, handles)
+        plt.setp(ax_a.get_xticklabels(), visible=False)
+        ax_a.xaxis.get_offset_text().set_visible(False)
+
+        # (b) the lag used, and the gas's own detections with their HDI
+        style(ax_b, 'b', 'Time lag', title_y=1.17)
+        tlag = pd.to_numeric(r[f'{p}_tlag_s'], errors='coerce').to_numpy(dtype=float)
+        lo = pd.to_numeric(r[f'{p}_hdi_lo_s'], errors='coerce').to_numpy(dtype=float)
+        hi = pd.to_numeric(r[f'{p}_hdi_hi_s'], errors='coerce').to_numpy(dtype=float)
+        used = pd.to_numeric(r[f'{p}_lag_s'], errors='coerce').to_numpy(dtype=float)
+        source = r[f'{p}_lag_source'].astype(str).to_numpy()
+        flag = r[f'{p}_flag_pf'].astype(str).to_numpy()
+        accepted = (source == 'own') & np.isin(flag, ['S1_optimal', 'S2_optimal'])
+        ok_hdi = np.isfinite(tlag) & np.isfinite(lo) & np.isfinite(hi)
+        ax_b.vlines(xs[ok_hdi], lo[ok_hdi], hi[ok_hdi], color=_GRID, linewidth=1.6, zorder=1)
+        ax_b.scatter(xs[accepted], tlag[accepted], s=14, color=_INK_2, zorder=3)
+        rejected = np.isfinite(tlag) & ~accepted
+        ax_b.scatter(xs[rejected], tlag[rejected], s=14, facecolor='white', edgecolor=_MUTED,
+                     linewidth=0.8, zorder=3)
+        ax_b.step(x, used, where='mid', color=_INK, linewidth=1.4, zorder=4)
+        ax_b.set_ylabel('Lag (s)')
+        legend_above(ax_b, [
+            Line2D([], [], color=_INK, linewidth=1.4, label='lag used for the flux'),
+            Line2D([], [], linestyle='', marker='o', markersize=4, markerfacecolor=_INK_2,
+                   markeredgecolor=_INK_2, label='own detection, accepted'),
+            Line2D([], [], linestyle='', marker='o', markersize=4, markerfacecolor='white',
+                   markeredgecolor=_MUTED, label='own detection, rejected'),
+            Line2D([], [], color=_GRID, linewidth=1.6, label='95 % HDI')])
+        if has_time:
+            locator = mdates.AutoDateLocator(minticks=4, maxticks=9)
+            ax_b.xaxis.set_major_locator(locator)
+            ax_b.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
+        else:
+            ax_b.set_xlabel('Period')
+
+        # (c) the detection limit of each period, one dot strip per group
+        style(ax_c, 'c', 'Detection limit per period')
+        ax_c.grid(axis='y', visible=False)
+        ax_c.grid(axis='x', color=_GRID, linewidth=0.5, which='major')
+        rows = [('all', np.isfinite(fdl), _INK_2, 'o')]
+        if split:
+            rows += [(n, m & np.isfinite(fdl), c, mk) for n, m, c, mk in groups]
+        rng = np.random.default_rng(0)  # jitter only, fixed so the figure is reproducible
+        labels_c = []
+        for i, (name, m, color, marker) in enumerate(rows):
+            yv = len(rows) - 1 - i
+            v = fdl[m]
+            if not len(v):
+                labels_c.append(f'{name} (n 0)')
+                continue
+            ax_c.scatter(v, yv + rng.uniform(-0.18, 0.18, len(v)), s=10, marker=marker,
+                         facecolor='white', edgecolor=color, linewidth=0.7, zorder=2)
+            q25, q50, q75 = np.percentile(v, [25, 50, 75])
+            ax_c.hlines(yv, q25, q75, color=color, linewidth=3.0, zorder=3)
+            ax_c.vlines(q50, yv - 0.3, yv + 0.3, color=_INK, linewidth=1.4, zorder=4)
+            labels_c.append(f'{name} (n {len(v)})\n{_fmt3(q50)} [{_fmt3(q25)}, {_fmt3(q75)}]')
+        ax_c.set_xscale('log')
+        # Plain numbers on the log axis, at 1-2-5 steps: 3 x 10^0 reads badly.
+        from matplotlib.ticker import FixedLocator, FuncFormatter, NullFormatter
+        lo_x = hi_x = np.nan
+        if np.isfinite(fdl).any():
+            lo_x, hi_x = np.nanmin(fdl) / 1.3, np.nanmax(fdl) * 1.3
+            steps = [m * 10.0 ** e for e in range(-4, 6) for m in (1, 2, 5)]
+            ax_c.xaxis.set_major_locator(FixedLocator([t for t in steps if lo_x <= t <= hi_x]))
+        ax_c.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f'{v:g}'))
+        ax_c.xaxis.set_minor_formatter(NullFormatter())
+        ax_c.set_yticks(range(len(rows)))
+        ax_c.set_yticklabels(labels_c[::-1], linespacing=1.3)
+        ax_c.set_ylim(-0.6, len(rows) - 0.4)
+        if np.isfinite(lo_x):
+            ax_c.set_xlim(lo_x, hi_x)
+        ax_c.set_xlabel(f'FDL ({unit_txt}), log scale\nlabels: median [IQR]')
+        ax_c.tick_params(axis='y', length=0)
+        ax_c.spines['left'].set_visible(False)
+
+        # (d) the means, each with the detection limit of that mean as its bar
+        style(ax_d, 'd', 'Means and their FDL')
+        ax_d.grid(axis='y', visible=False)
+        ax_d.grid(axis='x', color=_GRID, linewidth=0.5)
+        means = [('all', both, _INK_2, 'o')]
+        if split:
+            means += [(n, m & both, c, mk) for n, m, c, mk in groups]
+        ax_d.axvline(0, color=_AXIS, linewidth=0.8)
+        labels_d = []
+        for i, (name, m, color, marker) in enumerate(means):
+            yv = len(means) - 1 - i
+            if not m.any():
+                labels_d.append(f'{name} (N 0)')
+                continue
+            mean = flux[m].mean()
+            fdl_mean = np.sqrt((fdl[m] ** 2).sum()) / m.sum()
+            hit = abs(mean) > fdl_mean
+            ax_d.errorbar(mean, yv, xerr=fdl_mean, fmt=marker, markersize=5, color=color,
+                          markerfacecolor=color if hit else 'white', elinewidth=1.4, capsize=0)
+            labels_d.append(f'{name} (N {int(m.sum())})\n{_fmt3(mean)} $\\pm$ {_fmt3(fdl_mean)}')
+        ax_d.set_yticks(range(len(means)))
+        ax_d.set_yticklabels(labels_d[::-1], linespacing=1.3)
+        ax_d.set_ylim(-0.6, len(means) - 0.4)
+        ax_d.set_xlabel(f'Mean $\\pm$ FDL of the mean\n({unit_txt})')
+        ax_d.tick_params(axis='y', length=0)
+        ax_d.spines['left'].set_visible(False)
+
+        # The numbers to report, under the figure.
+        f_ok = fdl[np.isfinite(fdl)]
+        q25, q50, q75 = np.percentile(f_ok, [25, 50, 75]) if len(f_ok) else (np.nan,) * 3
+        mean_all = flux[both].mean() if both.any() else np.nan
+        fdl_all = np.sqrt((fdl[both] ** 2).sum()) / both.sum() if both.any() else np.nan
+        n_median = int((source == 'median').sum())
+        lag_txt = (f'Lag: {int(accepted.sum())} of {len(r)} periods with an accepted own '
+                   f'detection' + (f'; {n_median} read at the median of all raw detections, '
+                                   f'not at a lag measured in the period.' if n_median
+                                   else '.'))
+        if split:
+            lag_txt += f' Day: {day_hours[0]:02d}-{day_hours[1]:02d} h by period start.'
+        foot = [
+            f'FDL = 3 $\\times$ RE$_{{\\mathrm{{RMSE}}}}$ of the cross-covariance at '
+            f'$\\pm${fdl_lag_range_s - noise_range_s}-{fdl_lag_range_s} s (Langford et al. '
+            f'2015, eq. 9); a flux is above its FDL when |flux| > FDL.',
+            f'FDL of a mean of N periods = $\\sqrt{{\\Sigma\\, \\mathrm{{FDL}}_i^2}}\\,/\\,N$ '
+            f'(Langford et al. 2015, eq. 10).',
+            f'{len(f_ok)} periods. Median FDL {_fmt3(q50)} (IQR {_fmt3(q25)}-{_fmt3(q75)}) '
+            f'{unit_txt}; {int(above[both].sum())} of {int(both.sum())} periods above their '
+            f'FDL; mean flux {_fmt3(mean_all)}, FDL of the mean {_fmt3(fdl_all)} {unit_txt}.',
+            lag_txt,
+        ]
+        # Wrap plain text only: a break inside $...$ would break the mathtext.
+        wrapped = []
+        for para in foot:
+            if '$' in para:
+                wrapped.append(para)
+            else:
+                wrapped += textwrap.wrap(para, width=160, break_on_hyphens=False)
+        fig.text(0.02, 0.012, '\n'.join(wrapped), ha='left', va='bottom', fontsize=6.3,
+                 color=_INK_2, linespacing=1.6)
+        fig.suptitle(title or f'{gas}: flux detection limit', x=0.02, y=0.985, ha='left',
+                     va='top', fontsize=10, fontweight='bold')
+    return fig
 
 
 def _cli_main():
@@ -1003,6 +1535,11 @@ def _cli_main():
         if overrides:
             gas_lag_overrides[label] = overrides
     scale = dict(args.scale or [])
+    flux_units = dict(args.flux_units or [])
+    unknown_units = sorted(set(flux_units) - set(scalars))
+    if unknown_units:
+        fail(f'--flux-unit names gas label(s) {unknown_units} that no --scalar has; '
+             f'known labels are {sorted(scalars)}.')
 
     if not 0 < args.noise_range < args.fdl_lag_range:
         fail(f'--noise-range ({args.noise_range}) must be positive and smaller '
@@ -1095,8 +1632,7 @@ def _cli_main():
     def on_progress(done: int, total: int, row: dict) -> None:
         status = row.get('status', '')
         if status == 'ok':
-            detail = '  detected ' + ' | '.join(
-                f'{g} {_fmt_lag(row.get(f"{g.lower()}_tlag_s"))}' for g in scalars)
+            detail = '  detected ' + ' | '.join(_detected_cell(row, g) for g in scalars)
         else:
             detail = f'  {str(row.get("error", ""))[:120]}'
         out(f'  {done:>{len(str(total))}}/{total} {row.get("period", "")}  {status}{detail}')
@@ -1134,22 +1670,32 @@ def _cli_main():
             out(f'  {i:>{width}}/{n} {r["period"]}  {r["status"]}  {detail}')
 
         out()
-        n_skip = int(res['status'].eq('skipped:short').sum())
-        out(f'{int(ok.sum())} of {n} periods ok'
-            f'{f", {n_skip} short" if n_skip else ""}'
-            f'{f", {len(errors)} errors" if len(errors) else ""}.')
+        for line in run_summary(res, scalars, scale=scale, hdi_thresh=args.hdi_thresh,
+                                hdi_prefilter=args.hdi_prefilter,
+                                min_chunk_seconds=args.min_chunk_seconds,
+                                fdl_lag_range_s=args.fdl_lag_range,
+                                noise_range_s=args.noise_range,
+                                day_hours=args.day_hours, units=flux_units):
+            out(line)
+        out()
+        # One figure per gas, PNG for a look and PDF (vector, fonts embedded)
+        # for a manuscript. A figure that fails must not cost the results.
+        for label in scalars:
+            stem = output_dir / f'fdl_{label.lower()}'
+            try:
+                fig = plot_fdl_summary(res, label, unit=flux_units.get(label),
+                                       day_hours=args.day_hours,
+                                       fdl_lag_range_s=args.fdl_lag_range,
+                                       noise_range_s=args.noise_range)
+                fig.savefig(stem.with_suffix('.png'), dpi=300)
+                fig.savefig(stem.with_suffix('.pdf'))
+                import matplotlib.pyplot as plt
+                plt.close(fig)
+                out(f'Figure saved to: {stem}.png and .pdf')
+            except Exception as e:
+                out(f'WARNING: no figure for {label}: {type(e).__name__}: {e}')
         for label in scalars:
             p = label.lower()
-            above = res[f'{p}_above_fdl']
-            has_flux = above.notna()
-            n_above = int(above[has_flux].astype(bool).sum())
-            flags = res.loc[ok, f'{p}_flag_pf'].astype(str).value_counts()
-            sources = res.loc[ok, f'{p}_lag_source'].astype(str).value_counts()
-            out(f'{label}: {n_above} of {int(has_flux.sum())} periods with a flux are '
-                f'above the FDL; PWBOPT '
-                + ', '.join(f'{s} {c}' for s, c in flags.items())
-                + '; lag source '
-                + ', '.join(f'{s} {c}' for s, c in sources.items()))
             if label in valid_ranges:
                 n_oor = int(pd.to_numeric(res[f'{p}_n_out_of_range'],
                                           errors='coerce').fillna(0).sum())
