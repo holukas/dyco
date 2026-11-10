@@ -132,3 +132,5 @@ example/_example.py
 # Local copies next to the CH-OE2 example data: an uncompressed input and run outputs
 /examples/data/ch-oe2/input/
 /examples/data/ch-oe2/output/
+# Local pointer to the project notes kept in dyco-data
+/CLAUDE.md
