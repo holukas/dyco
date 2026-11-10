@@ -21,7 +21,7 @@ dyco carries **one** lag-detection method: pre-whitening block-bootstrap.
 | Lag selection | PWBOPT S1/S2/S3, per chunk; a gas borrows another's lag (`@lagfrom=`) for any period it has no accepted detection in, and `--max-carry` bounds how far S3 may carry one |
 | Which lag was applied | `{gas}_lag_applied_s` in the summary, and `detect_and_remove_tlag_decisions.txt` for the reasoning. Periods that wrote no file carry no lag at all |
 | Removal | phase 2 of `dyco/pipeline.py` (`remove_one_chunk`); `dyco/apply_tlag.py` `TlagApplier` for lags in an existing `tlag_results.csv` |
-| Tests | `tests/test_pwb.py` + 17 more, 254 total |
+| Tests | `tests/test_pwb.py` + 18 more, 266 total |
 
 **The v2 covariance-maximization method was removed on 2026-08-01**, at the
 user's instruction, along with `dyco.py`, `loop.py`, `lag.py`, `analyze.py`,
@@ -48,12 +48,18 @@ rerun `tests/data/pwb_reference_rflux.R` if you do.
 
 That comparison also settled two things worth remembering. The differencing
 branch fires on ordinary data (T_SONIC drifts over half an hour), so it is not
-the edge case it looks like. And on that half hour the *unwindowed* PWB
-detection is unreliable in **both** implementations — the cross-covariance peaks
-at -7.45 s, which no tube delay can be. The pipeline gets a usable 8.45 s
-because `--lws 0 --uws 10` confines the search to physical lags; that window is
-doing real work, and an S1 flag from a windowed search is a weaker claim than
-from an unwindowed one.
+the edge case it looks like.
+
+**The reference fixture keeps 12 `-9999` fill values in CO2 as numbers**
+(`_load_real_chunk` reads without `na_values`), so R and Python see identical
+input. That is right for parity and wrong as a picture of real data. With the
+fills in, an unwindowed search peaks at -7.45 s (AR order 133, HDI 17.65 s);
+with them read as missing, as the pipeline does, the same half hour gives
+8.45 s with HDI 0.00 unwindowed (AR order 299). An earlier note here read the
+-7.45 s as proof that the window rescues this half hour; it does not. Checked
+2026-11-10. The general point stands: an S1 from a windowed search is a weaker
+claim than from an unwindowed one, and on weak or trending signals (the CZ-Lnz
+November case in `docs/example-qcl-10hz.md`) the window does decide the result.
 
 ## [READ FIRST] v3 state
 
@@ -142,7 +148,7 @@ and releasing** for how a release is cut.
 
 ```bash
 uv sync
-uv run pytest tests/ -q                                  # 254 passed
+uv run pytest tests/ -q                                  # 266 passed
 uv run python examples/detect_remove_tlag_realdata.py    # real-data end-to-end
 uv run dyco                                              # list all workflows
 ```
@@ -167,7 +173,7 @@ shift and write**.
 | `dyco/apply_tlag.py` | 834 | `TlagApplier` — remove lags listed in an existing `tlag_results.csv` |
 | `dyco/split.py` | 593 | `FileSplitter`, `FileSplitterMulti` — divide a long raw file into averaging-period parts |
 | `dyco/detectionlimit.py` | 605 | `FluxDetectionLimit` — minimum detectable flux, read off the far tail of the cross-covariance function |
-| `dyco/pwbfdl.py` | 1,175 | `PwbFdl`, `PwbFdlBatch`, and `dyco fdl` — PWB lag, PWBOPT and the flux detection limit in one run, flux read at the PWBOPT lag. Writes no data |
+| `dyco/pwbfdl.py` | 1,718 | `PwbFdl`, `PwbFdlBatch`, and `dyco fdl` — PWB lag, PWBOPT and the flux detection limit in one run, flux read at the PWBOPT lag, the end summary (`run_summary`) and the publication figure (`plot_fdl_summary`). Writes no data files |
 | `dyco/maxcov.py` | 521 | `MaxCovariance` — covariance-maximization lag estimator. `FluxDetectionLimit` builds on it. Its covariance is `cross_covariance`, by FFT |
 | `dyco/files.py` | 243 | Raw CSV/parquet reading for `split.py`, incl. header-vs-data column reconciliation |
 | `dyco/rotation.py` | 178 | `WindDoubleRotation`, `reynolds_decomposition`. Chunks are rotated before the search |
@@ -542,12 +548,12 @@ nothing or worse, and the one that paid was a single constant. See
 
 ## Testing
 
-`tests/` holds **254 tests plus 149 subtests**, seeded by diive's
+`tests/` holds **266 tests plus 154 subtests**, seeded by diive's
 `test_echires.py` (1,297 lines) and extended with gzip, CLI and R-reference
 suites.
 
 ```bash
-uv run pytest tests/ -q     # 254 passed, 149 subtests
+uv run pytest tests/ -q     # 266 passed, 154 subtests
 ```
 
 When adding tests: use flexible assertion ranges for anything involving
