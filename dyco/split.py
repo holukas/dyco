@@ -87,12 +87,11 @@ class FileSplitter:
             data_split_outfile_prefix: Prefix for split file names.
             data_split_outfile_suffix: Suffix for split file names.
             splits_output_format: Can be either 'csv' or 'parquet'.
-            compress_splits: If *True*, splits are saved in the format defined in *splits_output_format*
-                and then compressed using 'gzip', the uncompressed files are deleted. If *False*, splits
-                are saved in the format defined in *splits_output_format*.
-            rotation: If *True*, the wind components *u*, *v*, *w* and the scalar *c* are rotated, using
-                2-D wind rotation, i.e., the turbulent departures of wind and scalar are calcualted
-                using Reynold's averaging.
+            compress_splits: If *True*, CSV splits are written gzipped, as `.csv.gz`. Parquet
+                splits are never compressed.
+            rotation: If *True*, the wind components *u*, *v*, *w* are double-rotated, and the
+                turbulent departures of the rotated wind and of the scalar *c* are added as
+                `<var>_TURB` columns (Reynolds decomposition).
             u_var: Name of the horizontal wind component in x direction (m s-1)
             v_var: Name of the horizontal wind component in y direction (m s-1)
             w_var: Name of the vertical wind component in z direction (m s-1)
@@ -229,7 +228,7 @@ class FileSplitter:
             # Save as CSV
             if self.splits_output_format == 'csv':
                 file_extension = '.csv.gz' if self.compress_splits else '.csv'
-                split_name_ext = f"{split_name}.{file_extension}"
+                split_name_ext = f"{split_name}{file_extension}"
                 split_filepath = outdir_splits / f"{split_name_ext}"
                 compression = 'gzip' if self.compress_splits else None
                 split_df.to_csv(split_filepath, compression=compression)
@@ -347,24 +346,23 @@ class FileSplitterMulti:
             data_split_outfile_prefix: Prefix for split file names.
             data_split_outfile_suffix: Suffix for split file names.
             splits_output_format: Can be either 'csv' or 'parquet'.
-            compress_splits: If *True*, splits are saved in the format defined in *splits_output_format*
-                and then compressed using 'gzip', the uncompressed files are deleted. If *False*, splits are saved in the format defined in
-                *splits_output_format*.
-            rotation: If *True*, the wind components *u*, *v*, *w* and the scalar *c* are rotated, using 
-                2-D wind rotation, i.e., the turbulent departures of wind and scalar are calcualted
-                using Reynold's averaging.
+            compress_splits: If *True*, CSV splits are written gzipped, as `.csv.gz`. Parquet
+                splits are never compressed.
+            rotation: If *True*, the wind components *u*, *v*, *w* are double-rotated, and the
+                turbulent departures of the rotated wind and of the scalar *c* are added as
+                `<var>_TURB` columns (Reynolds decomposition).
             u_var: Name of the horizontal wind component in x direction (m s-1),
                 required if *rotation* is True, otherwise ignored.
             v_var: Name of the horizontal wind component in y direction (m s-1),
                 required if *rotation* is True, otherwise ignored.
             w_var: Name of the vertical wind component in z direction (m s-1),
-                required if *rotation* is False, otherwise ignored.
+                required if *rotation* is True, otherwise ignored.
             c_var: Name of the scalar for which turbulent fluctuation is calculated,
                 required if *rotation* is True, otherwise ignored.
             outfile_limit_n_rows: Limit splits to this number of rows. Mainly implemented
                 for faster testing.
             split_trim: Remove all split data before the first available record and after the last available
-                record for *trim_start_end_var*.
+                record for *split_trim_var*, and skip a split in which it has no valid record.
             split_trim_var: Variable used to trim start and end of split data. Required if *split_trim* is True,
                 otherwise ignored.
         """
@@ -440,7 +438,7 @@ class FileSplitterMulti:
                 splits_output_format=self.splits_output_format,
                 compress_splits=self.compress_splits,
                 outfile_limit_n_rows=self.outfile_limit_n_rows,
-                split_trim=True,
+                split_trim=self.split_trim,
                 split_trim_var=self.split_trim_var
             )
             fs.run()
