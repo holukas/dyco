@@ -102,6 +102,46 @@ class TestFluxDetectionLimit(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'not on the lag grid'):
             fdl.run()
 
+    def test_white_noise_matches_theory(self):
+        """Independent white w and c: the far-lag covariances scatter with
+        sd_w * sd_c / sqrt(n - t), so RE_RMSE is that times the dry-air density."""
+        hz, n, t = 10, 18000, 170 * 10  # 30 min; t is the middle of the noise windows
+        ratios = []
+        for seed in range(5):
+            rng = np.random.default_rng(seed)
+            df = pd.DataFrame({
+                'u': 3 + rng.normal(0, 0.5, n), 'v': 1 + rng.normal(0, 0.5, n),
+                'w': rng.normal(0, 0.3, n), 'c': rng.normal(0, 5.0, n),
+                'Ts': np.full(n, 293.15 * (1 + 0.32 * 0.01)), 'H2O': 0.01, 'p': 95000.0})
+            fdl = FluxDetectionLimit(
+                df=df, u_col='u', v_col='v', w_col='w', c_col='c', ts_col='Ts', h2o_col='H2O',
+                press_col='p', default_lag=None, noise_range=20, lag_range=[-180, 180],
+                lag_stepsize=1, sampling_rate=hz, verbose=False)
+            fdl.run()
+            dry_air = 95000.0 * (1 - 0.01) / (8.31446261815324 * 293.15)
+            expected = 0.3 * 5.0 / np.sqrt(n - t) * dry_air
+            ratios.append(fdl.results['flux_noise_rmse'] / expected)
+        self.assertAlmostEqual(float(np.median(ratios)), 1.0, delta=0.05)
+
+    def test_lag_range_must_cross_zero(self):
+        """A one-sided range would put a noise window on the flux itself."""
+        df = self._lagged_scalar(lag_records=30)
+        for lag_range in ([0, 20], [-20, 0], [5, 20]):
+            with self.subTest(lag_range=lag_range):
+                with self.assertRaisesRegex(ValueError, 'negative to a positive lag'):
+                    FluxDetectionLimit(
+                        df=df, u_col='u', v_col='v', w_col='w', c_col='c', ts_col='Ts',
+                        h2o_col='H2O', press_col='p', default_lag=None, noise_range=5,
+                        lag_range=lag_range, lag_stepsize=1, sampling_rate=10)
+
+    def test_noise_window_must_fit_each_side(self):
+        df = self._lagged_scalar(lag_records=30)
+        with self.assertRaisesRegex(ValueError, 'smaller than each side'):
+            FluxDetectionLimit(
+                df=df, u_col='u', v_col='v', w_col='w', c_col='c', ts_col='Ts',
+                h2o_col='H2O', press_col='p', default_lag=None, noise_range=10,
+                lag_range=[-20, 10], lag_stepsize=1, sampling_rate=10)
+
 
 if __name__ == '__main__':
     unittest.main()

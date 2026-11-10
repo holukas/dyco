@@ -161,7 +161,9 @@ class FluxDetectionLimit:
         Typical default: [-180, 180] (calculates all covariances from -180s to +180s).
         The noise windows for FDL calculation are defined at the edges of this range.
         For example, with [-180, 180] and noise_range=20, noise is calculated from
-        -180 to -160s and +160 to +180s (LAN15).
+        -180 to -160s and +160 to +180s (LAN15). The range must run from a
+        negative to a positive lag, otherwise one noise window would sit on the
+        flux; a ValueError says so.
     lag_stepsize : int
         Step size (units: records) for iterating through the covariance lag
         search. Important: This parameter is in RECORDS, not seconds.
@@ -253,6 +255,19 @@ class FluxDetectionLimit:
             verbose: bool = True,
     ):
         """Set up flux detection-limit estimation. See the class docstring."""
+        # The noise windows are the ends of lag_range. A range that does not reach
+        # past zero on both sides puts one of them on the flux itself, and a noise
+        # window as wide as one side reaches into it: either way the detection
+        # limit is read partly from the signal, with nothing to show for it.
+        lag_lo, lag_hi = lag_range
+        if not lag_lo < 0 < lag_hi:
+            raise ValueError(
+                f"lag_range must run from a negative to a positive lag, got {lag_range}: "
+                f"the noise windows are its two ends, far from the flux on both sides.")
+        if not 0 < noise_range < min(-lag_lo, lag_hi):
+            raise ValueError(
+                f"noise_range ({noise_range} s) must be positive and smaller than each "
+                f"side of lag_range {lag_range}.")
         self.hires_df = df.copy()
         self.u_col = u_col
         self.v_col = v_col
