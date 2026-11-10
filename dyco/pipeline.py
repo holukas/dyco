@@ -1806,7 +1806,7 @@ _SUMMARY_PERGAS_COLS = [
      "Where the applied lag came from: 'own' (this gas detected it, or carried "
      "it across from its own neighbouring period), 'from:GAS' (borrowed from "
      "another gas, see --scalar ...@lagfrom=), 'median' (last resort: the "
-     "median of this gas's raw detections, all of which PWBOPT rejected), "
+     "median of all of this gas's raw detections in the run, accepted or not), "
      "'no_data' (the gas is missing for the whole period, so no lag was needed "
      "or applied), or 'none'."),
     ('{gas}_carry_periods',
@@ -1835,7 +1835,7 @@ def _lag_reason(summary, i: int, pfx: str, hdi_thresh: float,
     Every ingredient of the decision is already in the summary, spread over
     six columns whose interaction is not obvious (a lag can be detected here,
     carried from elsewhere, borrowed from another gas, back-filled, or the
-    median of rejected detections). This reduces that to one sentence per gas
+    median of all raw detections). This reduces that to one sentence per gas
     per output file, for the decisions report and the summary CSV.
     """
     row = summary.iloc[i]
@@ -1871,8 +1871,15 @@ def _lag_reason(summary, i: int, pfx: str, hdi_thresh: float,
                      f'period(s) either side')
         return f'borrowed from {source[5:]}: {unusable}{near}'
     if source == 'median':
-        return ('median of this gas\'s raw detections - PWBOPT rejected every '
-                'one of them, so there was nothing better anywhere in the run')
+        # fill_tlag_gaps takes the median over every raw detection, accepted
+        # ones included. Only without a carry limit does reaching it mean that
+        # PWBOPT accepted none.
+        if max_carry is None:
+            return ('median of this gas\'s raw detections - PWBOPT rejected every '
+                    'one of them, so there was nothing better anywhere in the run')
+        return (f'median of all of this gas\'s raw detections in the run, accepted '
+                f'or not: no lag of its own within {max_carry} period(s) either '
+                f'side, and none from another gas')
     if source == 'none':
         return 'no lag could be determined and none was applied'
 
