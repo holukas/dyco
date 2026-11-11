@@ -28,6 +28,8 @@ Small fixes that change results someone may already have, so each gets its own c
 - **The detection limit in `dyco detect-remove` and the TUI**, as an option, so one run removes the
   lag and reports each period's limit. Phase 1 already holds the rotated chunk, and the FDL needs
   only that plus H2O and pressure.
+- **Several input folders and a date range for `dyco fdl`**: `--input-dir` given more than once,
+  plus `--start` and `--end`, so one run covers an exact period that spans yearly raw-data folders.
 
 ## Validation
 
